@@ -1,0 +1,197 @@
+/**
+ * A1111-compatible parameters PNG text chunk parser.
+ *
+ * Parses the `parameters` text chunk written by Automatic1111, ComfyUI (with our
+ * generation context patch), and most other SD frontends.
+ *
+ * Format:
+ *   <positive prompt>
+ *   Negative prompt: <negative prompt>
+ *   Steps: 20, Sampler: euler, Schedule type: karras, CFG scale: 7, Seed: 42, Model: v1-5
+ *
+ * The "Negative prompt:" and params lines are optional.
+ */
+
+import type { MetadataExtractionPass } from './metadataParser';
+
+interface A1111Fields {
+    positive: string | null;
+    negative: string | null;
+    steps: string | null;
+    sampler: string | null;
+    scheduler: string | null;
+    cfg_scale: string | null;
+    seed: string | null;
+    model: string | null;
+    loras: string | null;
+}
+
+/** Key aliases from A1111 param line → our internal field names */
+const PARAM_KEY_MAP: Record<string, keyof A1111Fields> = {
+    'steps': 'steps',
+    'sampler': 'sampler',
+    'sampler name': 'sampler',
+    'schedule type': 'scheduler',
+    'scheduler': 'scheduler',
+    'cfg scale': 'cfg_scale',
+    'cfg': 'cfg_scale',
+    'seed': 'seed',
+    'model': 'model',
+    'model hash': 'model',
+    'lora hashes': 'loras',
+};
+
+/**
+ * Split a params line (e.g. `Steps: 20, Sampler: euler, Model: "some, model"`)
+ * into key-value pairs, respecting quoted strings.
+ */
+function splitParamLine(line: string): Array<[string, string]> {
+    const result: Array<[string, string]> = [];
+    // Match: Key: "quoted value" or Key: unquoted value (no comma inside)
+    const re = /([^:,]+):\s*(?:"([^"]*)"|((?:[^,"]|"[^"]*")*))(?:,|$)/g;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(line)) !== null) {
+        const key = match[1].trim().toLowerCase();
+        const value = (match[2] !== undefined ? match[2] : match[3] ?? '').trim();
+        if (key && value) {
+            result.push([key, value]);
+        }
+    }
+    return result;
+}
+
+/**
+ * Detect whether a line looks like an A1111 params line.
+ * Must contain at least one "Key: value" pair with a known key.
+ */
+function isParamsLine(line: string): boolean {
+    const lower = line.toLowerCase();
+    return Object.keys(PARAM_KEY_MAP).some(k => {
+        const idx = lower.indexOf(k + ':');
+        return idx !== -1 && (idx === 0 || lower[idx - 2] === ',');
+    });
+}
+
+/**
+ * Parse an A1111 `parameters` text chunk into structured fields.
+ * Returns null if the string doesn't look like A1111 format.
+ */
+export function parseA1111Parameters(raw: string): A1111Fields | null {
+    if (!raw || typeof raw !== 'string') return null;
+
+    const lines = raw.split('\n');
+    if (lines.length === 0) return null;
+
+    let paramsLineIdx = -1;
+    let negativeLineIdx = -1;
+
+    // Walk from the bottom to find the params line (last line with Key: value pattern)
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const trimmed = lines[i].trim();
+        if (paramsLineIdx === -1 && isParamsLine(trimmed)) {
+            paramsLineIdx = i;
+        }
+        if (trimmed.startsWith('Negative prompt:')) {
+            negativeLineIdx = i;
+            break;
+        }
+    }
+
+    // Must have at least a params line to be valid A1111 format
+    if (paramsLineIdx === -1) return null;
+
+    const fields: A1111Fields = {
+        positive: null,
+        negative: null,
+        steps: null,
+        sampler: null,
+        scheduler: null,
+        cfg_scale: null,
+        seed: null,
+        model: null,
+        loras: null,
+    };
+
+    // Parse params line
+    const pairs = splitParamLine(lines[paramsLineIdx].trim());
+    for (const [key, value] of pairs) {
+        const fieldName = PARAM_KEY_MAP[key];
+        if (fieldName && fields[fieldName] === null) {
+            fields[fieldName] = value;
+        }
+    }
+
+    // Extract negative prompt
+    if (negativeLineIdx !== -1) {
+        const negLine = lines[negativeLineIdx].trim();
+        const negText = negLine.replace(/^Negative prompt:\s*/i, '').trim();
+        // Collect continuation lines between negativeLineIdx and paramsLineIdx
+        const negParts = [negText];
+        for (let i = negativeLineIdx + 1; i < paramsLineIdx; i++) {
+            negParts.push(lines[i]);
+        }
+        fields.negative = negParts.join('\n').trim() || null;
+    }
+
+    // Extract positive prompt (everything above the negative prompt line or params line)
+    const positiveEnd = negativeLineIdx !== -1 ? negativeLineIdx : paramsLineIdx;
+    const positiveLines = lines.slice(0, positiveEnd);
+    fields.positive = positiveLines.join('\n').trim() || null;
+
+    return fields;
+}
+
+/**
+ * Extraction pass that reads the A1111 `parameters` PNG text chunk.
+ * This is inserted as the first (highest-priority) pass in metadataParser.ts.
+ */
+export const extractByA1111: MetadataExtractionPass = {
+    positive(metadata: any): string | null {
+        const parsed = _getParsed(metadata);
+        return parsed?.positive ?? null;
+    },
+    negative(metadata: any): string | null {
+        const parsed = _getParsed(metadata);
+        return parsed?.negative ?? null;
+    },
+    steps(metadata: any): string | null {
+        const parsed = _getParsed(metadata);
+        return parsed?.steps ?? null;
+    },
+    sampler(metadata: any): string | null {
+        const parsed = _getParsed(metadata);
+        return parsed?.sampler ?? null;
+    },
+    scheduler(metadata: any): string | null {
+        const parsed = _getParsed(metadata);
+        return parsed?.scheduler ?? null;
+    },
+    cfg_scale(metadata: any): string | null {
+        const parsed = _getParsed(metadata);
+        return parsed?.cfg_scale ?? null;
+    },
+    seed(metadata: any): string | null {
+        const parsed = _getParsed(metadata);
+        return parsed?.seed ?? null;
+    },
+    model(metadata: any): string | null {
+        const parsed = _getParsed(metadata);
+        return parsed?.model ?? null;
+    },
+    loras(metadata: any): string | null {
+        const parsed = _getParsed(metadata);
+        return parsed?.loras ?? null;
+    },
+};
+
+// Cache parsed result per metadata object to avoid re-parsing for each field
+const _cache = new WeakMap<object, A1111Fields | null>();
+
+function _getParsed(metadata: any): A1111Fields | null {
+    if (!metadata || typeof metadata !== 'object') return null;
+    if (!metadata.parameters) return null;
+    if (_cache.has(metadata)) return _cache.get(metadata)!;
+    const result = parseA1111Parameters(metadata.parameters);
+    _cache.set(metadata, result);
+    return result;
+}

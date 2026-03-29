@@ -4,6 +4,7 @@ import { extractByPrompt } from './promptMetadataParser';
 import type { FileDetails, Metadata } from '../types';
 import { isNegativePrompt, isPositivePrompt } from './validator';
 import { extractByWorkflow } from './workflowMetadataParser';
+import { extractByA1111 } from './a1111MetadataParser';
 
 // --- Types ---
 export type NodeType = { [key: string]: any };
@@ -87,8 +88,8 @@ export function parseComfyMetadata(metadata: Metadata): Record<string, string> {
         cfg_scale: null,
         loras: null
     };
-    // List of passes in order (prompt, workflow, fallback)
-    const passes: MetadataExtractionPass[] = [extractByPrompt, extractByWorkflow, extractPlaceholders];
+    // List of passes in order (A1111 parameters chunk first, then prompt, workflow, fallback)
+    const passes: MetadataExtractionPass[] = [extractByA1111, extractByPrompt, extractByWorkflow, extractPlaceholders];
     // For each field, try each pass in order until a value is found
     for (const key of Object.keys(fields) as (keyof MetadataFields)[]) {
         for (const pass of passes) {

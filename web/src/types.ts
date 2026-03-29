@@ -7,8 +7,9 @@ export interface FileInfo {
 
 export interface Metadata {
     fileinfo: FileInfo;
-    prompt?: any; 
+    prompt?: any;
     workflow?: any;
+    parameters?: string;
 }
 
 export interface FileDetails {

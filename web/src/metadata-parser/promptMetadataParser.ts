@@ -219,9 +219,9 @@ function resolvePromptStringFromPromptObject(prompt: any, ref: any, visited = ne
             if (Array.isArray(refNode.widgets_values) && typeof refNode.widgets_values[0] === 'string' && refNode.widgets_values[0].trim() !== '') {
                 return refNode.widgets_values[0];
             }
-            // Try inputs.text or inputs.prompt recursively
+            // Try inputs.text, inputs.prompt, or inputs.value recursively
             const inputs = refNode.inputs || {};
-            for (const key of ['text', 'prompt']) {
+            for (const key of ['text', 'prompt', 'value']) {
                 const val = inputs[key];
                 const resolved = resolvePromptStringFromPromptObject(prompt, val, visited);
                 if (resolved && resolved.trim() !== '') return resolved;
@@ -251,7 +251,7 @@ export function extractPromptsFromPromptObject(prompt: any): ExtractedPrompts {
         const title = node._meta?.title || '';
         const inputs = node.inputs || {};
         // --- Positive prompt candidates ---
-        for (const key of ['prompt', 'text']) {
+        for (const key of ['prompt', 'text', 'value']) {
             const val = inputs[key];
             let resolved = null;
             if (isPlainPromptString(val) && isPositivePrompt(val)) {
@@ -273,7 +273,7 @@ export function extractPromptsFromPromptObject(prompt: any): ExtractedPrompts {
             }
         }
         // --- Negative prompt candidates ---
-        for (const key of ['prompt', 'text']) {
+        for (const key of ['prompt', 'text', 'value']) {
             const val = inputs[key];
             let resolved = null;
             if (isPlainPromptString(val) && isNegativePrompt(val)) {
