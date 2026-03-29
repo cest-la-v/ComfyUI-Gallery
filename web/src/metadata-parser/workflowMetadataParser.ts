@@ -9,6 +9,116 @@ export const MODEL_NODE_TYPES = [
     'UnetLoaderGGUF', 'DualCLIPLoaderGGUF', 'UnetLoader', 'UnetLoaderGGML', 'UnetLoaderGGMLv3'
 ];
 
+// ---------------------------------------------------------------------------
+// Generic BFS-based sampler parameter extraction for workflow JSON
+// ---------------------------------------------------------------------------
+
+/**
+ * Find sampler hub in workflow.nodes: first node with both 'positive' and 'negative' inputs
+ * (via link IDs). These nodes have inputs as an array of {name, type, link?} objects.
+ */
+function findSamplerHubFromWorkflow(nodes: NodeType[]): NodeType | undefined {
+    return nodes.find(n => {
+        if (Array.isArray(n.inputs)) {
+            const hasPos = n.inputs.some((inp: any) => inp.name === 'positive');
+            const hasNeg = n.inputs.some((inp: any) => inp.name === 'negative');
+            return hasPos && hasNeg;
+        }
+        // Object-form inputs: check for link-valued positive+negative
+        if (n.inputs && typeof n.inputs === 'object' && !Array.isArray(n.inputs)) {
+            const inp = n.inputs as any;
+            return (Array.isArray(inp.positive) || typeof inp.positive === 'number') &&
+                   (Array.isArray(inp.negative) || typeof inp.negative === 'number');
+        }
+        return false;
+    });
+}
+
+/** Build a map from link ID → source node for BFS traversal. */
+function buildWorkflowLinkMap(nodes: NodeType[]): Map<number, NodeType> {
+    const map = new Map<number, NodeType>();
+    for (const node of nodes) {
+        if (!Array.isArray(node.outputs)) continue;
+        for (const out of node.outputs) {
+            if (Array.isArray(out.links)) {
+                for (const linkId of out.links) {
+                    map.set(linkId, node);
+                }
+            }
+        }
+    }
+    return map;
+}
+
+/** BFS all upstream nodes from startNode using the link map. */
+function bfsUpstreamNodesWorkflow(startNode: NodeType, linkMap: Map<number, NodeType>): NodeType[] {
+    const visited = new Set<number>([startNode.id]);
+    const result: NodeType[] = [startNode];
+    const queue: NodeType[] = [startNode];
+    while (queue.length > 0) {
+        const current = queue.shift()!;
+        if (Array.isArray(current.inputs)) {
+            for (const inp of current.inputs) {
+                if (typeof inp.link === 'number') {
+                    const upstream = linkMap.get(inp.link);
+                    if (upstream && !visited.has(upstream.id)) {
+                        visited.add(upstream.id);
+                        result.push(upstream);
+                        queue.push(upstream);
+                    }
+                }
+            }
+        }
+    }
+    return result;
+}
+
+/**
+ * Score a workflow node for sampler-related fields.
+ * Checks both object-form inputs (named fields) and widgets_values (model filename).
+ */
+function scoreWorkflowNodeParams(node: NodeType): { score: number; fields: Record<string, any> } {
+    const fields: Record<string, any> = {};
+    let score = 0;
+    const inp = node.inputs;
+    if (inp && !Array.isArray(inp) && typeof inp === 'object') {
+        if (typeof inp.steps === 'number') { fields.steps = inp.steps; score++; }
+        if (typeof inp.cfg === 'number') { fields.cfg_scale = inp.cfg; score++; }
+        if (typeof inp.cfg_scale === 'number' && fields.cfg_scale == null) { fields.cfg_scale = inp.cfg_scale; score++; }
+        if (typeof inp.sampler_name === 'string' && inp.sampler_name) { fields.sampler = inp.sampler_name; score++; }
+        if (typeof inp.scheduler === 'string' && inp.scheduler) { fields.scheduler = inp.scheduler; score++; }
+        if (typeof inp.seed === 'number') { fields.seed = inp.seed; score++; }
+        if (typeof inp.noise_seed === 'number' && fields.seed == null) { fields.seed = inp.noise_seed; score++; }
+        if (typeof inp.ckpt_name === 'string' &&
+            (inp.ckpt_name.endsWith('.safetensors') || inp.ckpt_name.endsWith('.ckpt'))) {
+            fields.model = inp.ckpt_name; score++;
+        }
+    }
+    // widgets_values[0] as model filename fallback
+    if (!fields.model && Array.isArray(node.widgets_values) && typeof node.widgets_values[0] === 'string') {
+        const wv = node.widgets_values[0];
+        if (wv.endsWith('.safetensors') || wv.endsWith('.ckpt')) {
+            fields.model = wv; score++;
+        }
+    }
+    return { score, fields };
+}
+
+/** Extract params from a set of workflow nodes using feature-score ranking. */
+function extractParamsFromWorkflowNodes(nodes: NodeType[]): Record<string, any> {
+    const result: Record<string, any> = {};
+    const scored = nodes
+        .map(n => scoreWorkflowNodeParams(n))
+        .filter(x => x.score > 0)
+        .sort((a, b) => b.score - a.score);
+    for (const { fields } of scored) {
+        for (const key of ['steps', 'cfg_scale', 'sampler', 'scheduler', 'seed', 'model']) {
+            if (result[key] == null && fields[key] != null) result[key] = fields[key];
+        }
+    }
+    return result;
+}
+
 // Recursively traces graph nodes to extract prompt strings
 export function resolvePromptStringFromGraph(nodes: NodeType[], node: NodeType, visited = new Set<number>()): string | null {
     if (!node || visited.has(node.id)) return null;
@@ -118,7 +228,12 @@ export function resolvePromptStringFromNode(nodes: NodeType[], node: NodeType, v
 // Extracts positive/negative prompts from the graph by tracing sampler node inputs
 export function extractPromptsFromGraph(nodes: NodeType[]): ExtractedPrompts {
     const samplerTypes = ['KSampler', 'UltimateSDUpscale', 'KSamplerAdvanced', 'SamplerCustom', 'FaceDetailerPipe'];
-    const sampler = nodes.find(n => samplerTypes.includes(n.type));
+    // Pass 1: known class types
+    let sampler = nodes.find(n => samplerTypes.includes(n.type));
+    // Pass 2: hub-first topology — find node with both positive+negative inputs
+    if (!sampler) {
+        sampler = findSamplerHubFromWorkflow(nodes);
+    }
     if (!sampler || !Array.isArray(sampler.inputs)) return { positive: null, negative: null };
     let positive: string | null = null, negative: string | null = null;
     // Find input links for positive/negative
@@ -236,11 +351,18 @@ export class WorkflowMetadataParser {
         const workflow = metadata.workflow;
         if (!workflow || !Array.isArray(workflow.nodes)) return undefined;
         const samplerTypes = ['KSampler', 'UltimateSDUpscale', 'KSamplerAdvanced', 'SamplerCustom', 'FaceDetailerPipe'];
-        const samplerNode = workflow.nodes.find((n: any) => samplerTypes.includes(n.type));
+        let samplerNode = workflow.nodes.find((n: any) => samplerTypes.includes(n.type));
+        if (!samplerNode) samplerNode = findSamplerHubFromWorkflow(workflow.nodes);
         if (samplerNode) {
-            return extractSeedFromGraph(workflow.nodes, samplerNode) || undefined;
+            const result = extractSeedFromGraph(workflow.nodes, samplerNode);
+            if (result) return result;
         }
-        return undefined;
+        // BFS fallback
+        const linkMap = buildWorkflowLinkMap(workflow.nodes);
+        const hub = samplerNode || findSamplerHubFromWorkflow(workflow.nodes);
+        const candidates = hub ? bfsUpstreamNodesWorkflow(hub, linkMap) : workflow.nodes;
+        const params = extractParamsFromWorkflowNodes(candidates);
+        return params.seed != null ? String(params.seed) : undefined;
     }
     // Finds positive prompt by tracing sampler node inputs
     positive(metadata: Metadata): string | undefined {
@@ -266,7 +388,12 @@ export class WorkflowMetadataParser {
                 if (node.inputs && node.inputs.sampler_name) return node.inputs.sampler_name;
             }
         }
-        return undefined;
+        // Hub-first BFS fallback
+        const hub = findSamplerHubFromWorkflow(workflow.nodes);
+        const linkMap = buildWorkflowLinkMap(workflow.nodes);
+        const candidates = hub ? bfsUpstreamNodesWorkflow(hub, linkMap) : workflow.nodes;
+        const params = extractParamsFromWorkflowNodes(candidates);
+        return params.sampler || undefined;
     }
     // Finds step count from sampler node
     steps(metadata: Metadata): string | undefined {
@@ -278,7 +405,12 @@ export class WorkflowMetadataParser {
                 if (node.inputs && node.inputs.steps != null) return String(node.inputs.steps);
             }
         }
-        return undefined;
+        // Hub-first BFS fallback
+        const hub = findSamplerHubFromWorkflow(workflow.nodes);
+        const linkMap = buildWorkflowLinkMap(workflow.nodes);
+        const candidates = hub ? bfsUpstreamNodesWorkflow(hub, linkMap) : workflow.nodes;
+        const params = extractParamsFromWorkflowNodes(candidates);
+        return params.steps != null ? String(params.steps) : undefined;
     }
     // Finds CFG scale from sampler node
     cfg_scale(metadata: Metadata): string | undefined {
@@ -290,7 +422,12 @@ export class WorkflowMetadataParser {
                 if (node.inputs && node.inputs.cfg != null) return String(node.inputs.cfg);
             }
         }
-        return undefined;
+        // Hub-first BFS fallback
+        const hub = findSamplerHubFromWorkflow(workflow.nodes);
+        const linkMap = buildWorkflowLinkMap(workflow.nodes);
+        const candidates = hub ? bfsUpstreamNodesWorkflow(hub, linkMap) : workflow.nodes;
+        const params = extractParamsFromWorkflowNodes(candidates);
+        return params.cfg_scale != null ? String(params.cfg_scale) : undefined;
     }
 }
 
@@ -315,11 +452,18 @@ export const extractByWorkflow: MetadataExtractionPass = {
         const workflow = metadata.workflow;
         if (!workflow || !Array.isArray(workflow.nodes)) return null;
         const samplerTypes = ['KSampler', 'UltimateSDUpscale', 'KSamplerAdvanced', 'SamplerCustom', 'FaceDetailerPipe'];
-        const samplerNode = workflow.nodes.find((n: any) => samplerTypes.includes(n.type));
+        let samplerNode = workflow.nodes.find((n: any) => samplerTypes.includes(n.type));
+        if (!samplerNode) samplerNode = findSamplerHubFromWorkflow(workflow.nodes);
         if (samplerNode) {
-            return extractSeedFromGraph(workflow.nodes, samplerNode) || null;
+            const result = extractSeedFromGraph(workflow.nodes, samplerNode);
+            if (result) return result;
         }
-        return null;
+        // BFS fallback
+        const linkMap = buildWorkflowLinkMap(workflow.nodes);
+        const hub = samplerNode || findSamplerHubFromWorkflow(workflow.nodes);
+        const candidates = hub ? bfsUpstreamNodesWorkflow(hub, linkMap) : workflow.nodes;
+        const params = extractParamsFromWorkflowNodes(candidates);
+        return params.seed != null ? String(params.seed) : null;
     },
     positive(metadata: Metadata) {
         const workflow = metadata.workflow;
@@ -342,7 +486,12 @@ export const extractByWorkflow: MetadataExtractionPass = {
                 if (node.inputs && node.inputs.sampler_name) return node.inputs.sampler_name;
             }
         }
-        return null;
+        // Hub-first BFS fallback
+        const hub = findSamplerHubFromWorkflow(workflow.nodes);
+        const linkMap = buildWorkflowLinkMap(workflow.nodes);
+        const candidates = hub ? bfsUpstreamNodesWorkflow(hub, linkMap) : workflow.nodes;
+        const params = extractParamsFromWorkflowNodes(candidates);
+        return params.sampler || null;
     },
     steps(metadata: Metadata) {
         const workflow = metadata.workflow;
@@ -353,7 +502,12 @@ export const extractByWorkflow: MetadataExtractionPass = {
                 if (node.inputs && node.inputs.steps != null) return String(node.inputs.steps);
             }
         }
-        return null;
+        // Hub-first BFS fallback
+        const hub = findSamplerHubFromWorkflow(workflow.nodes);
+        const linkMap = buildWorkflowLinkMap(workflow.nodes);
+        const candidates = hub ? bfsUpstreamNodesWorkflow(hub, linkMap) : workflow.nodes;
+        const params = extractParamsFromWorkflowNodes(candidates);
+        return params.steps != null ? String(params.steps) : null;
     },
     cfg_scale(metadata: Metadata) {
         const workflow = metadata.workflow;
@@ -364,7 +518,12 @@ export const extractByWorkflow: MetadataExtractionPass = {
                 if (node.inputs && node.inputs.cfg != null) return String(node.inputs.cfg);
             }
         }
-        return null;
+        // Hub-first BFS fallback
+        const hub = findSamplerHubFromWorkflow(workflow.nodes);
+        const linkMap = buildWorkflowLinkMap(workflow.nodes);
+        const candidates = hub ? bfsUpstreamNodesWorkflow(hub, linkMap) : workflow.nodes;
+        const params = extractParamsFromWorkflowNodes(candidates);
+        return params.cfg_scale != null ? String(params.cfg_scale) : null;
     }
 };
 

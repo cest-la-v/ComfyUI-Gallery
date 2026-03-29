@@ -42,6 +42,40 @@ const PARAM_KEY_MAP: Record<string, keyof A1111Fields> = {
 };
 
 /**
+ * Scheduler display-name suffixes that may appear at the end of the A1111 combined
+ * Sampler field (e.g. "DPM++ 3M SDE Karras" → sampler="DPM++ 3M SDE", scheduler="Karras").
+ * Longer entries are tested first so multi-word suffixes match before single words.
+ */
+const SCHEDULER_SUFFIX_MAP: Array<[string, string]> = [
+    ['sgm uniform',      'SGM Uniform'],
+    ['ddim uniform',     'DDIM Uniform'],
+    ['linear quadratic', 'Linear Quadratic'],
+    ['exponential',      'Exponential'],
+    ['karras',           'Karras'],
+    ['simple',           'Simple'],
+    ['beta',             'Beta'],
+    ['normal',           'Normal'],
+];
+
+/**
+ * Split a combined A1111 Sampler string (e.g. "DPM++ 3M SDE Karras") into
+ * separate sampler and scheduler values.
+ */
+function splitA1111SamplerScheduler(combined: string): { sampler: string; scheduler: string | null } {
+    const lower = combined.toLowerCase().trim();
+    for (const [suffix, display] of SCHEDULER_SUFFIX_MAP) {
+        if (lower === suffix) return { sampler: '', scheduler: display };
+        if (lower.endsWith(' ' + suffix)) {
+            return {
+                sampler: combined.slice(0, combined.length - suffix.length - 1).trim(),
+                scheduler: display,
+            };
+        }
+    }
+    return { sampler: combined, scheduler: null };
+}
+
+/**
  * Split a params line (e.g. `Steps: 20, Sampler: euler, Model: "some, model"`)
  * into key-value pairs, respecting quoted strings.
  */
@@ -119,6 +153,14 @@ export function parseA1111Parameters(raw: string): A1111Fields | null {
         if (fieldName && fields[fieldName] === null) {
             fields[fieldName] = value;
         }
+    }
+
+    // Split combined "Sampler: DPM++ 3M SDE Karras" into sampler + scheduler.
+    // Always strip the scheduler suffix from the sampler field, even if Schedule type is present.
+    if (fields.sampler) {
+        const { sampler, scheduler } = splitA1111SamplerScheduler(fields.sampler);
+        fields.sampler = sampler || null;
+        if (scheduler && !fields.scheduler) fields.scheduler = scheduler;
     }
 
     // Extract negative prompt

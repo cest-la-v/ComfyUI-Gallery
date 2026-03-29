@@ -30,7 +30,7 @@ export function fallbackFindPromptsFromPromptObject(prompt: any): ExtractedPromp
         if (!PROMPT_NODE_TYPES.includes(ct)) continue;
         const inputs = node.inputs || {};
         // Try text and prompt fields
-        for (const key of ['text', 'prompt']) {
+        for (const key of ['text', 'prompt', 'value']) {
             const val = inputs[key];
             if (isPlainPromptString(val)) {
                 // Only set if not already found

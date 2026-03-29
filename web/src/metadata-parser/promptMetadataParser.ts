@@ -23,13 +23,17 @@ export function extractPositivePromptFromPromptObject(prompt: any, samplerNodeId
                     const result = resolvePromptRef(refNode.inputs.positive, visited);
                     if (result) return result;
                 }
-                // Otherwise, try 'text' or 'prompt' fields
+                // Otherwise, try 'text', 'prompt', or 'value' fields
                 if (refNode.inputs.text) {
                     const result = resolvePromptRef(refNode.inputs.text, visited);
                     if (result) return result;
                 }
                 if (refNode.inputs.prompt) {
                     const result = resolvePromptRef(refNode.inputs.prompt, visited);
+                    if (result) return result;
+                }
+                if (refNode.inputs.value) {
+                    const result = resolvePromptRef(refNode.inputs.value, visited);
                     if (result) return result;
                 }
             }
@@ -107,6 +111,119 @@ export function extractModelFromPromptObject(prompt: any): string {
     return '';
 }
 
+// ---------------------------------------------------------------------------
+// Generic BFS-based sampler parameter extraction helpers
+// ---------------------------------------------------------------------------
+
+/** Check if a value is a prompt-JSON link reference [nodeId, outputIndex] */
+function isLink(val: any): val is [string, number] {
+    return Array.isArray(val) && val.length === 2 && typeof val[0] === 'string';
+}
+
+/**
+ * Maps prompt-JSON input names to Parameters field names + expected type.
+ * Order matters: entries listed first take priority when multiple map to the same field.
+ */
+const SAMPLER_FIELD_SPECS: Array<{ input: string; field: keyof Parameters; type: 'number' | 'string' | 'model' }> = [
+    { input: 'steps',       field: 'steps',     type: 'number' },
+    { input: 'cfg',         field: 'cfg_scale',  type: 'number' },
+    { input: 'cfg_scale',   field: 'cfg_scale',  type: 'number' },
+    { input: 'sampler_name',field: 'sampler',    type: 'string' },
+    { input: 'scheduler',   field: 'scheduler',  type: 'string' },
+    { input: 'seed',        field: 'seed',       type: 'number' },
+    { input: 'noise_seed',  field: 'seed',       type: 'number' },
+    { input: 'ckpt_name',   field: 'model',      type: 'model'  },
+];
+
+/**
+ * Find the sampler hub node: the first node whose inputs contain BOTH
+ * 'positive' and 'negative' as link references (type-agnostic detection).
+ */
+function findSamplerHubFromPrompt(prompt: any): string | null {
+    if (!prompt || typeof prompt !== 'object') return null;
+    for (const nodeId in prompt) {
+        const node = prompt[nodeId];
+        if (!node || typeof node !== 'object') continue;
+        const inputs = node.inputs || {};
+        if (isLink(inputs.positive) && isLink(inputs.negative)) {
+            return nodeId;
+        }
+    }
+    return null;
+}
+
+/**
+ * BFS all upstream nodes reachable from startId via link inputs.
+ * Returns array of all reachable nodeIds (including startId).
+ */
+function bfsUpstreamNodes(prompt: any, startId: string): string[] {
+    const visited = new Set<string>([startId]);
+    const queue = [startId];
+    while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        const node = prompt[currentId];
+        if (!node || !node.inputs) continue;
+        for (const key in node.inputs) {
+            const val = node.inputs[key];
+            if (isLink(val) && !visited.has(val[0])) {
+                visited.add(val[0]);
+                queue.push(val[0]);
+            }
+        }
+    }
+    return Array.from(visited);
+}
+
+/**
+ * Score a node's inputs for sampler fields and extract literal values.
+ * Score = count of matching literal (non-link) inputs found.
+ * Only one value per field is captured (first spec that matches wins).
+ */
+function scoreNodeParams(inputs: Record<string, any>): { score: number; fields: Partial<Parameters> } {
+    const fields: Partial<Parameters> = {};
+    let score = 0;
+    for (const spec of SAMPLER_FIELD_SPECS) {
+        const val = inputs[spec.input];
+        if (isLink(val)) continue; // links are followed, not read as literals
+        if ((fields as any)[spec.field] != null) continue; // already set by earlier spec
+        if (spec.type === 'number' && typeof val === 'number') {
+            (fields as any)[spec.field] = val; score++;
+        } else if (spec.type === 'string' && typeof val === 'string' && val !== '') {
+            (fields as any)[spec.field] = val; score++;
+        } else if (spec.type === 'model' && typeof val === 'string' &&
+                   (val.endsWith('.safetensors') || val.endsWith('.ckpt'))) {
+            fields.model = val; score++;
+        }
+    }
+    return { score, fields };
+}
+
+/**
+ * Extract sampler parameters from a set of nodes using feature-score ranking.
+ * For each field, picks the value from the highest-scoring node that has it.
+ */
+function extractParamsFromNodeSet(prompt: any, nodeIds: string[]): Partial<Parameters> {
+    const result: Partial<Parameters> = {};
+    // Score each node and sort by score descending
+    const scored = nodeIds
+        .map(id => {
+            const node = prompt[id];
+            if (!node || !node.inputs) return null;
+            return scoreNodeParams(node.inputs);
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null)
+        .sort((a, b) => b.score - a.score);
+    // Fill in result fields from the highest-scoring nodes
+    for (const { fields } of scored) {
+        for (const spec of SAMPLER_FIELD_SPECS) {
+            if ((result as any)[spec.field] == null && (fields as any)[spec.field] != null) {
+                (result as any)[spec.field] = (fields as any)[spec.field];
+            }
+        }
+    }
+    return result;
+}
+
 // Extracts all enabled LoRAs from the prompt object
 export function extractLorasFromPromptObject(prompt: any): LoraInfo[] {
     const loras: LoraInfo[] = [];
@@ -138,16 +255,21 @@ export function extractLorasFromPromptObject(prompt: any): LoraInfo[] {
     return loras;
 }
 
-// Extracts sampler/steps/cfg/model/seed/etc from the prompt object
+// Extracts sampler/steps/cfg/model/seed/etc from the prompt object.
+// Three-pass approach:
+//   Pass 1: known class-type fast path (KSampler / SamplerCustom / FaceDetailerPipe / etc.)
+//   Pass 2: hub-first BFS — find node with positive+negative link inputs, walk all upstream nodes
+//   Pass 3: last-resort — score ALL nodes in the graph
 export function extractParametersFromPromptObject(prompt: any): Parameters {
     const params: Parameters = {};
     if (!prompt || typeof prompt !== 'object') return params;
+
+    // Pass 1: known class-type fast path
     for (const nodeId in prompt) {
         const node = prompt[nodeId];
         if (!node || typeof node !== 'object') continue;
         const ct = node.class_type || node.type || '';
         const inputs = node.inputs || {};
-        // Only extract from sampler nodes
         if (ct === 'KSampler' || ct === 'SamplerCustom' || ct === 'FaceDetailerPipe') {
             if (inputs.steps != null) params.steps = inputs.steps;
             if (inputs.cfg != null) params.cfg_scale = inputs.cfg;
@@ -156,12 +278,43 @@ export function extractParametersFromPromptObject(prompt: any): Parameters {
             if (inputs.seed != null) params.seed = inputs.seed;
             if (inputs.noise_seed != null && params.seed == null) params.seed = inputs.noise_seed;
         }
-        // Model info from loader nodes
         if ((ct === 'CheckpointLoaderSimple' || ct === 'CheckpointLoader|pysssss') && inputs.ckpt_name) {
             if (typeof inputs.ckpt_name === 'string') params.model = inputs.ckpt_name;
             if (typeof inputs.ckpt_name === 'object' && inputs.ckpt_name.content) params.model = inputs.ckpt_name.content;
         }
     }
+
+    const missingAny = () => [
+        params.steps, params.cfg_scale, params.sampler,
+        params.scheduler, params.seed, params.model
+    ].some(v => v == null);
+
+    if (missingAny()) {
+        // Pass 2: hub-first BFS topology traversal
+        const hubId = findSamplerHubFromPrompt(prompt);
+        if (hubId) {
+            const upstreamIds = bfsUpstreamNodes(prompt, hubId);
+            const hubParams = extractParamsFromNodeSet(prompt, upstreamIds);
+            if (params.steps == null && hubParams.steps != null) params.steps = hubParams.steps;
+            if (params.cfg_scale == null && hubParams.cfg_scale != null) params.cfg_scale = hubParams.cfg_scale;
+            if (params.sampler == null && hubParams.sampler != null) params.sampler = hubParams.sampler;
+            if (params.scheduler == null && hubParams.scheduler != null) params.scheduler = hubParams.scheduler;
+            if (params.seed == null && hubParams.seed != null) params.seed = hubParams.seed;
+            if (params.model == null && hubParams.model != null) params.model = hubParams.model;
+        }
+    }
+
+    if (missingAny()) {
+        // Pass 3: last-resort — score ALL nodes
+        const allParams = extractParamsFromNodeSet(prompt, Object.keys(prompt));
+        if (params.steps == null && allParams.steps != null) params.steps = allParams.steps;
+        if (params.cfg_scale == null && allParams.cfg_scale != null) params.cfg_scale = allParams.cfg_scale;
+        if (params.sampler == null && allParams.sampler != null) params.sampler = allParams.sampler;
+        if (params.scheduler == null && allParams.scheduler != null) params.scheduler = allParams.scheduler;
+        if (params.seed == null && allParams.seed != null) params.seed = allParams.seed;
+        if (params.model == null && allParams.model != null) params.model = allParams.model;
+    }
+
     params.loras = extractLorasFromPromptObject(prompt);
     return params;
 }
@@ -321,8 +474,12 @@ export class PromptMetadataParser {
         const samplerNodeId = Object.keys(metadata.prompt).find(
             k => metadata.prompt[k]?.class_type === 'KSampler' || metadata.prompt[k]?.class_type === 'SamplerCustom' || metadata.prompt[k]?.class_type === 'FaceDetailerPipe'
         );
-        if (!samplerNodeId) return undefined;
-        return extractSeedFromPromptObject(metadata.prompt, samplerNodeId) || undefined;
+        if (samplerNodeId) {
+            const seed = extractSeedFromPromptObject(metadata.prompt, samplerNodeId);
+            if (seed) return seed;
+        }
+        const params = extractParametersFromPromptObject(metadata.prompt);
+        return params.seed != null ? String(params.seed) : undefined;
     }
     positive(metadata: Metadata): string | undefined {
         if (!metadata.prompt) return undefined;
@@ -331,6 +488,11 @@ export class PromptMetadataParser {
         );
         if (samplerNodeId) {
             const pos = extractPositivePromptFromPromptObject(metadata.prompt, samplerNodeId);
+            if (pos) return pos;
+        }
+        const hubId = findSamplerHubFromPrompt(metadata.prompt);
+        if (hubId && hubId !== samplerNodeId) {
+            const pos = extractPositivePromptFromPromptObject(metadata.prompt, hubId);
             if (pos) return pos;
         }
         const promptPrompts = extractPromptsFromPromptObject(metadata.prompt);
@@ -370,17 +532,22 @@ export const extractByPrompt: MetadataExtractionPass = {
         return extractModelFromPromptObject(metadata.prompt) || null;
     },
     seed(metadata: Metadata) {
-        // Try to find sampler node id
+        // Try to find sampler node id via known class types
         if (!metadata.prompt) return null;
         const samplerNodeId = Object.keys(metadata.prompt).find(
             k => metadata.prompt[k]?.class_type === 'KSampler' || metadata.prompt[k]?.class_type === 'SamplerCustom' || metadata.prompt[k]?.class_type === 'FaceDetailerPipe'
         );
-        if (!samplerNodeId) return null;
-        return extractSeedFromPromptObject(metadata.prompt, samplerNodeId) || null;
+        if (samplerNodeId) {
+            const seed = extractSeedFromPromptObject(metadata.prompt, samplerNodeId);
+            if (seed) return seed;
+        }
+        // Hub-first fallback via 3-pass extractParametersFromPromptObject
+        const params = extractParametersFromPromptObject(metadata.prompt);
+        return params.seed != null ? String(params.seed) : null;
     },
     positive(metadata: Metadata) {
-        // Try to find sampler node id
         if (!metadata.prompt) return null;
+        // Try known sampler types first
         const samplerNodeId = Object.keys(metadata.prompt).find(
             k => metadata.prompt[k]?.class_type === 'KSampler' || metadata.prompt[k]?.class_type === 'SamplerCustom' || metadata.prompt[k]?.class_type === 'FaceDetailerPipe'
         );
@@ -388,12 +555,51 @@ export const extractByPrompt: MetadataExtractionPass = {
             const pos = extractPositivePromptFromPromptObject(metadata.prompt, samplerNodeId);
             if (pos) return pos;
         }
-        // Fallback: use heuristics
+        // Hub-first fallback: find hub node and follow its positive link
+        const hubId = findSamplerHubFromPrompt(metadata.prompt);
+        if (hubId && hubId !== samplerNodeId) {
+            const pos = extractPositivePromptFromPromptObject(metadata.prompt, hubId);
+            if (pos) return pos;
+        }
+        // Final fallback: heuristics
         const promptPrompts = extractPromptsFromPromptObject(metadata.prompt);
         if (promptPrompts.positive) return promptPrompts.positive;
         return null;
     },
     negative(metadata: Metadata) {
+        if (!metadata.prompt) return null;
+        // Hub-first: follow hub's negative link chain using resolvePromptStringFromPromptObject
+        const hubId = findSamplerHubFromPrompt(metadata.prompt);
+        if (hubId) {
+            const hub = metadata.prompt[hubId];
+            if (hub?.inputs) {
+                const negRef = hub.inputs.negative;
+                // Use existing resolvePromptStringFromPromptObject via the heuristic scan fallback path
+                // by temporarily treating negative as positive (same link-following logic)
+                if (isLink(negRef)) {
+                    const negNode = metadata.prompt[negRef[0]];
+                    if (negNode?.inputs) {
+                        for (const key of ['prompt', 'text', 'value']) {
+                            const val = negNode.inputs[key];
+                            if (typeof val === 'string' && val.trim()) return val;
+                            if (isLink(val)) {
+                                // Follow one more hop
+                                const deepNode = metadata.prompt[val[0]];
+                                if (deepNode?.inputs) {
+                                    for (const dk of ['prompt', 'text', 'value']) {
+                                        const dv = deepNode.inputs[dk];
+                                        if (typeof dv === 'string' && dv.trim()) return dv;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if (typeof negRef === 'string' && negRef.trim()) {
+                    return negRef;
+                }
+            }
+        }
+        // Heuristic fallback
         const promptPrompts = extractPromptsFromPromptObject(metadata.prompt);
         if (promptPrompts.negative) return promptPrompts.negative;
         return null;

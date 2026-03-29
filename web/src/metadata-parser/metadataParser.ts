@@ -66,7 +66,9 @@ export const extractPlaceholders: MetadataExtractionPass = {
 };
 
 // --- Main Metadata Parsing (middleware style) ---
-export function parseComfyMetadata(metadata: Metadata): Record<string, string> {
+export type MetadataSource = 'auto' | 'civitai' | 'comfyui';
+
+export function parseComfyMetadata(metadata: Metadata, source: MetadataSource = 'auto'): Record<string, string> {
     if (!metadata) return {};
     // File info
     const fileinfo: Record<string, any> = metadata.fileinfo || {};
@@ -88,8 +90,15 @@ export function parseComfyMetadata(metadata: Metadata): Record<string, string> {
         cfg_scale: null,
         loras: null
     };
-    // List of passes in order (A1111 parameters chunk first, then prompt, workflow, fallback)
-    const passes: MetadataExtractionPass[] = [extractByA1111, extractByPrompt, extractByWorkflow, extractPlaceholders];
+    // List of passes in order — controlled by source param
+    let passes: MetadataExtractionPass[];
+    if (source === 'civitai') {
+        passes = [extractByA1111, extractPlaceholders];
+    } else if (source === 'comfyui') {
+        passes = [extractByPrompt, extractByWorkflow, extractPlaceholders];
+    } else {
+        passes = [extractByA1111, extractByPrompt, extractByWorkflow, extractPlaceholders];
+    }
     // For each field, try each pass in order until a value is found
     for (const key of Object.keys(fields) as (keyof MetadataFields)[]) {
         for (const pass of passes) {

@@ -1,5 +1,6 @@
-import { Typography, Button, Flex, Descriptions, Tooltip, message, Image, Popconfirm } from 'antd';
+import { Typography, Button, Flex, Descriptions, Tooltip, message, Image, Popconfirm, Segmented } from 'antd';
 import { parseComfyMetadata } from './metadata-parser/metadataParser';
+import type { MetadataSource } from './metadata-parser/metadataParser';
 import { useState, useMemo, useCallback } from 'react';
 import type { FileDetails } from './types';
 import ReactJsonView from '@microlink/react-json-view';
@@ -24,9 +25,10 @@ export function MetadataView({
     showRawMetadata: boolean, 
     setShowRawMetadata: (show: boolean) => void 
 }) {
-    const meta = useMemo(() => parseComfyMetadata(image.metadata), [image.metadata]);
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
     const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
+    const [metadataSource, setMetadataSource] = useState<MetadataSource>('auto');
+    const meta = useMemo(() => parseComfyMetadata(image.metadata, metadataSource), [image.metadata, metadataSource]);
 
     const { mutate, currentFolder, settings } = useGalleryContext();
 
@@ -204,6 +206,16 @@ export function MetadataView({
                             Show Raw Metadata
                         </Button>
                     </Tooltip>
+                    <Segmented
+                        options={[
+                            { label: 'Auto', value: 'auto' },
+                            { label: 'Civitai', value: 'civitai' },
+                            { label: 'ComfyUI', value: 'comfyui' },
+                        ]}
+                        value={metadataSource}
+                        onChange={(v) => setMetadataSource(v as MetadataSource)}
+                        size="small"
+                    />
                     <Popconfirm
                         title="Delete the image"
                         description="Are you sure you want to delete this image?"
