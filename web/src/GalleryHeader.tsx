@@ -16,7 +16,8 @@ const GalleryHeader = () => {
         imagesAutoCompleteNames,
         autoCompleteOptions, setAutoCompleteOptions,
         setOpen,
-        selectedImages,
+        selectedImages, setSelectedImages,
+        mutate,
         siderCollapsed, setSiderCollapsed
     } = useGalleryContext();
 
@@ -144,16 +145,46 @@ const GalleryHeader = () => {
                         description={`Are you sure you want to delete ${selectedImages.length} selected image(s)? This cannot be undone.`}
                         onConfirm={async () => {
                             let deleted = 0;
+                            const failed: string[] = [];
                             for (const url of selectedImages) {
                                 try {
-                                    await ComfyAppApi.deleteImage(url);
-                                    deleted++;
+                                    const ok = await ComfyAppApi.deleteImage(url);
+                                    if (ok) {
+                                        deleted++;
+                                        // Immediately remove from state without waiting for watchdog
+                                        mutate((oldData) => {
+                                            if (!oldData?.folders) return oldData;
+                                            const folders = { ...oldData.folders };
+                                            for (const folder of Object.keys(folders)) {
+                                                const files = { ...folders[folder] };
+                                                for (const filename of Object.keys(files)) {
+                                                    if (files[filename].url === url) {
+                                                        delete files[filename];
+                                                    }
+                                                }
+                                                if (Object.keys(files).length === 0) {
+                                                    delete folders[folder];
+                                                } else {
+                                                    folders[folder] = files;
+                                                }
+                                            }
+                                            return { ...oldData, folders };
+                                        });
+                                    } else {
+                                        failed.push(url);
+                                    }
                                     await new Promise(res => setTimeout(res, 50));
                                 } catch (e) {
                                     console.error('Failed to delete image:', url, e);
+                                    failed.push(url);
                                 }
                             }
-                            message.success(`Deleted ${deleted} image(s).`);
+                            setSelectedImages([]);
+                            if (failed.length > 0) {
+                                message.warning(`Deleted ${deleted} image(s), ${failed.length} failed.`);
+                            } else {
+                                message.success(`Deleted ${deleted} image(s).`);
+                            }
                         }}
                         onCancel={() => message.info('Delete cancelled')}
                         okText={`Delete (${selectedImages.length})`}

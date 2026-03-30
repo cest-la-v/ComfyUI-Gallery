@@ -170,7 +170,17 @@ async def start_gallery_monitor(request):
         gallery_log("disable_logs", disable_logs)
         gallery_log("use_polling_observer", use_polling_observer)
         if monitor and monitor.thread and monitor.thread.is_alive():
-            gallery_log("FileSystemMonitor: Monitor already running, stopping previous monitor.")
+            # Monitor is healthy — only restart if the path or settings changed.
+            current_path = os.path.normpath(str(monitor.base_path)) if monitor else None
+            settings_unchanged = (
+                current_path == full_monitor_path
+                and gallery_config.disable_logs == disable_logs
+                and gallery_config.use_polling_observer == use_polling_observer
+            )
+            if settings_unchanged:
+                gallery_log("FileSystemMonitor: Monitor already running with same settings, skipping restart.")
+                return web.Response(text="Gallery monitor already running", content_type="text/plain")
+            gallery_log("FileSystemMonitor: Settings changed, stopping previous monitor.")
             monitor.stop_monitoring()
         if not os.path.isdir(full_monitor_path):
             return web.Response(status=400, text=f"Invalid relative_path: {relative_path}, path not found")
@@ -235,7 +245,13 @@ async def delete_image(request):
             return web.Response(status=404, text=f"File not found: {full_image_path}")
         if not full_image_path.startswith(os.path.realpath(static_dir)):
             return web.Response(status=403, text="Access denied: File outside of static directory")
-        os.remove(full_image_path)
+        try:
+            from send2trash import send2trash
+            send2trash(full_image_path)
+            gallery_log(f"Image moved to trash: {full_image_path}")
+        except ImportError:
+            gallery_log("send2trash not installed, falling back to permanent deletion.")
+            os.remove(full_image_path)
         return web.Response(text=f"Image deleted: {image_url}")
     except Exception as e:
         gallery_log(f"Error deleting image: {e}")

@@ -179,6 +179,27 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         }
     }, [settingsState?.relativePath, settingsState?.disableLogs, settingsState?.usePollingObserver, JSON.stringify(settingsState?.scanExtensions)]);
 
+    // Recovery B: when gallery is opened, restart monitoring if dead and refresh image list
+    useEffect(() => {
+        if (open && settingsState?.relativePath) {
+            ComfyAppApi.startMonitoring(
+                settingsState.relativePath,
+                settingsState.disableLogs,
+                settingsState.usePollingObserver,
+                settingsState.scanExtensions
+            );
+            runAsync();
+        }
+    }, [open]);
+
+    // Recovery C: periodic full-refresh while gallery is mounted (backstop for silent watcher issues)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (open) runAsync();
+        }, 5 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, [open]);
+
     // Memoized list of all images in the current folder
     const imagesDetailsList = useMemo(() => {
         let list: FileDetails[] = Object.values(data?.folders?.[currentFolder] ?? []);

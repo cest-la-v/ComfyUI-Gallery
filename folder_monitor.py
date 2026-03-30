@@ -138,9 +138,9 @@ class FileSystemMonitor:
         self.use_polling_observer = use_polling_observer
         self.extensions = extensions
         if use_polling_observer:
-            self.observer = Observer()
-        else:
             self.observer = PollingObserver()
+        else:
+            self.observer = Observer()
 
         # Generate patterns from extensions if provided
         if self.extensions:
@@ -174,14 +174,31 @@ class FileSystemMonitor:
         except Exception as e:
             gallery_log(f"FileSystemMonitor: Error during initial scan: {e}")
 
-        self.observer.schedule(self.event_handler, self.base_path, recursive=True)
-        self.observer.follow_directory_symlinks = True  # Ensure symlinks are followed
-        self.observer.start()
-        try:
-            while True:
-                time.sleep(0.1)
-        except KeyboardInterrupt:
-            self.stop_monitoring()
+        # Outer restart loop: if the observer crashes for any reason, rebuild and retry.
+        while True:
+            try:
+                if self.use_polling_observer:
+                    self.observer = PollingObserver()
+                else:
+                    self.observer = Observer()
+                self.observer.schedule(self.event_handler, self.base_path, recursive=True)
+                self.observer.follow_directory_symlinks = True
+                self.observer.start()
+                gallery_log("FileSystemMonitor: Observer started.")
+                while self.observer.is_alive():
+                    time.sleep(0.5)
+                gallery_log("FileSystemMonitor: Observer stopped unexpectedly, restarting...")
+            except KeyboardInterrupt:
+                self.stop_monitoring()
+                break
+            except Exception as e:
+                gallery_log(f"FileSystemMonitor: Observer crashed ({e}), restarting in 3s...")
+            finally:
+                try:
+                    self.observer.stop()
+                except Exception:
+                    pass
+            time.sleep(3)
 
     def stop_monitoring(self):
         """Stops the Watchdog observer."""
