@@ -240,18 +240,23 @@ async def delete_image(request):
             static_dir = str(static_route.resource._directory)
         else:
             static_dir = folder_paths.get_output_directory()
-        full_image_path = os.path.normpath(os.path.join(static_dir, relative_path))
+        full_image_path = os.path.realpath(os.path.join(static_dir, relative_path))
+        real_static_dir = os.path.realpath(static_dir)
         if not os.path.exists(full_image_path):
             return web.Response(status=404, text=f"File not found: {full_image_path}")
-        if not full_image_path.startswith(os.path.realpath(static_dir)):
+        if not os.path.normcase(full_image_path).startswith(
+            os.path.normcase(real_static_dir + os.sep)
+        ):
             return web.Response(status=403, text="Access denied: File outside of static directory")
         try:
             from send2trash import send2trash
             send2trash(full_image_path)
             gallery_log(f"Image moved to trash: {full_image_path}")
-        except ImportError:
-            gallery_log("send2trash not installed, falling back to permanent deletion.")
+        except Exception as e:
+            gallery_log(f"send2trash unavailable or failed ({type(e).__name__}: {e}), "
+                        "falling back to permanent deletion.")
             os.remove(full_image_path)
+            gallery_log(f"Image permanently deleted: {full_image_path}")
         return web.Response(text=f"Image deleted: {image_url}")
     except Exception as e:
         gallery_log(f"Error deleting image: {e}")
