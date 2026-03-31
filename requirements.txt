@@ -3,4 +3,4 @@ aiohttp
 piexif
 watchdog
 asyncio
-send2trash
+send2trash>=1.8.0
