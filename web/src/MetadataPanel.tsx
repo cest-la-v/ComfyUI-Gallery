@@ -119,7 +119,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                 borderLeft: '1px solid #444',
                 overflowY: 'auto',
                 overflowX: 'hidden',
-                padding: '16px',
+                padding: '48px 16px 16px 16px',
                 zIndex: 10,
                 display: 'flex',
                 flexDirection: 'column',
@@ -174,7 +174,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                         collapsed={2}
                         enableClipboard
                         displayDataTypes={false}
-                        style={{ borderRadius: 8, padding: 8 }}
+                        style={{ borderRadius: 8, padding: 8, textAlign: 'left', width: '100%' }}
                     />
                 ) : (
                     <Descriptions
