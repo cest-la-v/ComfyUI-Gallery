@@ -94,12 +94,6 @@ const GallerySettingsModal = () => {
                     />
                 </div>
                 <Switch
-                    checkedChildren={"Show Date Divider"}
-                    unCheckedChildren={"Don't Show Date Divider"}
-                    checked={staged.showDateDivider}
-                    onChange={checked => setStaged({ showDateDivider: checked })}
-                />
-                <Switch
                     checkedChildren={"Floating Button"}
                     unCheckedChildren={"Normal Button"}
                     checked={staged.floatingButton}

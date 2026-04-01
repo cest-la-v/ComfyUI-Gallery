@@ -7,6 +7,7 @@ import { useGalleryContext } from './GalleryContext';
 import { MetadataPanel } from './MetadataPanel';
 import type { FileDetails } from './types';
 import { BASE_PATH, ComfyAppApi } from "./ComfyAppApi";
+import { parseComfyMetadata } from './metadata-parser/metadataParser';
 import InfoCircleOutlined from '@ant-design/icons/lib/icons/InfoCircleOutlined';
 import FileTextOutlined from '@ant-design/icons/lib/icons/FileTextOutlined';
 import CopyOutlined from '@ant-design/icons/lib/icons/CopyOutlined';
@@ -32,7 +33,7 @@ const GalleryImageGrid = () => {
         setShowRawMetadata,
         showMetadataPanel,
         setShowMetadataPanel,
-        settings,
+        groupBy,
         loading,
     } = useGalleryContext();
     const containerRef = useRef<HTMLDivElement>(null);
@@ -43,40 +44,74 @@ const GalleryImageGrid = () => {
             const searchTerm = searchFileName.toLowerCase();
             list = list.filter(imageInfo => imageInfo.name.toLowerCase().includes(searchTerm));
         }
-        if (sortMethod !== 'Name ↑' && sortMethod !== 'Name ↓') {
-            list = list.sort((a, b) => (sortMethod === 'Newest' ? (b.timestamp || 0) - (a.timestamp || 0) : (a.timestamp || 0) - (b.timestamp || 0)));
-            if (!settings.showDateDivider) return list;
-            const grouped: { [date: string]: FileDetails[] } = {};
-            list.forEach(item => {
-                const date = item.timestamp ? new Date(item.timestamp * 1000).toISOString().slice(0, 10) : 'Unknown';
-                if (!grouped[date]) grouped[date] = [];
-                grouped[date].push(item);
-            });
-            const result: FileDetails[] = [];
-            Object.entries(grouped).forEach(([date, items]) => {
-                const colCount = Math.max(1, gridSize.columnCount || 1);
-                for (let i = 0; i < colCount; i++) {
-                    result.push({ name: date, type: 'divider' } as FileDetails);
-                }
-                result.push(...items);
-                const remainder = items.length % colCount;
-                if (remainder !== 0 && colCount > 1) {
-                    for (let i = 0; i < colCount - remainder; i++) {
-                        result.push({ type: 'empty-space' } as FileDetails);
-                    }
-                }
-            });
-            return result;
-        }
+        // Step 1: Sort
         switch (sortMethod) {
+            case 'Newest':
+                list = list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                break;
+            case 'Oldest':
+                list = list.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                break;
             case 'Name ↑':
-                return list.sort((a, b) => a.name.localeCompare(b.name));
+                list = list.sort((a, b) => a.name.localeCompare(b.name));
+                break;
             case 'Name ↓':
-                return list.sort((a, b) => b.name.localeCompare(a.name));
-            default:
-                return list;
+                list = list.sort((a, b) => b.name.localeCompare(a.name));
+                break;
         }
-    }, [currentFolder, data, sortMethod, searchFileName, gridSize.columnCount, settings.showDateDivider]);
+        // Step 2: Group (if enabled)
+        if (groupBy === 'none') return list;
+
+        const getGroupKey = (item: FileDetails): string => {
+            switch (groupBy) {
+                case 'date':
+                    return item.timestamp ? new Date(item.timestamp * 1000).toISOString().slice(0, 10) : 'Unknown';
+                case 'resolution':
+                    return item.metadata?.fileinfo?.resolution || 'Unknown';
+                case 'model':
+                case 'sampler': {
+                    if (item.type !== 'image') return 'N/A';
+                    const parsed = parseComfyMetadata(item.metadata, 'auto');
+                    const fieldName = groupBy === 'model' ? 'Model' : 'Sampler';
+                    return parsed[fieldName] || 'Unknown';
+                }
+                default:
+                    return 'Unknown';
+            }
+        };
+
+        const grouped: Record<string, FileDetails[]> = {};
+        list.forEach(item => {
+            const key = getGroupKey(item);
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(item);
+        });
+
+        const sortedGroups = Object.entries(grouped).sort(([a], [b]) => {
+            if (a === 'Unknown' || a === 'N/A') return 1;
+            if (b === 'Unknown' || b === 'N/A') return -1;
+            if (groupBy === 'date') {
+                return sortMethod === 'Oldest' ? a.localeCompare(b) : b.localeCompare(a);
+            }
+            return a.localeCompare(b);
+        });
+
+        const result: FileDetails[] = [];
+        const colCount = Math.max(1, gridSize.columnCount || 1);
+        sortedGroups.forEach(([key, items]) => {
+            for (let i = 0; i < colCount; i++) {
+                result.push({ name: key, type: 'divider' } as FileDetails);
+            }
+            result.push(...items);
+            const remainder = items.length % colCount;
+            if (remainder !== 0 && colCount > 1) {
+                for (let i = 0; i < colCount - remainder; i++) {
+                    result.push({ type: 'empty-space' } as FileDetails);
+                }
+            }
+        });
+        return result;
+    }, [currentFolder, data, sortMethod, searchFileName, gridSize.columnCount, groupBy]);
 
     const imagesUrlsLists = useMemo(() =>
         imagesDetailsList.filter(image => image.type === "image" || image.type === "media" || image.type === "audio").map(image => `${BASE_PATH}${image.url}`),

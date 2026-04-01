@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Flex, AutoComplete, Button, Segmented, Modal, message, Popconfirm } from 'antd';
+import { Flex, AutoComplete, Button, Segmented, Modal, message, Popconfirm, Select } from 'antd';
 import { CloseSquareFilled, DoubleLeftOutlined, DoubleRightOutlined } from '@ant-design/icons';
 import { useGalleryContext } from './GalleryContext';
+import type { GroupBy } from './GalleryContext';
 import { useDebounce, useCountDown } from 'ahooks';
 import Typography from 'antd/es/typography/Typography';
 import JSZip from 'jszip';
@@ -13,6 +14,7 @@ const GalleryHeader = () => {
         showSettings, setShowSettings,
         searchFileName, setSearchFileName,
         sortMethod, setSortMethod,
+        groupBy, setGroupBy,
         imagesAutoCompleteNames,
         autoCompleteOptions, setAutoCompleteOptions,
         setOpen,
@@ -276,6 +278,19 @@ const GalleryHeader = () => {
                 allowClear={{ 
                     clearIcon: <CloseSquareFilled /> 
                 }}
+            />
+            <Select<GroupBy>
+                value={groupBy}
+                onChange={setGroupBy}
+                style={{ width: 130 }}
+                size="middle"
+                options={[
+                    { label: 'No Grouping', value: 'none' },
+                    { label: 'By Date', value: 'date' },
+                    { label: 'By Model', value: 'model' },
+                    { label: 'By Sampler', value: 'sampler' },
+                    { label: 'By Resolution', value: 'resolution' },
+                ]}
             />
             <Segmented<string>
                 style={{ 
