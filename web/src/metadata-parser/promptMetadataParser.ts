@@ -57,9 +57,12 @@ export function extractPositivePromptFromPromptObject(prompt: any, samplerNodeId
 export function extractModelFromPromptObject(prompt: any): string {
     if (!prompt || typeof prompt !== 'object') return '';
     // Helper to resolve array references recursively
-    function resolveModelRef(ref: any, visited = new Set()): string {
-        if (!ref || visited.has(ref)) return '';
-        visited.add(ref);
+    function resolveModelRef(ref: any, visited = new Set<string>()): string {
+        if (!ref) return '';
+        // Stable visit key for arrays (dedup cycles)
+        const key = Array.isArray(ref) ? `${ref[0]}:${ref[1]}` : String(ref);
+        if (visited.has(key)) return '';
+        visited.add(key);
         // Direct model filename
         if (typeof ref === 'string' && (ref.endsWith('.safetensors') || ref.endsWith('.ckpt'))) return ref;
         if (typeof ref === 'object' && ref.content && (ref.content.endsWith('.safetensors') || ref.content.endsWith('.ckpt'))) return ref.content;
@@ -67,67 +70,94 @@ export function extractModelFromPromptObject(prompt: any): string {
         if (Array.isArray(ref) && typeof ref[0] === 'string') {
             const refNode = prompt[ref[0]];
             if (refNode && refNode.inputs) {
+                const inp = refNode.inputs;
                 // LoRA node: follow its model input
-                if ((refNode.class_type === 'LoraLoader' || refNode.class_type === 'Power Lora Loader (rgthree)') && refNode.inputs.model) {
-                    return resolveModelRef(refNode.inputs.model, visited);
+                if ((refNode.class_type === 'LoraLoader' || refNode.class_type === 'Power Lora Loader (rgthree)') && inp.model) {
+                    return resolveModelRef(inp.model, visited);
                 }
                 // CheckpointLoader nodes (all known variants)
                 const isCheckpoint = refNode.class_type === 'CheckpointLoaderSimple' || refNode.class_type === 'CheckpointLoader|pysssss' ||
                     refNode.class_type === 'ModelLoader' || refNode.class_type === 'CheckpointLoader' ||
                     refNode.class_type === 'Checkpoint Loader (Simple)' || refNode.class_type === 'Sage_CheckpointSelector';
-                if (isCheckpoint && refNode.inputs.ckpt_name) {
-                    return resolveModelRef(refNode.inputs.ckpt_name, visited);
+                if (isCheckpoint && inp.ckpt_name) {
+                    return resolveModelRef(inp.ckpt_name, visited);
                 }
                 // Sage model+lora stack loader: follow model_info to checkpoint selector
-                if (refNode.class_type === 'Sage_ModelLoraStackLoader' && refNode.inputs.model_info) {
-                    return resolveModelRef(refNode.inputs.model_info, visited);
+                if (refNode.class_type === 'Sage_ModelLoraStackLoader' && inp.model_info) {
+                    return resolveModelRef(inp.model_info, visited);
                 }
-                // Fallback: search for any string ending with .safetensors or .ckpt
-                for (const key in refNode.inputs) {
-                    const val = refNode.inputs[key];
-                    const resolved = resolveModelRef(val, visited);
+                // Generic switch detection (signature-based, works for any custom switch node)
+                // Pattern A — indexed switch: literal integer `select`/`condition`/`index` + `input1`, `input2`, …
+                const selectVal = inp.select ?? inp.condition ?? inp.index;
+                if (typeof selectVal === 'number' && !isLink(selectVal) && inp[`input${selectVal}`]) {
+                    return resolveModelRef(inp[`input${selectVal}`], visited);
+                }
+                // Pattern B — boolean switch: `on_true` + `on_false` + any literal boolean input
+                if ('on_true' in inp && 'on_false' in inp) {
+                    const boolKey = Object.keys(inp).find(k => k !== 'on_true' && k !== 'on_false' && typeof inp[k] === 'boolean' && !isLink(inp[k]));
+                    if (boolKey !== undefined) {
+                        return resolveModelRef(inp[boolKey] ? inp.on_true : inp.on_false, visited);
+                    }
+                }
+                // Fallback: search for any string ending with .safetensors or .ckpt in all inputs
+                for (const k in inp) {
+                    const resolved = resolveModelRef(inp[k], visited);
                     if (resolved) return resolved;
                 }
             }
         }
         return '';
     }
-    // Pre-scan: Sage-specific model loaders take priority (directly specify the generation model)
+
+    // Pass 0 (new): trace model backwards from each top-level sampler node.
+    // "Top-level" = node ID without ':' (compound IDs belong to nested sub-workflows
+    // that may not have executed). Takes majority vote to handle multi-sampler graphs.
+    const SAMPLER_TYPES = new Set(['KSampler', 'KSamplerAdvanced', 'SamplerCustom', 'FaceDetailerPipe', 'Sage_KSampler']);
+    const modelVotes: Record<string, number> = {};
+    for (const nodeId in prompt) {
+        if (nodeId.includes(':')) continue; // skip compound (subgraph) node IDs
+        const node = prompt[nodeId];
+        if (!node || !SAMPLER_TYPES.has(node.class_type)) continue;
+        const modelInput = node.inputs?.model;
+        if (!modelInput) continue;
+        const resolved = resolveModelRef(modelInput);
+        if (resolved) modelVotes[resolved] = (modelVotes[resolved] ?? 0) + 1;
+    }
+    if (Object.keys(modelVotes).length > 0) {
+        const winner = Object.entries(modelVotes).sort((a, b) => b[1] - a[1])[0][0];
+        return winner;
+    }
+
+    // Pass 1 (Sage-specific): Sage_ModelLoraStackLoader → Sage_CheckpointSelector
     for (const nodeId in prompt) {
         const node = prompt[nodeId];
         if (!node || typeof node !== 'object') continue;
         const ct = node.class_type || node.type || '';
         const inputs = node.inputs || {};
-        // Sage_ModelLoraStackLoader → Sage_CheckpointSelector
         if (ct === 'Sage_ModelLoraStackLoader' && inputs.model_info) {
             const resolved = resolveModelRef(inputs.model_info);
             if (resolved) return resolved;
         }
-        // Direct Sage checkpoint selector (standalone)
         if (ct === 'Sage_CheckpointSelector' && inputs.ckpt_name && typeof inputs.ckpt_name === 'string') {
             return inputs.ckpt_name;
         }
     }
-    // Main search: prefer CheckpointLoader, then LoRA, then any likely model filename
+    // Pass 2: prefer CheckpointLoader, then LoRA, then any likely model filename
     for (const nodeId in prompt) {
         const node = prompt[nodeId];
         if (!node || typeof node !== 'object') continue;
         const ct = node.class_type || node.type || '';
         const inputs = node.inputs || {};
-        // CheckpointLoader nodes (all known variants)
         if ((ct === 'CheckpointLoaderSimple' || ct === 'CheckpointLoader|pysssss' || ct === 'ModelLoader' || ct === 'CheckpointLoader' || ct === 'Checkpoint Loader (Simple)') && inputs.ckpt_name) {
             const resolved = resolveModelRef(inputs.ckpt_name);
             if (resolved) return resolved;
         }
-        // LoRA nodes: follow their model input, but do NOT return the LoRA name
         if ((ct === 'LoraLoader' || ct === 'Power Lora Loader (rgthree)') && inputs.model) {
             const resolved = resolveModelRef(inputs.model);
             if (resolved) return resolved;
         }
-        // Any node with a likely model filename
         for (const key in inputs) {
-            const val = inputs[key];
-            const resolved = resolveModelRef(val);
+            const resolved = resolveModelRef(inputs[key]);
             if (resolved) return resolved;
         }
     }
