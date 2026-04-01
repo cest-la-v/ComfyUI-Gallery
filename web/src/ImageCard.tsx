@@ -176,7 +176,6 @@ function ImageCard({
                     // preview={false}
                     onClick={() => {
                         onInfoClick(image.name);
-                        setShowMetadataPanel(false);
                         document.getElementById(image.url)?.click();
                     }}
                     alt={image.name}
@@ -211,7 +210,6 @@ function ImageCard({
                     preload={!settings.autoPlayVideos ? undefined : "none"}
                     onClick={() => {
                         onInfoClick(image.name);
-                        setShowMetadataPanel(false);
                         document.getElementById(image.url)?.click();
                     }}
                     draggable

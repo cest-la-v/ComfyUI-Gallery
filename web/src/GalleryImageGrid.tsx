@@ -6,9 +6,7 @@ import ImageCard, { ImageCardHeight, ImageCardWidth } from './ImageCard';
 import { useGalleryContext } from './GalleryContext';
 import { MetadataPanel } from './MetadataPanel';
 import type { FileDetails } from './types';
-import { BASE_PATH, BASE_Z_INDEX, ComfyAppApi } from "./ComfyAppApi";
-import ReactJsonView from '@microlink/react-json-view';
-import Modal from 'antd/es/modal/Modal';
+import { BASE_PATH, ComfyAppApi } from "./ComfyAppApi";
 import InfoCircleOutlined from '@ant-design/icons/lib/icons/InfoCircleOutlined';
 import FileTextOutlined from '@ant-design/icons/lib/icons/FileTextOutlined';
 import CopyOutlined from '@ant-design/icons/lib/icons/CopyOutlined';
@@ -315,23 +313,34 @@ const GalleryImageGrid = () => {
                         paddingLeft: 12,
                     }}
                 >
-                    <Tooltip title={showMetadataPanel ? "Hide metadata" : "Show metadata"}>
+                    <Tooltip title={showMetadataPanel && !showRawMetadata ? "Hide metadata" : "Show metadata"}>
                         <InfoCircleOutlined
                             style={{
                                 fontSize: 18,
                                 padding: '8px 12px',
                                 cursor: 'pointer',
-                                color: showMetadataPanel ? '#1890ff' : '#ffffffd9',
+                                color: showMetadataPanel && !showRawMetadata ? '#1890ff' : '#ffffffd9',
                             }}
-                            onClick={() => setShowMetadataPanel(p => !p)}
+                            onClick={() => {
+                                if (showMetadataPanel && !showRawMetadata) {
+                                    setShowMetadataPanel(false);
+                                } else {
+                                    setShowMetadataPanel(true);
+                                    setShowRawMetadata(false);
+                                }
+                            }}
                         />
                     </Tooltip>
-                    <Tooltip title="Raw JSON">
+                    <Tooltip title={showMetadataPanel && showRawMetadata ? "Hide Raw JSON" : "Raw JSON"}>
                         <FileTextOutlined
-                            style={{ fontSize: 18, padding: '8px 12px', cursor: 'pointer', color: '#ffffffd9' }}
+                            style={{ fontSize: 18, padding: '8px 12px', cursor: 'pointer', color: showMetadataPanel && showRawMetadata ? '#1890ff' : '#ffffffd9' }}
                             onClick={() => {
-                                setShowRawMetadata(true);
-                                setShowMetadataPanel(false);
+                                if (showMetadataPanel && showRawMetadata) {
+                                    setShowMetadataPanel(false);
+                                } else {
+                                    setShowMetadataPanel(true);
+                                    setShowRawMetadata(true);
+                                }
                             }}
                         />
                     </Tooltip>
@@ -411,7 +420,7 @@ const GalleryImageGrid = () => {
                 </div>
             </div>
         );
-    }, [previewableImages, showMetadataPanel, setShowMetadataPanel, setShowRawMetadata, setImageInfoName, copySuccess]);
+    }, [previewableImages, showMetadataPanel, setShowMetadataPanel, setShowRawMetadata, showRawMetadata, setImageInfoName, copySuccess]);
 
     // onChange for preview navigation
     const previewOnChange = useCallback((current: number) => {
@@ -432,8 +441,9 @@ const GalleryImageGrid = () => {
             setImageInfoName(undefined);
             setPreviewingVideo(undefined);
             setShowMetadataPanel(false);
+            setShowRawMetadata(false);
         }
-    }, [setImageInfoName, setPreviewingVideo, setShowMetadataPanel]);
+    }, [setImageInfoName, setPreviewingVideo, setShowMetadataPanel, setShowRawMetadata]);
 
     // Memoized current index for preview
     const previewableCurrentIndex = useMemo(() => {
@@ -508,32 +518,6 @@ const GalleryImageGrid = () => {
                     </AutoSizer>
                 )}
             </Image.PreviewGroup>
-            {/* Raw metadata modal */}
-            <Modal
-                zIndex={BASE_Z_INDEX + 2}
-                title={`Raw Metadata: ${previewableImages.find(img => img.name === imageInfoName)?.name ?? 'Raw Metadata'}`}
-                open={showRawMetadata}
-                onCancel={() => setShowRawMetadata(false)}
-                footer={null}
-                width="100%"
-                height="100%"
-                style={{ padding: '40px' }}
-                centered
-            >
-                {showRawMetadata && (() => {
-                    const img = previewableImages.find(i => i.name === imageInfoName);
-                    return img ? (
-                        <ReactJsonView
-                            theme={settings.darkMode ? 'apathy' : 'apathy:inverted'}
-                            src={img.metadata || {}}
-                            name={false}
-                            collapsed={2}
-                            enableClipboard
-                            displayDataTypes={false}
-                        />
-                    ) : null;
-                })()}
-            </Modal>
         </div>
     );
 };

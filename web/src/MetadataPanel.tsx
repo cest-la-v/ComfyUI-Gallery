@@ -1,4 +1,4 @@
-import { Typography, Button, Descriptions, Tooltip, message, Tag, Popconfirm } from 'antd';
+import { Typography, Button, Descriptions, Tooltip, message, Tag, Popconfirm, Segmented } from 'antd';
 import { parseComfyMetadata, detectMetadataSources } from './metadata-parser/metadataParser';
 import { useState, useMemo, useCallback } from 'react';
 import type { FileDetails } from './types';
@@ -9,6 +9,7 @@ import DownloadOutlined from '@ant-design/icons/lib/icons/DownloadOutlined';
 import DeleteOutlined from '@ant-design/icons/lib/icons/DeleteOutlined';
 import { BASE_PATH } from './ComfyAppApi';
 import { saveAs } from 'file-saver';
+import ReactJsonView from '@microlink/react-json-view';
 
 const PROMPT_ROW_LIMIT = 6;
 
@@ -17,7 +18,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
     const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
     const meta = useMemo(() => parseComfyMetadata(image.metadata, 'auto'), [image.metadata]);
     const sources = useMemo(() => detectMetadataSources(image.metadata), [image.metadata]);
-    const { setImageInfoName } = useGalleryContext();
+    const { setImageInfoName, showRawMetadata, setShowRawMetadata, settings } = useGalleryContext();
 
     const renderPromptValue = useCallback((key: string, value: string) => {
         const isExpanded = expandedKeys[key];
@@ -133,6 +134,16 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                 {sources.hasPrompt && <Tag color="green">ComfyUI Prompt ✓</Tag>}
                 {sources.hasWorkflow && <Tag color="orange">ComfyUI Workflow ✓</Tag>}
             </div>
+            <Segmented
+                value={showRawMetadata ? 'raw' : 'metadata'}
+                options={[
+                    { label: 'Metadata', value: 'metadata' },
+                    { label: 'Raw JSON', value: 'raw' },
+                ]}
+                onChange={(value) => setShowRawMetadata(value === 'raw')}
+                size="small"
+                block
+            />
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {image.type === 'image' && (
@@ -153,19 +164,31 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                     <Button icon={<DeleteOutlined />} size="small" danger>Delete</Button>
                 </Popconfirm>
             </div>
-            {/* Metadata table */}
+            {/* Content: metadata table or raw JSON */}
             {image.type === 'image' && (
-                <Descriptions
-                    bordered
-                    column={1}
-                    items={items}
-                    size="small"
-                    style={{ color: '#fff', borderRadius: 8, width: '100%' }}
-                    styles={{
-                        label: { fontWeight: 600, width: 110 },
-                        content: { fontWeight: 400 }
-                    }}
-                />
+                showRawMetadata ? (
+                    <ReactJsonView
+                        theme={settings.darkMode ? 'apathy' : 'apathy:inverted'}
+                        src={image.metadata || {}}
+                        name={false}
+                        collapsed={2}
+                        enableClipboard
+                        displayDataTypes={false}
+                        style={{ borderRadius: 8, padding: 8 }}
+                    />
+                ) : (
+                    <Descriptions
+                        bordered
+                        column={1}
+                        items={items}
+                        size="small"
+                        style={{ color: '#fff', borderRadius: 8, width: '100%' }}
+                        styles={{
+                            label: { fontWeight: 600, width: 110 },
+                            content: { fontWeight: 400 }
+                        }}
+                    />
+                )
             )}
         </div>
     );
