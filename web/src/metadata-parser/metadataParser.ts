@@ -4,7 +4,7 @@ import { extractByPrompt } from './promptMetadataParser';
 import type { FileDetails, Metadata } from '../types';
 import { isNegativePrompt, isPositivePrompt } from './validator';
 import { extractByWorkflow } from './workflowMetadataParser';
-import { extractByA1111 } from './a1111MetadataParser';
+import { extractByA1111, parseA1111Parameters } from './a1111MetadataParser';
 
 // --- Types ---
 export type NodeType = { [key: string]: any };
@@ -64,6 +64,20 @@ export const extractPlaceholders: MetadataExtractionPass = {
     cfg_scale() { return ''; },
     loras() { return 'N/A'; }
 };
+
+// --- Metadata Source Detection ---
+export interface MetadataSourceInfo {
+    hasA1111: boolean;
+    hasPrompt: boolean;
+    hasWorkflow: boolean;
+}
+
+export function detectMetadataSources(metadata: Metadata): MetadataSourceInfo {
+    const hasA1111 = !!(metadata?.parameters && typeof metadata.parameters === 'string' && parseA1111Parameters(metadata.parameters));
+    const hasPrompt = !!(metadata?.prompt && typeof metadata.prompt === 'object' && Object.keys(metadata.prompt).length > 0);
+    const hasWorkflow = !!(metadata?.workflow && typeof metadata.workflow === 'object' && Object.keys(metadata.workflow).length > 0);
+    return { hasA1111, hasPrompt, hasWorkflow };
+}
 
 // --- Main Metadata Parsing (middleware style) ---
 export type MetadataSource = 'auto' | 'civitai' | 'comfyui';

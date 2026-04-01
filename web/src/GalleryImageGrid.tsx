@@ -4,7 +4,7 @@ import { AutoSizer } from 'react-virtualized';
 import { FixedSizeGrid } from 'react-window';
 import ImageCard, { ImageCardHeight, ImageCardWidth } from './ImageCard';
 import { useGalleryContext } from './GalleryContext';
-import { MetadataView } from './MetadataView';
+import { UnifiedPreview } from './MetadataView';
 import type { FileDetails } from './types';
 import { BASE_PATH } from "./ComfyAppApi";
 
@@ -20,12 +20,12 @@ const GalleryImageGrid = () => {
         setAutoSizer,
         imageInfoName,
         setImageInfoName,
-        previewingVideo,
         setPreviewingVideo,
         showRawMetadata,
         setShowRawMetadata,
         settings,
-        loading 
+        loading,
+        setShowMetadataPanel,
     } = useGalleryContext();
     const containerRef = useRef<HTMLDivElement>(null);
     const imagesDetailsList = useMemo(() => {
@@ -238,99 +238,49 @@ const GalleryImageGrid = () => {
         return resolved;
     }, [previewableImages, imagesDetailsList, setImageInfoName]);
 
-    // Memoized imageRender for InfoView
-    const infoImageRender = useCallback((originalNode: React.ReactElement, info: { current: number; }) => {
-        let image = data?.folders?.[currentFolder]?.[imageInfoName ?? ""];
-        image = resolvePreviewableImage(image, info);
+    // Unified imageRender for preview
+    const unifiedImageRender = useCallback((originalNode: React.ReactElement, info: { current: number }) => {
+        let image: FileDetails | undefined = previewableImages[info.current];
+        if (!image) {
+            image = resolvePreviewableImage(image, info);
+        }
         if (!image) return null;
         return (
-            <MetadataView
+            <UnifiedPreview
                 image={image}
-                onShowRaw={() => setShowRawMetadata(true)}
                 showRawMetadata={showRawMetadata}
                 setShowRawMetadata={setShowRawMetadata}
             />
         );
-    }, [data, currentFolder, imageInfoName, setShowRawMetadata, showRawMetadata, resolvePreviewableImage]);
+    }, [previewableImages, resolvePreviewableImage, showRawMetadata, setShowRawMetadata]);
 
-    // Memoized onChange for InfoView
-    const infoOnChange = useCallback((current: number, prevCurrent: number) => {
-        setImageInfoName(previewableImages[current]?.name);
-    }, [setImageInfoName, previewableImages]);
-
-    // Memoized afterOpenChange for InfoView
-    const infoAfterOpenChange = useCallback((open: boolean) => {
-        if (!open) setImageInfoName(undefined);
-    }, [setImageInfoName]);
-
-    // Memoized media (video/audio) imageRender
-    const videoImageRender = useCallback((originalNode: any, info: any) => {
-        let image = data?.folders?.[currentFolder]?.[previewingVideo ?? ""];
-        image = resolvePreviewableImage(image, info);
-        if (!image) return null;
-        if (image.type === 'audio') {
-            return (
-                <audio
-                    key={image.name}
-                    style={{
-                        maxWidth: "-webkit-fill-available",
-                        width: "80%"
-                    }}
-                    src={`${BASE_PATH}${image.url}`}
-                    autoPlay={true}
-                    controls={true}
-                    preload="none"
-                    ref={el => {
-                        if (el && !settings.autoPlayVideos) {
-                            el.pause();
-                            el.currentTime = 0;
-                        }
-                    }}
-                />
-            );
+    // Unified onChange for preview navigation
+    const unifiedOnChange = useCallback((current: number) => {
+        const img = previewableImages[current];
+        if (img) {
+            setImageInfoName(img.name);
+            if (img.type === 'media' || img.type === 'audio') {
+                setPreviewingVideo(img.name);
+            } else {
+                setPreviewingVideo(undefined);
+            }
         }
-        return (
-            <video
-                key={image.name}
-                style={{
-                    maxWidth: "-webkit-fill-available",
-                    width: "80%"
-                }}
-                src={`${BASE_PATH}${image.url}`}
-                autoPlay={true}
-                controls={true}
-                preload="none"
-                ref={el => {
-                    if (el && !settings.autoPlayVideos) {
-                        el.pause();
-                        el.currentTime = 0;
-                    }
-                }}
-            />
-        );
-    }, [data, currentFolder, previewingVideo, settings.autoPlayVideos, resolvePreviewableImage]);
+    }, [previewableImages, setImageInfoName, setPreviewingVideo]);
 
-    // Memoized onChange for video preview
-    const videoOnChange = useCallback((current: number, prevCurrent: number) => {
-        const t = previewableImages[current]?.type;
-        if (t == "media" || t == "audio") {
-            setPreviewingVideo(previewableImages[current]?.name);
-        } else {
+    // Unified afterOpenChange for preview close
+    const unifiedAfterOpenChange = useCallback((open: boolean) => {
+        if (!open) {
+            setImageInfoName(undefined);
             setPreviewingVideo(undefined);
+            setShowMetadataPanel(false);
         }
-    }, [setPreviewingVideo, previewableImages]);
+    }, [setImageInfoName, setPreviewingVideo, setShowMetadataPanel]);
 
-    // Memoized current index for InfoView
+    // Memoized current index for preview
     const previewableCurrentIndex = useMemo(() => {
-        let index = previewableImages.findIndex(img => img.name === imageInfoName);
-        if (index < 0) {
-            return undefined;
-        } else {
-            return index;
-        }
-    },
-        [previewableImages, imageInfoName]
-    );
+        const index = previewableImages.findIndex(img => img.name === imageInfoName);
+        return index < 0 ? undefined : index;
+    }, [previewableImages, imageInfoName]);
 
     return (
         <div id="imagesBox" style={{ width: '100%', height: '100%', position: 'relative' }} ref={containerRef}>
@@ -351,24 +301,14 @@ const GalleryImageGrid = () => {
                 </div>
             )}
             <Image.PreviewGroup
-                // key={imagesUrlsLists.length}
                 items={imagesUrlsLists}
-                preview={(imageInfoName != undefined) ? {
+                preview={{
                     current: previewableCurrentIndex,
-                    imageRender: infoImageRender,
+                    imageRender: unifiedImageRender,
                     toolbarRender: () => null,
-                    onChange: infoOnChange,
-                    afterOpenChange: infoAfterOpenChange,
-                    destroyOnClose: true
-                } : {
-                    current: previewableCurrentIndex,
-                    onChange: videoOnChange,
-                    imageRender: previewingVideo != undefined ? videoImageRender : undefined,
-                    toolbarRender: previewingVideo != undefined ? () => null : undefined,
+                    onChange: unifiedOnChange,
+                    afterOpenChange: unifiedAfterOpenChange,
                     destroyOnClose: true,
-                    afterOpenChange(open) {
-                        if (!open) setPreviewingVideo(undefined);
-                    },
                 }}
             >
                 {imagesDetailsList.length === 0 ? (

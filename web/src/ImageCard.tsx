@@ -1,11 +1,12 @@
-import { Button, Image, Typography } from 'antd';
+import { Button, Image, Typography, Popconfirm, message } from 'antd';
 import type { FileDetails } from './types';
 import InfoCircleOutlined from '@ant-design/icons/lib/icons/InfoCircleOutlined';
+import DeleteOutlined from '@ant-design/icons/lib/icons/DeleteOutlined';
 import SoundOutlined from '@ant-design/icons/lib/icons/SoundOutlined';
 import React, { useRef, useState } from 'react';
 import { useDrag, useEventListener } from 'ahooks';
 import { useGalleryContext } from './GalleryContext';
-import { BASE_PATH } from './ComfyAppApi';
+import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
 
 export const ImageCardWidth = 350;
 export const ImageCardHeight = 450;
@@ -21,9 +22,10 @@ function ImageCard({
     onInfoClick: (imageName: string | undefined) => void;
     onVideoClick: (imageName: string | undefined) => void;
 }) {
-    const { settings, selectedImages, setSelectedImages, setPreviewingVideo } = useGalleryContext();
+    const { settings, selectedImages, setSelectedImages, setPreviewingVideo, setShowMetadataPanel } = useGalleryContext();
     const dragRef = useRef<HTMLDivElement>(null);
     const [dragging, setDragging] = useState(false);
+    const [hovered, setHovered] = useState(false);
 
     useDrag(
         {
@@ -88,6 +90,8 @@ function ImageCard({
         <div
             className='image-card'
             ref={dragRef}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
             style={{
                 width: ImageCardWidth,
                 height: ImageCardHeight,
@@ -106,6 +110,51 @@ function ImageCard({
             }}
             onClick={handleCardClick}
         >
+            {hovered && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        zIndex: 3,
+                    }}
+                >
+                    <Popconfirm
+                        title="Delete the image"
+                        description="Are you sure you want to delete this image?"
+                        onConfirm={async (e) => {
+                            e?.stopPropagation();
+                            const success = await ComfyAppApi.deleteImage(image.url);
+                            if (success) {
+                                message.success('Image deleted');
+                            } else {
+                                message.error('Failed to delete image');
+                            }
+                        }}
+                        onCancel={(e) => {
+                            e?.stopPropagation();
+                        }}
+                        okText="Yes"
+                        cancelText="No"
+                    >
+                        <Button
+                            shape="circle"
+                            icon={<DeleteOutlined />}
+                            size="small"
+                            danger
+                            style={{
+                                background: 'rgba(0, 0, 0, 0.6)',
+                                color: '#ff4d4f',
+                                border: 'none',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                            }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                            }}
+                        />
+                    </Popconfirm>
+                </div>
+            )}
             {image.type == "image" ? (<>
                 <Image 
                     id={image.url}
@@ -123,6 +172,7 @@ function ImageCard({
                     onClick={() => {
                         // Ensure any leftover media preview state is cleared so this opens as an image
                         try { setPreviewingVideo(undefined); } catch {}
+                        setShowMetadataPanel(false);
                         // Trigger the preview
                         document.getElementById(image.url)?.click();
                     }}
@@ -206,6 +256,7 @@ function ImageCard({
                     size={"middle"} 
                     onClick={() => {
                         onInfoClick(image.name);
+                        setShowMetadataPanel(true);
                         document.getElementById(image.url)?.click();
                     }}
                 />
