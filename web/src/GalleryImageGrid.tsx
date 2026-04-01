@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import { Empty, Image, Spin, Tooltip, Popconfirm, message } from 'antd';
 import { AutoSizer } from 'react-virtualized';
 import { FixedSizeGrid } from 'react-window';
@@ -14,6 +14,7 @@ import FileTextOutlined from '@ant-design/icons/lib/icons/FileTextOutlined';
 import CopyOutlined from '@ant-design/icons/lib/icons/CopyOutlined';
 import DownloadOutlined from '@ant-design/icons/lib/icons/DownloadOutlined';
 import DeleteOutlined from '@ant-design/icons/lib/icons/DeleteOutlined';
+import CheckOutlined from '@ant-design/icons/lib/icons/CheckOutlined';
 import { saveAs } from 'file-saver';
 
 const GalleryImageGrid = () => {
@@ -37,6 +38,7 @@ const GalleryImageGrid = () => {
         loading,
     } = useGalleryContext();
     const containerRef = useRef<HTMLDivElement>(null);
+    const [copySuccess, setCopySuccess] = useState(false);
     const imagesDetailsList = useMemo(() => {
         let list: FileDetails[] = Object.values(data?.folders?.[currentFolder] ?? []);
         if (searchFileName && searchFileName.trim() !== "") {
@@ -288,7 +290,6 @@ const GalleryImageGrid = () => {
                 {showMetadataPanel && (
                     <MetadataPanel
                         image={image}
-                        onClose={() => setShowMetadataPanel(false)}
                     />
                 )}
             </>
@@ -296,8 +297,8 @@ const GalleryImageGrid = () => {
     }, [previewableImages, resolvePreviewableImage, showMetadataPanel, setShowMetadataPanel]);
 
     // toolbarRender: extend default toolbar with custom action buttons
-    const previewToolbarRender = useCallback((originalNode: React.ReactElement, info: { actions: { onClose: () => void } }) => {
-        const image = previewableImages.find(img => img.name === imageInfoName);
+    const previewToolbarRender = useCallback((originalNode: React.ReactElement, info: { actions: { onClose: () => void }; current: number }) => {
+        const image = previewableImages[info.current];
         // For video/audio, hide toolbar
         if (image && (image.type === 'media' || image.type === 'audio')) return null;
 
@@ -328,37 +329,47 @@ const GalleryImageGrid = () => {
                     <Tooltip title="Raw JSON">
                         <FileTextOutlined
                             style={{ fontSize: 18, padding: '8px 12px', cursor: 'pointer', color: '#ffffffd9' }}
-                            onClick={() => setShowRawMetadata(true)}
+                            onClick={() => {
+                                setShowRawMetadata(true);
+                                setShowMetadataPanel(false);
+                            }}
                         />
                     </Tooltip>
                     {image?.type === 'image' && (
-                        <Tooltip title="Copy image">
-                            <CopyOutlined
-                                style={{ fontSize: 18, padding: '8px 12px', cursor: 'pointer', color: '#ffffffd9' }}
-                                onClick={() => {
-                                    if (!image) return;
-                                    const img = new window.Image();
-                                    img.crossOrigin = 'anonymous';
-                                    img.src = `${BASE_PATH}${image.url}`;
-                                    img.onload = () => {
-                                        const canvas = document.createElement('canvas');
-                                        canvas.width = img.width;
-                                        canvas.height = img.height;
-                                        const ctx = canvas.getContext('2d');
-                                        if (ctx) {
-                                            ctx.drawImage(img, 0, 0);
-                                            canvas.toBlob(async (blob) => {
-                                                if (blob) {
-                                                    try {
-                                                        await navigator.clipboard.write([new window.ClipboardItem({ [blob.type]: blob })]);
-                                                        message.success('Image copied to clipboard');
-                                                    } catch { message.error('Clipboard copy failed'); }
-                                                }
-                                            }, 'image/png');
-                                        }
-                                    };
-                                }}
-                            />
+                        <Tooltip title={copySuccess ? "Copied!" : "Copy image"}>
+                            {copySuccess ? (
+                                <CheckOutlined
+                                    style={{ fontSize: 18, padding: '8px 12px', color: '#52c41a' }}
+                                />
+                            ) : (
+                                <CopyOutlined
+                                    style={{ fontSize: 18, padding: '8px 12px', cursor: 'pointer', color: '#ffffffd9' }}
+                                    onClick={() => {
+                                        if (!image) return;
+                                        const img = new window.Image();
+                                        img.crossOrigin = 'anonymous';
+                                        img.src = `${BASE_PATH}${image.url}`;
+                                        img.onload = () => {
+                                            const canvas = document.createElement('canvas');
+                                            canvas.width = img.width;
+                                            canvas.height = img.height;
+                                            const ctx = canvas.getContext('2d');
+                                            if (ctx) {
+                                                ctx.drawImage(img, 0, 0);
+                                                canvas.toBlob(async (blob) => {
+                                                    if (blob) {
+                                                        try {
+                                                            await navigator.clipboard.write([new window.ClipboardItem({ [blob.type]: blob })]);
+                                                            setCopySuccess(true);
+                                                            setTimeout(() => setCopySuccess(false), 1200);
+                                                        } catch { message.error('Clipboard copy failed'); }
+                                                    }
+                                                }, 'image/png');
+                                            }
+                                        };
+                                    }}
+                                />
+                            )}
                         </Tooltip>
                     )}
                     <Tooltip title="Download">
@@ -400,7 +411,7 @@ const GalleryImageGrid = () => {
                 </div>
             </div>
         );
-    }, [previewableImages, imageInfoName, showMetadataPanel, setShowMetadataPanel, setShowRawMetadata, setImageInfoName]);
+    }, [previewableImages, showMetadataPanel, setShowMetadataPanel, setShowRawMetadata, setImageInfoName, copySuccess]);
 
     // onChange for preview navigation
     const previewOnChange = useCallback((current: number) => {

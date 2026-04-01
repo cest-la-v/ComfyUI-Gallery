@@ -7,13 +7,12 @@ import { useGalleryContext } from './GalleryContext';
 import CopyOutlined from '@ant-design/icons/lib/icons/CopyOutlined';
 import DownloadOutlined from '@ant-design/icons/lib/icons/DownloadOutlined';
 import DeleteOutlined from '@ant-design/icons/lib/icons/DeleteOutlined';
-import CloseOutlined from '@ant-design/icons/lib/icons/CloseOutlined';
 import { BASE_PATH } from './ComfyAppApi';
 import { saveAs } from 'file-saver';
 
 const PROMPT_ROW_LIMIT = 6;
 
-export function MetadataPanel({ image, onClose }: { image: FileDetails; onClose: () => void }) {
+export function MetadataPanel({ image }: { image: FileDetails }) {
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
     const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
     const meta = useMemo(() => parseComfyMetadata(image.metadata, 'auto'), [image.metadata]);
@@ -129,13 +128,10 @@ export function MetadataPanel({ image, onClose }: { image: FileDetails; onClose:
             onClick={(e) => e.stopPropagation()}
         >
             {/* Header with close button and action buttons */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {sources.hasA1111 && <Tag color="blue">Civitai ✓</Tag>}
-                    {sources.hasPrompt && <Tag color="green">ComfyUI Prompt ✓</Tag>}
-                    {sources.hasWorkflow && <Tag color="orange">ComfyUI Workflow ✓</Tag>}
-                </div>
-                <Button type="text" icon={<CloseOutlined />} onClick={onClose} style={{ color: '#fff' }} />
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {sources.hasA1111 && <Tag color="blue">Civitai ✓</Tag>}
+                {sources.hasPrompt && <Tag color="green">ComfyUI Prompt ✓</Tag>}
+                {sources.hasWorkflow && <Tag color="orange">ComfyUI Workflow ✓</Tag>}
             </div>
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

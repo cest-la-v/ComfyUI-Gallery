@@ -175,10 +175,8 @@ function ImageCard({
                     loading="lazy"
                     // preview={false}
                     onClick={() => {
-                        // Ensure any leftover media preview state is cleared so this opens as an image
-                        try { setPreviewingVideo(undefined); } catch {}
+                        onInfoClick(image.name);
                         setShowMetadataPanel(false);
-                        // Trigger the preview
                         document.getElementById(image.url)?.click();
                     }}
                     alt={image.name}
@@ -212,7 +210,8 @@ function ImageCard({
                     muted={true}
                     preload={!settings.autoPlayVideos ? undefined : "none"}
                     onClick={() => {
-                        onVideoClick(image.name);
+                        onInfoClick(image.name);
+                        setShowMetadataPanel(false);
                         document.getElementById(image.url)?.click();
                     }}
                     draggable
