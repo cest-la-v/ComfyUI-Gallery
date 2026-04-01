@@ -320,14 +320,12 @@ const GalleryImageGrid = () => {
         return (
             <>
                 {originalNode}
-                {showMetadataPanel && (
-                    <MetadataPanel
-                        image={image}
-                    />
-                )}
+                <MetadataPanel
+                    image={image}
+                />
             </>
         );
-    }, [previewableImages, resolvePreviewableImage, showMetadataPanel, setShowMetadataPanel]);
+    }, [previewableImages, resolvePreviewableImage]);
 
     // toolbarRender: extend default toolbar with custom action buttons
     const previewToolbarRender = useCallback((originalNode: React.ReactElement, info: { actions: { onClose: () => void }; current: number }) => {

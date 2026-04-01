@@ -17,7 +17,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
     const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
     const meta = useMemo(() => parseComfyMetadata(image.metadata, 'auto'), [image.metadata]);
     const sources = useMemo(() => detectMetadataSources(image.metadata), [image.metadata]);
-    const { setImageInfoName, imageInfoName, showRawMetadata, setShowRawMetadata, settings, imagesDetailsList } = useGalleryContext();
+    const { setImageInfoName, imageInfoName, showRawMetadata, setShowRawMetadata, settings, imagesDetailsList, showMetadataPanel } = useGalleryContext();
     const previewableImages = useMemo(
         () => imagesDetailsList.filter(img => img.type === 'image' || img.type === 'media' || img.type === 'audio'),
         [imagesDetailsList]
@@ -126,10 +126,10 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                 overflowX: 'hidden',
                 padding: '48px 16px 16px 16px',
                 zIndex: 10,
-                display: 'flex',
+                display: showMetadataPanel ? 'flex' : 'none',
+                pointerEvents: showMetadataPanel ? 'auto' : 'none',
                 flexDirection: 'column',
                 gap: 12,
-                transition: 'transform 0.2s ease-in-out',
             }}
             onClick={(e) => e.stopPropagation()}
         >
