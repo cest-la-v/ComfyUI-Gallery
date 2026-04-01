@@ -26,6 +26,7 @@ function ImageCard({
     const dragRef = useRef<HTMLDivElement>(null);
     const [dragging, setDragging] = useState(false);
     const [hovered, setHovered] = useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
     useDrag(
         {
@@ -110,7 +111,7 @@ function ImageCard({
             }}
             onClick={handleCardClick}
         >
-            {hovered && (
+            {(hovered || deleteConfirmOpen) && (
                 <div
                     style={{
                         position: 'absolute',
@@ -122,8 +123,11 @@ function ImageCard({
                     <Popconfirm
                         title="Delete the image"
                         description="Are you sure you want to delete this image?"
+                        open={deleteConfirmOpen}
+                        onOpenChange={setDeleteConfirmOpen}
                         onConfirm={async (e) => {
                             e?.stopPropagation();
+                            setDeleteConfirmOpen(false);
                             const success = await ComfyAppApi.deleteImage(image.url);
                             if (success) {
                                 message.success('Image deleted');
@@ -133,6 +137,7 @@ function ImageCard({
                         }}
                         onCancel={(e) => {
                             e?.stopPropagation();
+                            setDeleteConfirmOpen(false);
                         }}
                         okText="Yes"
                         cancelText="No"
