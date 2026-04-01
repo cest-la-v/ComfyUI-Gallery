@@ -435,9 +435,10 @@ const GalleryImageGrid = () => {
                         description="Are you sure you want to delete this image?"
                         onConfirm={async () => {
                             if (!image) return;
+                            const next = previewableImages[info.current + 1] ?? previewableImages[info.current - 1];
                             const success = await ComfyAppApi.deleteImage(image.url);
                             if (success) {
-                                setImageInfoName(undefined);
+                                setImageInfoName(next?.name);
                                 message.success('Image deleted');
                             } else {
                                 message.error('Failed to delete image');

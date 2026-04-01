@@ -1,7 +1,6 @@
 import { Typography, Button, Descriptions, Tooltip, message, Tag, Popconfirm, Segmented } from 'antd';
 import { parseComfyMetadata, detectMetadataSources } from './metadata-parser/metadataParser';
-import { useState, useMemo, useCallback } from 'react';
-import type { FileDetails } from './types';
+import { useState, useMemo, useCallback } from 'react';import type { FileDetails } from './types';
 import { ComfyAppApi } from './ComfyAppApi';
 import { useGalleryContext } from './GalleryContext';
 import CopyOutlined from '@ant-design/icons/lib/icons/CopyOutlined';
@@ -18,7 +17,11 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
     const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
     const meta = useMemo(() => parseComfyMetadata(image.metadata, 'auto'), [image.metadata]);
     const sources = useMemo(() => detectMetadataSources(image.metadata), [image.metadata]);
-    const { setImageInfoName, showRawMetadata, setShowRawMetadata, settings } = useGalleryContext();
+    const { setImageInfoName, imageInfoName, showRawMetadata, setShowRawMetadata, settings, imagesDetailsList } = useGalleryContext();
+    const previewableImages = useMemo(
+        () => imagesDetailsList.filter(img => img.type === 'image' || img.type === 'media' || img.type === 'audio'),
+        [imagesDetailsList]
+    );
 
     const renderPromptValue = useCallback((key: string, value: string) => {
         const isExpanded = expandedKeys[key];
@@ -61,14 +64,16 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
     }), [meta, copiedKey, renderPromptValue]);
 
     const handleDelete = useCallback(async () => {
+        const currentIdx = previewableImages.findIndex(img => img.name === imageInfoName);
+        const next = previewableImages[currentIdx + 1] ?? previewableImages[currentIdx - 1];
         const success = await ComfyAppApi.deleteImage(image.url);
         if (success) {
-            setImageInfoName(undefined);
+            setImageInfoName(next?.name);
             message.success('Image deleted');
         } else {
             message.error('Failed to delete image');
         }
-    }, [image.url, setImageInfoName]);
+    }, [image.url, imageInfoName, previewableImages, setImageInfoName]);
 
     const handleDownload = useCallback(async () => {
         try {
