@@ -71,9 +71,16 @@ export function extractModelFromPromptObject(prompt: any): string {
                 if ((refNode.class_type === 'LoraLoader' || refNode.class_type === 'Power Lora Loader (rgthree)') && refNode.inputs.model) {
                     return resolveModelRef(refNode.inputs.model, visited);
                 }
-                // CheckpointLoader nodes
-                if ((refNode.class_type === 'CheckpointLoaderSimple' || refNode.class_type === 'CheckpointLoader|pysssss' || refNode.class_type === 'ModelLoader' || refNode.class_type === 'CheckpointLoader') && refNode.inputs.ckpt_name) {
+                // CheckpointLoader nodes (all known variants)
+                const isCheckpoint = refNode.class_type === 'CheckpointLoaderSimple' || refNode.class_type === 'CheckpointLoader|pysssss' ||
+                    refNode.class_type === 'ModelLoader' || refNode.class_type === 'CheckpointLoader' ||
+                    refNode.class_type === 'Checkpoint Loader (Simple)' || refNode.class_type === 'Sage_CheckpointSelector';
+                if (isCheckpoint && refNode.inputs.ckpt_name) {
                     return resolveModelRef(refNode.inputs.ckpt_name, visited);
+                }
+                // Sage model+lora stack loader: follow model_info to checkpoint selector
+                if (refNode.class_type === 'Sage_ModelLoraStackLoader' && refNode.inputs.model_info) {
+                    return resolveModelRef(refNode.inputs.model_info, visited);
                 }
                 // Fallback: search for any string ending with .safetensors or .ckpt
                 for (const key in refNode.inputs) {
@@ -85,14 +92,30 @@ export function extractModelFromPromptObject(prompt: any): string {
         }
         return '';
     }
+    // Pre-scan: Sage-specific model loaders take priority (directly specify the generation model)
+    for (const nodeId in prompt) {
+        const node = prompt[nodeId];
+        if (!node || typeof node !== 'object') continue;
+        const ct = node.class_type || node.type || '';
+        const inputs = node.inputs || {};
+        // Sage_ModelLoraStackLoader → Sage_CheckpointSelector
+        if (ct === 'Sage_ModelLoraStackLoader' && inputs.model_info) {
+            const resolved = resolveModelRef(inputs.model_info);
+            if (resolved) return resolved;
+        }
+        // Direct Sage checkpoint selector (standalone)
+        if (ct === 'Sage_CheckpointSelector' && inputs.ckpt_name && typeof inputs.ckpt_name === 'string') {
+            return inputs.ckpt_name;
+        }
+    }
     // Main search: prefer CheckpointLoader, then LoRA, then any likely model filename
     for (const nodeId in prompt) {
         const node = prompt[nodeId];
         if (!node || typeof node !== 'object') continue;
         const ct = node.class_type || node.type || '';
         const inputs = node.inputs || {};
-        // CheckpointLoader nodes
-        if ((ct === 'CheckpointLoaderSimple' || ct === 'CheckpointLoader|pysssss' || ct === 'ModelLoader' || ct === 'CheckpointLoader') && inputs.ckpt_name) {
+        // CheckpointLoader nodes (all known variants)
+        if ((ct === 'CheckpointLoaderSimple' || ct === 'CheckpointLoader|pysssss' || ct === 'ModelLoader' || ct === 'CheckpointLoader' || ct === 'Checkpoint Loader (Simple)') && inputs.ckpt_name) {
             const resolved = resolveModelRef(inputs.ckpt_name);
             if (resolved) return resolved;
         }
@@ -270,17 +293,30 @@ export function extractParametersFromPromptObject(prompt: any): Parameters {
         if (!node || typeof node !== 'object') continue;
         const ct = node.class_type || node.type || '';
         const inputs = node.inputs || {};
-        if (ct === 'KSampler' || ct === 'SamplerCustom' || ct === 'FaceDetailerPipe') {
-            if (inputs.steps != null) params.steps = inputs.steps;
-            if (inputs.cfg != null) params.cfg_scale = inputs.cfg;
-            if (inputs.sampler_name) params.sampler = inputs.sampler_name;
-            if (inputs.scheduler) params.scheduler = inputs.scheduler;
-            if (inputs.seed != null) params.seed = inputs.seed;
-            if (inputs.noise_seed != null && params.seed == null) params.seed = inputs.noise_seed;
+        // Standard KSampler family — only read literal (non-link) values
+        if (ct === 'KSampler' || ct === 'KSamplerAdvanced' || ct === 'SamplerCustom' || ct === 'FaceDetailerPipe') {
+            if (inputs.steps != null && !isLink(inputs.steps)) params.steps = inputs.steps;
+            if (inputs.cfg != null && !isLink(inputs.cfg)) params.cfg_scale = inputs.cfg;
+            if (inputs.sampler_name && !isLink(inputs.sampler_name)) params.sampler = inputs.sampler_name;
+            if (inputs.scheduler && !isLink(inputs.scheduler)) params.scheduler = inputs.scheduler;
+            if (inputs.seed != null && !isLink(inputs.seed)) params.seed = inputs.seed;
+            if (inputs.noise_seed != null && params.seed == null && !isLink(inputs.noise_seed)) params.seed = inputs.noise_seed;
         }
-        if ((ct === 'CheckpointLoaderSimple' || ct === 'CheckpointLoader|pysssss') && inputs.ckpt_name) {
+        // Sage sampler info node — all params as direct literals, high-priority source
+        if (ct === 'Sage_SamplerInfo') {
+            if (inputs.steps != null && !isLink(inputs.steps) && params.steps == null) params.steps = inputs.steps;
+            if (inputs.cfg != null && !isLink(inputs.cfg) && params.cfg_scale == null) params.cfg_scale = inputs.cfg;
+            if (inputs.sampler_name && !isLink(inputs.sampler_name) && params.sampler == null) params.sampler = inputs.sampler_name;
+            if (inputs.scheduler && !isLink(inputs.scheduler) && params.scheduler == null) params.scheduler = inputs.scheduler;
+            if (inputs.seed != null && !isLink(inputs.seed) && params.seed == null) params.seed = inputs.seed;
+        }
+        // Checkpoint nodes
+        const isCheckpointNode = ct === 'CheckpointLoaderSimple' || ct === 'CheckpointLoader|pysssss' ||
+            ct === 'ModelLoader' || ct === 'CheckpointLoader' ||
+            ct === 'Checkpoint Loader (Simple)' || ct === 'Sage_CheckpointSelector';
+        if (isCheckpointNode && inputs.ckpt_name && params.model == null) {
             if (typeof inputs.ckpt_name === 'string') params.model = inputs.ckpt_name;
-            if (typeof inputs.ckpt_name === 'object' && inputs.ckpt_name.content) params.model = inputs.ckpt_name.content;
+            else if (typeof inputs.ckpt_name === 'object' && inputs.ckpt_name.content) params.model = inputs.ckpt_name.content;
         }
     }
 
@@ -332,11 +368,11 @@ export function extractSeedFromPromptObject(prompt: any, samplerNodeId: string |
         if (refNode && refNode.class_type === 'FooocusV2Expansion' && refNode.inputs && refNode.inputs.prompt_seed != null) {
             return String(refNode.inputs.prompt_seed);
         }
-        // Try other common fields
+        // Try other common fields — only accept literal (non-link) values
         if (refNode && refNode.inputs) {
-            if (refNode.inputs.seed != null) return String(refNode.inputs.seed);
-            if (refNode.inputs.text != null) return String(refNode.inputs.text);
-            if (refNode.inputs.value != null) return String(refNode.inputs.value);
+            if (refNode.inputs.seed != null && !isLink(refNode.inputs.seed)) return String(refNode.inputs.seed);
+            if (refNode.inputs.value != null && !isLink(refNode.inputs.value) && typeof refNode.inputs.value === 'number') return String(refNode.inputs.value);
+            if (refNode.inputs.text != null && !isLink(refNode.inputs.text) && typeof refNode.inputs.text === 'number') return String(refNode.inputs.text);
         }
     }
     // If the seed input is a direct value
