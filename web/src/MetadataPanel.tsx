@@ -3,9 +3,7 @@ import { parseComfyMetadata, detectMetadataSources } from './metadata-parser/met
 import { useState, useMemo, useCallback } from 'react';import type { FileDetails } from './types';
 import { ComfyAppApi } from './ComfyAppApi';
 import { useGalleryContext } from './GalleryContext';
-import CopyOutlined from '@ant-design/icons/lib/icons/CopyOutlined';
-import DownloadOutlined from '@ant-design/icons/lib/icons/DownloadOutlined';
-import DeleteOutlined from '@ant-design/icons/lib/icons/DeleteOutlined';
+import { CopyOutlined, DownloadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { BASE_PATH } from './ComfyAppApi';
 import { saveAs } from 'file-saver';
 import ReactJsonView from '@microlink/react-json-view';

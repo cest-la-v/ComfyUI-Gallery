@@ -8,12 +8,7 @@ import { MetadataPanel } from './MetadataPanel';
 import type { FileDetails } from './types';
 import { BASE_PATH, ComfyAppApi } from "./ComfyAppApi";
 import { parseComfyMetadata } from './metadata-parser/metadataParser';
-import InfoCircleOutlined from '@ant-design/icons/lib/icons/InfoCircleOutlined';
-import FileTextOutlined from '@ant-design/icons/lib/icons/FileTextOutlined';
-import CopyOutlined from '@ant-design/icons/lib/icons/CopyOutlined';
-import DownloadOutlined from '@ant-design/icons/lib/icons/DownloadOutlined';
-import DeleteOutlined from '@ant-design/icons/lib/icons/DeleteOutlined';
-import CheckOutlined from '@ant-design/icons/lib/icons/CheckOutlined';
+import { InfoCircleOutlined, FileTextOutlined, CopyOutlined, DownloadOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import { saveAs } from 'file-saver';
 
 const GalleryImageGrid = () => {

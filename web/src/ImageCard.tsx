@@ -1,8 +1,6 @@
 import { Button, Image, Typography, Popconfirm, message } from 'antd';
 import type { FileDetails } from './types';
-import InfoCircleOutlined from '@ant-design/icons/lib/icons/InfoCircleOutlined';
-import DeleteOutlined from '@ant-design/icons/lib/icons/DeleteOutlined';
-import SoundOutlined from '@ant-design/icons/lib/icons/SoundOutlined';
+import { InfoCircleOutlined, DeleteOutlined, SoundOutlined } from '@ant-design/icons';
 import React, { useRef, useState } from 'react';
 import { useDrag, useEventListener } from 'ahooks';
 import { useGalleryContext } from './GalleryContext';

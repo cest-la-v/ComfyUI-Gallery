@@ -20,21 +20,29 @@ function getComfyApp() {
     return null;
 }
 
+const mockJsonResponse = (data: unknown) => ({
+    ok: true,
+    json: async () => data,
+    text: async () => JSON.stringify(data),
+});
+
 const mockApi = {
     api: {
         fetchApi: async (url: string, options?: any) => {
             console.log('[MockAPI] fetchApi called:', url, options);
-            // Mocked API responses for development
             if (url.startsWith("/Gallery/images")) {
-                return fetch("/api.json", {});;
+                return fetch("/api.json", {});
             }
             if (url === "/Gallery/monitor/start") {
-                return { ok: true, text: async () => "{\"status\":\"started\"}" };
+                return mockJsonResponse({ status: "started" });
             }
             if (url === "/Gallery/monitor/stop") {
-                return { ok: true, text: async () => "{\"status\":\"stopped\"}" };
+                return mockJsonResponse({ status: "stopped" });
             }
-            return { ok: true, text: async () => "{}" };
+            if (url === "/Gallery/settings") {
+                return mockJsonResponse({});
+            }
+            return mockJsonResponse({});
         },
         addEventListener: (event: string, cb: GalleryEventCallback) => {
             console.log(`[MockAPI] addEventListener called for event: ${event}`);

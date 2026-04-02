@@ -8,7 +8,8 @@ interface. It has two layers:
 - **Python backend** — `aiohttp` route handlers, `watchdog`-based file monitor, and PNG metadata
   extraction, loaded directly by ComfyUI at startup.
 - **React SPA** — TypeScript + Vite + Ant Design 5 frontend, compiled to a single JS bundle
-  (`web/dist/assets/comfy-ui-gallery.js`) that ComfyUI serves as a static file.
+  (`web/dist/assets/comfy-ui-gallery.js`) that ComfyUI serves as a static file. Built with
+  **Bun** (package manager + bundler); Vite is kept only for the `build:vite` fallback script.
 
 The repo lives inside the monorepo at `comfyui-monorepo/ComfyUI-Gallery/` alongside
 `ComfyUI` and `ComfyUI_frontend`.
@@ -30,7 +31,7 @@ in `ComfyUI/custom_nodes/`.
 
 ```bash
 cd web
-npm install
+bun install
 ```
 
 ---
@@ -41,7 +42,8 @@ npm install
 
 ```bash
 cd web
-npm run build      # tsc -b && vite build
+bun run build      # tsc -b && bun build (Bun native bundler, ~260 ms)
+# fallback: bun run build:vite   # uses Vite/Rollup — smaller bundle but slower
 ```
 
 **You must rebuild and commit `web/dist/assets/comfy-ui-gallery.js` after every frontend change.**
@@ -51,26 +53,26 @@ ComfyUI loads the pre-built bundle directly; there is no hot-reload in productio
 
 ```bash
 cd web
-npm run dev        # Vite dev server on localhost — not connected to ComfyUI backend
+bun run dev        # Bun.serve() with HMR on localhost:5173 — not connected to ComfyUI backend
 ```
 
 ### Lint
 
 ```bash
 cd web
-npm run lint       # ESLint with typescript-eslint + react-hooks rules
+bun run lint       # ESLint with typescript-eslint + react-hooks rules
 ```
 
 ---
 
 ## Testing
 
-There is no test runner. Type checking via `tsc -b` (run as part of `npm run build`) is the
+There is no test runner. Type checking via `tsc -b` (run as part of `bun run build`) is the
 primary correctness gate.
 
 ```bash
 cd web
-npm run build      # catches all TypeScript errors
+bun run build      # catches all TypeScript errors
 ```
 
 ---
@@ -141,13 +143,13 @@ A1111 writes one combined field: `Sampler: DPM++ 3M SDE Karras`.
 ## Common Gotchas
 
 - **Rebuild the bundle.** The most common mistake — frontend changes have no effect until
-  `npm run build` is run in `web/` and the new `comfy-ui-gallery.js` is committed.
+  `bun run build` is run in `web/` and the new `comfy-ui-gallery.js` is committed.
 - **String vs integer node IDs.** `prompt` JSON uses string IDs; `workflow` JSON uses integers.
   Mixing them up causes silent lookup failures.
 - **Compound node IDs** like `"752:753"` (subgraph-internal nodes) only appear in `prompt` JSON,
   never in `workflow` JSON. The BFS in `promptMetadataParser.ts` handles them transparently.
-- **Vite output path.** The bundle is at `web/dist/assets/` (one level deeper than Vite default).
-  `WEB_DIRECTORY` in `__init__.py` must match exactly.
+- **Bundle output path.** The bundle is at `web/dist/assets/` (configured in both `vite.config.ts`
+  and the `bun build` flags in `package.json`). `WEB_DIRECTORY` in `__init__.py` must match exactly.
 - **`set_generation_metadata()` API** (ComfyUI side). If working on the ComfyUI repo companion
   changes, this must be called from inside a node's `execute()` while the generation context is
   active. See `ComfyUI/comfy_execution/generation_context.py`.
@@ -156,9 +158,9 @@ A1111 writes one combined field: `Sampler: DPM++ 3M SDE Karras`.
 
 ## Pull Request Guidelines
 
-- Run `npm run build` in `web/` before every commit touching frontend files — commit the rebuilt
+- Run `bun run build` in `web/` before every commit touching frontend files — commit the rebuilt
   `comfy-ui-gallery.js` in the same PR.
-- Run `npm run lint` and ensure no new ESLint errors.
+- Run `bun run lint` and ensure no new ESLint errors.
 - Commit message trailer:
   ```
   Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>

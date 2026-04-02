@@ -3,7 +3,7 @@ import { Tree, Spin } from 'antd';
 import { useGalleryContext } from './GalleryContext';
 import type { FilesTree } from './types';
 import { useDrop, useCountDown } from 'ahooks';
-import FolderOutlined from '@ant-design/icons/lib/icons/FolderOutlined';
+import { FolderOutlined } from '@ant-design/icons';
 import { ComfyAppApi } from './ComfyAppApi';
 
 interface TreeDataNode {

@@ -7,9 +7,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Package manager lockfiles (allow users to use different package managers)
-bun.lock
-bun.lockb
+# Package manager lockfiles — project uses Bun; bun.lock is tracked
+# bun.lock
+# bun.lockb
 yarn.lock
 
 # Cache files

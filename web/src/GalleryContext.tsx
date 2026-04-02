@@ -1,13 +1,9 @@
 import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import useSize from 'ahooks/lib/useSize';
-import useRequest from 'ahooks/lib/useRequest/src/useRequest';
-import useAsyncEffect from 'ahooks/lib/useAsyncEffect';
-import { useEventListener, useLocalStorageState } from 'ahooks';
+import { useSize, useRequest, useAsyncEffect, useEventListener, useLocalStorageState, useClickAway } from 'ahooks';
 import type { FileDetails, FilesTree } from './types';
 import type { AutoCompleteProps } from 'antd/es/auto-complete';
 import { ComfyAppApi, BASE_PATH, OPEN_BUTTON_ID } from './ComfyAppApi';
-import { useClickAway } from 'ahooks';
 import { parseComfyMetadata } from './metadata-parser/metadataParser';
 
 function getImages(): Promise<FilesTree> {
