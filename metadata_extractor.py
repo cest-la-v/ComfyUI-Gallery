@@ -6,7 +6,10 @@ from PIL import Image, ImageOps
 from PIL.ExifTags import TAGS, GPSTAGS, IFD
 from PIL.PngImagePlugin import PngImageFile
 from PIL.JpegImagePlugin import JpegImageFile
-import folder_paths
+try:
+    import folder_paths  # available only when loaded inside ComfyUI
+except ImportError:
+    folder_paths = None  # type: ignore[assignment]
 
 CONFIG_INDENT = 4  # Assuming a default indent value if CONFIG is not available
 
@@ -167,3 +170,25 @@ def buildPreviewText(metadata):
     text += f"Date: {metadata['fileinfo']['date']}\n"
     text += f"Size: {metadata['fileinfo']['size']}\n"
     return text
+
+# ---------------------------------------------------------------------------
+# Standalone CLI — run directly: python metadata_extractor.py <image> ...
+# ---------------------------------------------------------------------------
+def extract_metadata(image_path: str) -> dict:
+    """Public helper: extract metadata dict from a single image file."""
+    _, _, metadata = buildMetadata(image_path)
+    return metadata
+
+
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv) < 2:
+        print('Usage: python metadata_extractor.py <image> [<image> ...]', file=sys.stderr)
+        sys.exit(1)
+    import json as _json
+    for arg in sys.argv[1:]:
+        try:
+            meta = extract_metadata(arg)
+            print(_json.dumps({arg: meta}, indent=2, default=str))
+        except Exception as exc:
+            print(_json.dumps({arg: {'error': str(exc)}}), file=sys.stderr)

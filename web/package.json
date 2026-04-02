@@ -9,6 +9,7 @@
         "build:vite": "tsc -b && vite build",
         "lint": "eslint .",
         "test": "bun test",
+        "inspect": "bun web/scripts/inspect-image.ts",
         "preview": "vite preview"
     },
     "dependencies": {

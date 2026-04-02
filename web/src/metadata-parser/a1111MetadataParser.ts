@@ -237,6 +237,10 @@ export const extractByA1111: MetadataExtractionPass = {
 };
 
 /** Expose model_hash and extras for use in metadataParser.ts */
+export function hasA1111Data(metadata: any): boolean {
+    return _getParsed(metadata) !== null;
+}
+
 export function getA1111ModelHash(metadata: any): string | null {
     return _getParsed(metadata)?.model_hash ?? null;
 }
@@ -245,26 +249,29 @@ export function getA1111Extras(metadata: any): Record<string, string> {
     return _getParsed(metadata)?.extras ?? {};
 }
 
-// Cache parsed result per metadata object to avoid re-parsing for each field
-const _cache = new WeakMap<object, A1111Fields | null>();
+// Cache parsed result per metadata object to avoid re-parsing for each field.
+// Null results are also cached so repeated calls on non-A1111 objects are O(1).
+const _NONE = Symbol('none');
+const _cache = new WeakMap<object, A1111Fields | null | typeof _NONE>();
 
 function _getParsed(metadata: any): A1111Fields | null {
     if (!metadata || typeof metadata !== 'object') return null;
+    if (_cache.has(metadata)) {
+        const cached = _cache.get(metadata)!;
+        return cached === _NONE ? null : cached as A1111Fields | null;
+    }
 
     // Primary: PNG parameters text chunk
     let raw: string | null = (typeof metadata.parameters === 'string') ? metadata.parameters : null;
 
     // Fallback: JPEG Exif.UserComment decoded by the Python extractor
-    // The Python extractor stores this under metadata.Exif.UserComment or
-    // metadata.ExifIFD.UserComment (decoded to a plain string).
     if (!raw) {
         const uc = metadata?.Exif?.UserComment ?? metadata?.ExifIFD?.UserComment;
         if (typeof uc === 'string' && uc.includes('Steps:')) raw = uc;
     }
 
-    if (!raw) return null;
-    if (_cache.has(metadata)) return _cache.get(metadata)!;
+    if (!raw) { _cache.set(metadata, _NONE); return null; }
     const result = parseA1111Parameters(raw);
-    _cache.set(metadata, result);
+    _cache.set(metadata, result ?? _NONE);
     return result;
 }

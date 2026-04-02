@@ -54,6 +54,7 @@ export const COMFYUI_SCHEDULER_DISPLAY: Record<string, string> = {
     polyexponential:  'Polyexponential',
     vp:               'VP',
     turbo:            'Turbo',
+    automatic:        'Automatic',
 };
 
 /**

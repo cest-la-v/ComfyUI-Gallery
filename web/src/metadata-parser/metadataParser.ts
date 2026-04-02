@@ -4,7 +4,7 @@ import { extractByPrompt } from './promptMetadataParser';
 import type { FileDetails, Metadata } from '../types';
 import { isNegativePrompt, isPositivePrompt } from './validator';
 import { extractByWorkflow } from './workflowMetadataParser';
-import { extractByA1111, parseA1111Parameters, getA1111ModelHash, getA1111Extras } from './a1111MetadataParser';
+import { extractByA1111, getA1111ModelHash, getA1111Extras, hasA1111Data } from './a1111MetadataParser';
 import { normalizeModelName, normalizeSamplerName, normalizeSchedulerName } from './samplerNormalizer';
 
 // --- Types ---
@@ -74,7 +74,8 @@ export interface MetadataSourceInfo {
 }
 
 export function detectMetadataSources(metadata: Metadata): MetadataSourceInfo {
-    const hasA1111 = !!(metadata?.parameters && typeof metadata.parameters === 'string' && parseA1111Parameters(metadata.parameters));
+    // Use hasA1111Data so JPEG images (UserComment path) are correctly detected
+    const hasA1111 = hasA1111Data(metadata);
     const hasPrompt = !!(metadata?.prompt && typeof metadata.prompt === 'object' && Object.keys(metadata.prompt).length > 0);
     const hasWorkflow = !!(metadata?.workflow && typeof metadata.workflow === 'object' && Object.keys(metadata.workflow).length > 0);
     return { hasA1111, hasPrompt, hasWorkflow };
