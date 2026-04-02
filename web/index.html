@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ComfyUI Gallery — Dev</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: #1a1a1a; font-family: sans-serif; }
+      /* Fake ComfyUI toolbar so waitForElement finds its target */
+      #fake-toolbar {
+        display: flex;
+        align-items: center;
+        padding: 6px 12px;
+        background: #222;
+        border-bottom: 1px solid #333;
+        height: 40px;
+      }
+      .flex.gap-2.mx-2 {
+        display: flex;
+        gap: 8px;
+        margin: 0 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Fake ComfyUI toolbar: provides the mount target for the gallery button -->
+    <div id="fake-toolbar">
+      <span style="color:#888;font-size:12px">ComfyUI Gallery — Dev Mode</span>
+      <div class="flex gap-2 mx-2"></div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
