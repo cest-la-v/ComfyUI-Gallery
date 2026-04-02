@@ -4,7 +4,8 @@ import { extractByPrompt } from './promptMetadataParser';
 import type { FileDetails, Metadata } from '../types';
 import { isNegativePrompt, isPositivePrompt } from './validator';
 import { extractByWorkflow } from './workflowMetadataParser';
-import { extractByA1111, parseA1111Parameters } from './a1111MetadataParser';
+import { extractByA1111, parseA1111Parameters, getA1111ModelHash, getA1111Extras } from './a1111MetadataParser';
+import { normalizeModelName, normalizeSamplerName, normalizeSchedulerName } from './samplerNormalizer';
 
 // --- Types ---
 export type NodeType = { [key: string]: any };
@@ -165,15 +166,29 @@ export function parseComfyMetadata(metadata: Metadata, source: MetadataSource = 
         fields.positive = fields.negative;
         fields.negative = '';
     }
-    // Assign all fields to result
-    result["Model"] = fields.model || '';
+    // Assign all fields to result, applying canonical display-name normalization
+    result["Model"] = normalizeModelName(fields.model);
     result["Positive Prompt"] = fields.positive || '';
     result["Negative Prompt"] = fields.negative || '';
-    result["Sampler"] = fields.sampler || '';
-    result["Scheduler"] = fields.scheduler || '';
+    result["Sampler"] = normalizeSamplerName(fields.sampler);
+    result["Scheduler"] = normalizeSchedulerName(fields.scheduler);
     result["Steps"] = fields.steps || '';
     result["CFG Scale"] = fields.cfg_scale || '';
     result["Seed"] = fields.seed || '';
     result["LoRAs"] = fields.loras || 'N/A';
+
+    // Emit model hash when available (A1111/Civitai only)
+    const modelHash = getA1111ModelHash(metadata);
+    if (modelHash) result["Model Hash"] = modelHash;
+
+    // Emit all unrecognized A1111 extension fields (Civitai extras like VAE, Hires, ADetailer, etc.)
+    const extras = getA1111Extras(metadata);
+    for (const [key, value] of Object.entries(extras)) {
+        if (!value) continue;
+        // Title-case the key for display: "vae hash" → "Vae Hash"
+        const displayKey = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        result[displayKey] = value;
+    }
+
     return result;
 }

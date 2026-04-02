@@ -10,6 +10,7 @@ import folder_paths
 
 CONFIG_INDENT = 4  # Assuming a default indent value if CONFIG is not available
 
+
 def get_size(file_path):
     file_size_bytes = os.path.getsize(file_path)
     if file_size_bytes < 1024:
@@ -18,6 +19,42 @@ def get_size(file_path):
         return f"{file_size_bytes / 1024:.2f} KB"
     else:
         return f"{file_size_bytes / (1024 * 1024):.2f} MB"
+
+
+def decode_user_comment(raw: bytes) -> str | None:
+    """Decode an EXIF UserComment binary blob per the EXIF 2.3 spec.
+
+    The first 8 bytes are a character-code identifier:
+      b'UNICODE\\x00\\x00' → UTF-16 BE (big-endian, no BOM)
+      b'ASCII\\x00\\x00\\x00'  → ASCII / UTF-8
+      b'JIS\\x00\\x00\\x00\\x00\\x00' → ISO-2022-JP
+
+    Returns the decoded string, or None if decoding fails.
+    """
+    if not isinstance(raw, bytes) or len(raw) < 8:
+        return None
+    prefix = raw[:8]
+    payload = raw[8:]
+    if prefix.startswith(b'UNICODE'):
+        try:
+            return payload.decode('utf-16-be').rstrip('\x00')
+        except UnicodeDecodeError:
+            pass
+    if prefix.startswith(b'ASCII'):
+        try:
+            return payload.decode('ascii').rstrip('\x00').rstrip('\x00')
+        except UnicodeDecodeError:
+            pass
+    if prefix.startswith(b'JIS'):
+        try:
+            return payload.decode('iso-2022-jp').rstrip('\x00')
+        except UnicodeDecodeError:
+            pass
+    # Fallback: attempt UTF-8 on the full payload
+    try:
+        return payload.decode('utf-8').rstrip('\x00')
+    except UnicodeDecodeError:
+        return None
 
 
 def buildMetadata(image_path):
@@ -99,6 +136,17 @@ def buildMetadata(image_path):
 
                 for k, v in ifd.items():
                     tag = resolve.get(k, k)
+                    # UserComment (tag 37510) is a binary blob with an 8-byte charset prefix.
+                    # Decode it properly instead of calling str() on the raw bytes.
+                    if k == 37510 and isinstance(v, bytes):
+                        decoded = decode_user_comment(v)
+                        if decoded is not None:
+                            metadata[ifd_name][str(tag)] = decoded
+                            # Promote to top-level parameters if it looks like A1111 format
+                            # and no parameters key was already set (PNG chunk takes priority).
+                            if 'Steps:' in decoded and ('Sampler:' in decoded or 'Model:' in decoded):
+                                metadata.setdefault('parameters', decoded)
+                        continue
                     try:
                         metadata[ifd_name][str(tag)] = str(v)
                     except Exception as e:

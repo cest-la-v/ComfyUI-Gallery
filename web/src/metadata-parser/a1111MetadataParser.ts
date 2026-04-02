@@ -23,7 +23,9 @@ interface A1111Fields {
     cfg_scale: string | null;
     seed: string | null;
     model: string | null;
+    model_hash: string | null;
     loras: string | null;
+    extras: Record<string, string>;
 }
 
 /** Key aliases from A1111 param line → our internal field names */
@@ -37,7 +39,7 @@ const PARAM_KEY_MAP: Record<string, keyof A1111Fields> = {
     'cfg': 'cfg_scale',
     'seed': 'seed',
     'model': 'model',
-    'model hash': 'model',
+    'model hash': 'model_hash',
     'lora hashes': 'loras',
 };
 
@@ -143,15 +145,23 @@ export function parseA1111Parameters(raw: string): A1111Fields | null {
         cfg_scale: null,
         seed: null,
         model: null,
+        model_hash: null,
         loras: null,
+        extras: {},
     };
 
     // Parse params line
     const pairs = splitParamLine(lines[paramsLineIdx].trim());
     for (const [key, value] of pairs) {
         const fieldName = PARAM_KEY_MAP[key];
-        if (fieldName && fields[fieldName] === null) {
-            fields[fieldName] = value;
+        if (fieldName) {
+            if (fieldName === 'extras') continue; // shouldn't happen, guard only
+            if ((fields[fieldName] as string | null) === null) {
+                (fields[fieldName] as string) = value;
+            }
+        } else {
+            // Store unrecognized A1111 extension fields for passthrough display
+            fields.extras[key] = value;
         }
     }
 
@@ -226,14 +236,35 @@ export const extractByA1111: MetadataExtractionPass = {
     },
 };
 
+/** Expose model_hash and extras for use in metadataParser.ts */
+export function getA1111ModelHash(metadata: any): string | null {
+    return _getParsed(metadata)?.model_hash ?? null;
+}
+
+export function getA1111Extras(metadata: any): Record<string, string> {
+    return _getParsed(metadata)?.extras ?? {};
+}
+
 // Cache parsed result per metadata object to avoid re-parsing for each field
 const _cache = new WeakMap<object, A1111Fields | null>();
 
 function _getParsed(metadata: any): A1111Fields | null {
     if (!metadata || typeof metadata !== 'object') return null;
-    if (!metadata.parameters) return null;
+
+    // Primary: PNG parameters text chunk
+    let raw: string | null = (typeof metadata.parameters === 'string') ? metadata.parameters : null;
+
+    // Fallback: JPEG Exif.UserComment decoded by the Python extractor
+    // The Python extractor stores this under metadata.Exif.UserComment or
+    // metadata.ExifIFD.UserComment (decoded to a plain string).
+    if (!raw) {
+        const uc = metadata?.Exif?.UserComment ?? metadata?.ExifIFD?.UserComment;
+        if (typeof uc === 'string' && uc.includes('Steps:')) raw = uc;
+    }
+
+    if (!raw) return null;
     if (_cache.has(metadata)) return _cache.get(metadata)!;
-    const result = parseA1111Parameters(metadata.parameters);
+    const result = parseA1111Parameters(raw);
     _cache.set(metadata, result);
     return result;
 }
