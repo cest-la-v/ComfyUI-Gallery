@@ -6,10 +6,26 @@ import GalleryHeader from './GalleryHeader';
 import GallerySidebar from './GallerySidebar';
 import GalleryImageGrid from './GalleryImageGrid';
 import GallerySettingsModal from './GallerySettingsModal';
+import GroupView from './GroupView';
 import { BASE_Z_INDEX } from './ComfyAppApi';
 
 const GalleryModal = () => {
-    const { open, setOpen, size, showSettings, siderCollapsed, setSiderCollapsed } = useGalleryContext();
+    const {
+        open, setOpen, size, showSettings, siderCollapsed,
+        appMode, setAppMode, setGroupBy,
+    } = useGalleryContext();
+
+    const handleSelectModel = (model: string) => {
+        // Switch back to images view with "By Model" grouping active
+        setGroupBy('model');
+        setAppMode('images');
+        // Future: could also set a model filter here
+        void model;
+    };
+
+    const handleSelectPrompt = () => {
+        setAppMode('images');
+    };
 
     return (
         <>
@@ -33,24 +49,33 @@ const GalleryModal = () => {
                     height: "85vh" 
                 }}
             >
-                <Sider 
-                    collapsed={siderCollapsed}
-                    collapsedWidth={0}
-                    width="20%" 
-                    style={{ 
-                        overflow: 'auto', 
-                        position: 'sticky', 
-                        insetInlineStart: 0, 
-                        top: 0, 
-                        bottom: 0, 
-                        scrollbarWidth: 'thin', 
-                        scrollbarGutter: 'stable', 
-                        background: "transparent" 
-                    }}
-                >
-                    <GallerySidebar />
-                </Sider>
-                <GalleryImageGrid />
+                {appMode === 'groups' ? (
+                    <GroupView
+                        onSelectModel={handleSelectModel}
+                        onSelectPrompt={handleSelectPrompt}
+                    />
+                ) : (
+                    <>
+                        <Sider 
+                            collapsed={siderCollapsed}
+                            collapsedWidth={0}
+                            width="20%" 
+                            style={{ 
+                                overflow: 'auto', 
+                                position: 'sticky', 
+                                insetInlineStart: 0, 
+                                top: 0, 
+                                bottom: 0, 
+                                scrollbarWidth: 'thin', 
+                                scrollbarGutter: 'stable', 
+                                background: "transparent" 
+                            }}
+                        >
+                            <GallerySidebar />
+                        </Sider>
+                        <GalleryImageGrid />
+                    </>
+                )}
             </Layout>
         </Modal>
             {showSettings && <GallerySettingsModal />}

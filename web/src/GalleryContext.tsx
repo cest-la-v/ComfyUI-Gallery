@@ -102,6 +102,8 @@ export interface GalleryContextType {
     setSiderCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
     showMetadataPanel: boolean;
     setShowMetadataPanel: React.Dispatch<React.SetStateAction<boolean>>;
+    appMode: 'images' | 'groups';
+    setAppMode: React.Dispatch<React.SetStateAction<'images' | 'groups'>>;
 }
 
 const GalleryContext = createContext<GalleryContextType | undefined>(undefined);
@@ -119,6 +121,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const [selectedImages, setSelectedImages] = useState<string[]>([]);
     const [siderCollapsed, setSiderCollapsed] = useState(true);
     const [showMetadataPanel, setShowMetadataPanel] = useState(false);
+    const [appMode, setAppMode] = useState<'images' | 'groups'>('images');
     const size= useSize(document.querySelector('body'));
     const imagesBoxSize = useSize(document.querySelector('#imagesBox'));
     const { data, error, loading, runAsync, mutate, refresh, refreshAsync } = useRequest(getImages, { manual: true });
@@ -410,6 +413,8 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         setSiderCollapsed,
         showMetadataPanel,
         setShowMetadataPanel,
+        appMode,
+        setAppMode,
     }), [
         currentFolder, 
         searchFileName, 
@@ -441,6 +446,8 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         setSiderCollapsed,
         showMetadataPanel,
         setShowMetadataPanel,
+        appMode,
+        setAppMode,
     ]);
 
     return <GalleryContext.Provider 

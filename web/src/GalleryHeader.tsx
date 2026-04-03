@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Flex, AutoComplete, Button, Segmented, Modal, message, Popconfirm, Select } from 'antd';
-import { CloseSquareFilled, DoubleLeftOutlined, DoubleRightOutlined } from '@ant-design/icons';
+import { CloseSquareFilled, DoubleLeftOutlined, DoubleRightOutlined, AppstoreOutlined } from '@ant-design/icons';
 import { useGalleryContext } from './GalleryContext';
 import type { GroupBy } from './GalleryContext';
 import { useDebounce, useCountDown } from 'ahooks';
@@ -20,7 +20,8 @@ const GalleryHeader = () => {
         setOpen,
         selectedImages, setSelectedImages,
         mutate,
-        siderCollapsed, setSiderCollapsed
+        siderCollapsed, setSiderCollapsed,
+        appMode, setAppMode,
     } = useGalleryContext();
 
     const [search, setSearch] = useState("");
@@ -279,6 +280,14 @@ const GalleryHeader = () => {
                     clearIcon: <CloseSquareFilled /> 
                 }}
             />
+            <Button
+                    icon={<AppstoreOutlined />}
+                    type={appMode === 'groups' ? 'primary' : 'default'}
+                    onClick={() => setAppMode(appMode === 'groups' ? 'images' : 'groups')}
+                    title="Groups view — browse by model or prompt"
+                >
+                    Groups
+                </Button>
             <Select<GroupBy>
                 value={groupBy}
                 onChange={setGroupBy}

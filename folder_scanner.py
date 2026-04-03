@@ -1,7 +1,13 @@
 # folder_scanner.py
 import os
 from datetime import datetime
-from .metadata_extractor import buildMetadata  # Import metadata extractor
+from typing import TYPE_CHECKING
+
+from .metadata_extractor import buildMetadata
+from .gallery_config import gallery_log
+
+if TYPE_CHECKING:
+    from .gallery_db import GalleryDB
 
 # Default extensions include images, media and audio
 DEFAULT_EXTENSIONS = [
@@ -10,88 +16,160 @@ DEFAULT_EXTENSIONS = [
     '.wav', '.mp3', '.m4a', '.flac'    # Audio
 ]
 
-def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_extensions=None):
-    """Scans directories for files matching allowed extensions."""
+_IMAGE_EXTS = frozenset(['.png', '.jpg', '.jpeg', '.webp'])
+_MEDIA_EXTS = frozenset(['.mp4', '.gif', '.webm', '.mov'])
+_AUDIO_EXTS = frozenset(['.wav', '.mp3', '.m4a', '.flac'])
+
+
+def _file_type(ext: str) -> str:
+    if ext in _IMAGE_EXTS:
+        return "image"
+    if ext in _MEDIA_EXTS:
+        return "media"
+    if ext in _AUDIO_EXTS:
+        return "audio"
+    return "unknown"
+
+
+def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_extensions=None, db=None):
+    """Scans directories for files matching allowed extensions.
+
+    If db is provided, raw metadata for image files is cached in SQLite:
+    buildMetadata() is only called for new or changed files (cache miss).
+    os.scandir() is always called — it is the source of truth for file existence.
+    """
     if allowed_extensions is None:
         allowed_extensions = DEFAULT_EXTENSIONS
 
-    # Normalize extensions to a tuple for str.endswith checks
-    allowed_extensions_tuple = tuple(
-        ext.lower() if ext.startswith('.') else f".{ext.lower()}" 
+    allowed_ext_set = frozenset(
+        ext.lower() if ext.startswith('.') else f".{ext.lower()}"
         for ext in allowed_extensions
     )
 
     folders_data = {}
-    current_files = set()
+    current_rel_paths: set = set()
     changed = False
 
-    def scan_directory(dir_path, relative_path=""):
-        """Recursively scans a directory for files matching allowed extensions."""
-        nonlocal changed
-        folder_content = {}  # Dictionary to hold files for the current folder
+    # Batch-fetch all cached entries upfront (one DB round-trip)
+    cache: dict = db.get_all_cached() if db is not None else {}
+
+    # Collect new/changed image entries for batch DB upsert
+    upsert_queue: list = []
+
+    def scan_directory(dir_path: str, relative_path: str = ""):
+        folder_content: dict = {}
         try:
-            entries = os.listdir(dir_path)
-            file_entries = []
+            with os.scandir(dir_path) as it:
+                entries = list(it)
 
             for entry in entries:
-                full_path = os.path.join(dir_path, entry)
-                if os.path.isdir(full_path):
-                    if include_subfolders and not entry.startswith("."):
-                        next_relative_path = os.path.join(relative_path, entry)
-                        scan_directory(full_path, next_relative_path)
-                elif os.path.isfile(full_path):
-                    file_entries.append((full_path, entry))
-                    current_files.add(full_path)
+                if entry.is_dir(follow_symlinks=False):
+                    if include_subfolders and not entry.name.startswith("."):
+                        scan_directory(entry.path, os.path.join(relative_path, entry.name))
+                    continue
 
-            for full_path, entry in file_entries:
-                lower_entry = entry.lower()
-                if lower_entry.endswith(allowed_extensions_tuple):
-                    try:
-                        timestamp = os.path.getmtime(full_path)
-                        date_str = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
-                        rel_path = os.path.relpath(dir_path, full_base_path)
-                        filename = entry
-                        subfolder = rel_path if rel_path != "." else ""
-                        if len(subfolder) > 0:
-                            url_path = f"/static_gallery/{subfolder}/{filename}"
-                        else:
-                            url_path = f"/static_gallery/{filename}"
-                        url_path = url_path.replace("\\", "/")
+                if not entry.is_file(follow_symlinks=False):
+                    continue
 
-                        # Default metadata and type detection
-                        metadata = {}
-                        file_type = "unknown"
-                        ext = os.path.splitext(lower_entry)[1]
+                lower_name = entry.name.lower()
+                ext = os.path.splitext(lower_name)[1]
+                if ext not in allowed_ext_set:
+                    continue
 
-                        if ext in ['.png', '.jpg', '.jpeg', '.webp']:
-                            file_type = "image"
-                            try:
-                                _, _, metadata = buildMetadata(full_path)
-                            except Exception as e:
-                                print(f"Gallery Node: Error building metadata for {full_path}: {e}")
-                                metadata = {}
-                        elif ext in ['.mp4', '.gif', '.webm', '.mov']:
-                            file_type = "media"
-                        elif ext in ['.wav', '.mp3', '.m4a', '.flac']:
-                            file_type = "audio"
+                file_type = _file_type(ext)
 
-                        folder_content[filename] = { 
-                            "name": entry,
-                            "url": url_path,
-                            "timestamp": timestamp,
-                            "date": date_str,
-                            "metadata": metadata,
-                            "type": file_type
-                        }
-                    except Exception as e:
-                        print(f"Gallery Node: Error processing file {full_path}: {e}")
+                # rel_path relative to full_base_path (DB identity key)
+                rel_path = os.path.relpath(entry.path, full_base_path).replace("\\", "/")
+                current_rel_paths.add(rel_path)
 
-            folder_key = os.path.join(base_path, relative_path) if relative_path else base_path
-            if folder_content: # Only add folder if it has content
-                folders_data[folder_key] = folder_content
+                try:
+                    st = entry.stat(follow_symlinks=False)
+                    inode = st.st_ino
+                    mtime = st.st_mtime
+                    size = st.st_size
+                except OSError:
+                    continue
+
+                date_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+
+                # URL construction
+                rel_dir = os.path.relpath(dir_path, full_base_path).replace("\\", "/")
+                if rel_dir == ".":
+                    url_path = f"/static_gallery/{entry.name}"
+                else:
+                    url_path = f"/static_gallery/{rel_dir}/{entry.name}"
+
+                metadata: dict = {}
+                if file_type == "image":
+                    cached = cache.get(rel_path)
+                    cache_hit = (
+                        cached is not None
+                        and cached["inode"] == inode
+                        and abs(cached["mtime"] - mtime) < 0.001
+                        and cached["size"] == size
+                    )
+                    if cache_hit:
+                        metadata = cached.get("raw_metadata") or {}
+                    else:
+                        try:
+                            _, _, metadata = buildMetadata(entry.path)
+                        except Exception as e:
+                            gallery_log(f"Error building metadata for {entry.path}: {e}")
+                            metadata = {}
+                        # Queue for batch DB upsert
+                        upsert_queue.append({
+                            "rel_path": rel_path,
+                            "inode": inode,
+                            "mtime": mtime,
+                            "size": size,
+                            "file_type": file_type,
+                            "raw_metadata": metadata or None,
+                        })
+
+                folder_content[entry.name] = {
+                    "name": entry.name,
+                    "url": url_path,
+                    "timestamp": mtime,
+                    "date": date_str,
+                    "metadata": metadata,
+                    "type": file_type,
+                }
 
         except Exception as e:
-            print(f"Gallery Node: Error scanning directory {dir_path}: {e}")
+            gallery_log(f"Error scanning directory {dir_path}: {e}")
+
+        folder_key = os.path.join(base_path, relative_path) if relative_path else base_path
+        if folder_content:
+            folders_data[folder_key] = folder_content
 
     scan_directory(full_base_path, "")
+
+    # Batch upsert new/changed files + their extracted params
+    if db is not None and upsert_queue:
+        try:
+            from .param_extractor import extract_params
+            file_ids = db.upsert_files_batch(upsert_queue)
+            params_list = []
+            for entry in upsert_queue:
+                file_id = file_ids.get(entry["rel_path"])
+                if file_id is None:
+                    continue
+                raw_meta = entry.get("raw_metadata")
+                if raw_meta:
+                    params = extract_params(raw_meta)
+                    if params:
+                        params["file_id"] = file_id
+                        params_list.append(params)
+            if params_list:
+                db.upsert_params_batch(params_list)
+        except Exception as e:
+            gallery_log(f"Gallery DB: error upserting batch: {e}")
+
+    # GC dead entries (inverted diff: delete entries no longer on disk)
+    if db is not None:
+        try:
+            db.gc_dead_entries(current_rel_paths)
+        except Exception as e:
+            gallery_log(f"Gallery DB: error in GC: {e}")
+
     return folders_data, changed

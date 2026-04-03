@@ -32,3 +32,19 @@ export interface Folders {
 export interface FilesTree {
     folders: Folders;
 }
+
+export interface ModelGroup {
+    model: string;
+    count: number;
+    /** Up to 4 rel_paths for thumbnail strip */
+    sample_paths: string[];
+}
+
+export interface PromptGroup {
+    fingerprint: string;
+    positive_prompt: string | null;
+    model: string | null;
+    count: number;
+    /** Up to 4 rel_paths for thumbnail strip */
+    sample_paths: string[];
+}

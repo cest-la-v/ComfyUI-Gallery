@@ -15,6 +15,7 @@ import shutil
 from .folder_monitor import FileSystemMonitor
 from .folder_scanner import _scan_for_images, DEFAULT_EXTENSIONS
 from .gallery_config import disable_logs, gallery_log
+from .gallery_db import open_gallery_db
 
 # Add ComfyUI root to sys.path HERE
 import sys
@@ -32,6 +33,10 @@ PromptServer.instance.routes.static('/static_gallery', PLACEHOLDER_DIR, follow_s
 
 # Initialize scan_lock here
 PromptServer.instance.scan_lock = threading.Lock()
+
+# Gallery database — opened once, shared across requests via thread-local connections
+_ext_dir = os.path.dirname(os.path.abspath(__file__))
+_gallery_db = open_gallery_db(_ext_dir)
 
 # Settings file for persistent user settings
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_settings.json")
@@ -117,7 +122,7 @@ async def get_gallery_images(request):
                 # Use the actual folder name as the root key
                 folder_name = os.path.basename(full_monitor_path)
                 folders_with_metadata, _ = _scan_for_images(
-                    full_monitor_path, folder_name, True, scan_extensions
+                    full_monitor_path, folder_name, True, scan_extensions, db=_gallery_db
                 )
                 result_queue.put(folders_with_metadata)  # Put the result in the queue
             except Exception as e:
@@ -148,6 +153,25 @@ async def get_gallery_images(request):
     result = result_queue.get() # BLOCKING call
     return on_scan_complete(result)
 
+
+@PromptServer.instance.routes.get("/Gallery/groups")
+async def get_gallery_groups(request):
+    """Return image counts grouped by model or prompt fingerprint.
+
+    Query params:
+      by=model   (default) — group by normalized checkpoint name
+      by=prompt  — group by prompt fingerprint (pos+neg+model combo)
+    """
+    by = request.rel_url.query.get("by", "model")
+    try:
+        if by == "prompt":
+            groups = _gallery_db.get_groups_by_prompt()
+        else:
+            groups = _gallery_db.get_groups_by_model()
+        return web.json_response({"by": by, "groups": groups})
+    except Exception as e:
+        gallery_log(f"Error in /Gallery/groups: {e}")
+        return web.Response(status=500, text=str(e))
 
 
 @PromptServer.instance.routes.post("/Gallery/monitor/start")
