@@ -124,9 +124,13 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                 overflowX: 'hidden',
                 padding: '48px 16px 16px 16px',
                 zIndex: 10,
-                display: showMetadataPanel ? 'flex' : 'none',
-                pointerEvents: showMetadataPanel ? 'auto' : 'none',
+                display: 'flex',
                 flexDirection: 'column',
+                // Keep in layout while hidden so Ant Design's JS ellipsis measurement
+                // runs before the panel is revealed — prevents row-height flicker on show.
+                visibility: showMetadataPanel ? 'visible' : 'hidden',
+                opacity: showMetadataPanel ? 1 : 0,
+                pointerEvents: showMetadataPanel ? 'auto' : 'none',
                 gap: 12,
             }}
             onClick={(e) => e.stopPropagation()}
