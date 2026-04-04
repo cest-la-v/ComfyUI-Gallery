@@ -101,3 +101,7 @@ vitest.config.*.timestamp*
 /output.txt
 
 .amp
+# SQLite databases (runtime cache, not source)
+*.db
+*.db-shm
+*.db-wal
