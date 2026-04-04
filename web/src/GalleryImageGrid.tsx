@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
-import { Empty, Image, Spin, Tooltip, Popconfirm, message } from 'antd';
+import { Empty, Image, Spin, Tooltip, Popconfirm, message, Tag } from 'antd';
 import { AutoSizer } from 'react-virtualized';
 import { FixedSizeGrid } from 'react-window';
 import ImageCard, { ImageCardHeight, ImageCardWidth } from './ImageCard';
@@ -53,63 +53,30 @@ const GalleryImageGrid = () => {
         if (image.type === 'divider') {
             if (columnIndex !== 0) return null;
             return (
-                <div 
-                    key={`divider-${index}`} 
-                    style={{ 
-                        ...style, 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        width: `calc(${gridSize.columnCount} * ${ImageCardWidth + 16}px)`, 
-                        gridColumn: `span ${gridSize.columnCount}`, 
-                        background: 'transparent', 
-                        padding: 0, 
-                        minHeight: 48, 
-                        position: 'absolute', 
-                        zIndex: 2 
+                <div
+                    key={`divider-${index}`}
+                    style={{
+                        ...style,
+                        width: `calc(${gridSize.columnCount} * ${ImageCardWidth + 16}px)`,
+                        background: 'transparent',
+                        display: 'flex',
+                        alignItems: 'flex-end',
+                        paddingLeft: 16,
+                        paddingBottom: 8,
+                        paddingTop: 16,
+                        position: 'absolute',
+                        zIndex: 2,
+                        gap: 8,
                     }}
                 >
-                    <div 
-                        style={{ 
-                            width: '100%', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            position: 'relative' 
-                        }}
-                    >
-                        <div 
-                            style={{ 
-                                flex: 1, 
-                                borderBottom: '2px solid #888', 
-                                opacity: 0.3 
-                            }} 
-                        />
-                        <span 
-                            style={{ 
-                                margin: '0 24px', 
-                                fontWeight: 700, 
-                                fontSize: 22, 
-                                color: '#ccc', 
-                                background: '#23272f', 
-                                borderRadius: 8, 
-                                padding: '2px 24px', 
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.08)', 
-                                border: '1px solid #333', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                height: 40 
-                            }}
-                        >
-                            {image.name}
-                        </span>
-                        <div 
-                            style={{ 
-                                flex: 1, 
-                                borderBottom: '2px solid #888', 
-                                opacity: 0.3 
-                            }} 
-                        />
-                    </div>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: '#aaa', letterSpacing: '0.01em' }}>
+                        {image.name}
+                    </span>
+                    {image.count != null && (
+                        <Tag style={{ fontSize: 11, lineHeight: '18px', padding: '0 6px', borderRadius: 10, border: 'none', background: 'rgba(255,255,255,0.08)', color: '#888' }}>
+                            {image.count}
+                        </Tag>
+                    )}
                 </div>
             );
         }

@@ -97,7 +97,7 @@ function ImageCard({
                 borderRadius: 8,
                 overflow: "hidden",
                 margin: "15px",
-                border: dragging ? '2px solid #1890ff' : 'none',
+                border: dragging ? '2px solid #1890ff' : '1px solid rgba(255,255,255,0.1)',
                 opacity: dragging ? 0.5 : 1,
                 display: "flex",
                 alignContent: "center",

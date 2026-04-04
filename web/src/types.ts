@@ -21,6 +21,7 @@ export interface FileDetails {
     width?: number;
     height?: number;
     rel_path?: string;
+    count?: number;
 }
 
 export interface ImageParams {

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Tabs, Card, Badge, Image, Spin, Empty, Alert, Typography, Flex, Tag } from 'antd';
-import { AppstoreOutlined, FileTextOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Card, Badge, Image, Spin, Empty, Alert, Typography, Flex, Tag } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
 import { useGalleryGroups } from './hooks/useGalleryGroups';
 import { BASE_PATH } from './ComfyAppApi';
 import type { ModelGroup, PromptGroup } from './types';
@@ -122,65 +122,35 @@ const GroupView: React.FC<GroupViewProps> = ({ onSelectModel, onSelectPrompt, ac
     return (
         <div style={{ padding: 16, height: '100%', overflowY: 'auto' }}>
             {header}
-            <Tabs
-                defaultActiveKey={activeTab}
-                items={[
-                    {
-                        key: 'model',
-                        label: (
-                            <span>
-                                <AppstoreOutlined /> By Model
-                                {modelGroups.length > 0 && (
-                                    <Badge count={modelGroups.length} size="small" style={{ marginLeft: 6 }} />
-                                )}
-                            </span>
-                        ),
-                        children: modelGroups.length === 0 ? (
-                            <Empty
-                                description="No model metadata found. Run a scan to populate the database."
-                                style={{ marginTop: 40 }}
+            {activeTab === 'model' ? (
+                modelGroups.length === 0 ? (
+                    <Empty description="No model metadata found. Run a scan to populate the database." style={{ marginTop: 40 }} />
+                ) : (
+                    <Flex wrap gap={12} style={{ paddingTop: 8 }}>
+                        {modelGroups.map(group => (
+                            <ModelGroupCard
+                                key={group.model}
+                                group={group}
+                                onClick={() => onSelectModel(group.model)}
                             />
-                        ) : (
-                            <Flex wrap gap={12} style={{ paddingTop: 8 }}>
-                                {modelGroups.map(group => (
-                                    <ModelGroupCard
-                                        key={group.model}
-                                        group={group}
-                                        onClick={() => onSelectModel(group.model)}
-                                    />
-                                ))}
-                            </Flex>
-                        ),
-                    },
-                    {
-                        key: 'prompt',
-                        label: (
-                            <span>
-                                <FileTextOutlined /> By Prompt
-                                {promptGroups.length > 0 && (
-                                    <Badge count={promptGroups.length} size="small" style={{ marginLeft: 6 }} />
-                                )}
-                            </span>
-                        ),
-                        children: promptGroups.length === 0 ? (
-                            <Empty
-                                description="No prompt metadata found. Run a scan to populate the database."
-                                style={{ marginTop: 40 }}
+                        ))}
+                    </Flex>
+                )
+            ) : (
+                promptGroups.length === 0 ? (
+                    <Empty description="No prompt metadata found. Run a scan to populate the database." style={{ marginTop: 40 }} />
+                ) : (
+                    <Flex wrap gap={12} style={{ paddingTop: 8 }}>
+                        {promptGroups.map(group => (
+                            <PromptGroupCard
+                                key={group.fingerprint}
+                                group={group}
+                                onClick={() => onSelectPrompt(group.fingerprint, group.positive_prompt?.slice(0, 40) ?? group.fingerprint.slice(0, 8))}
                             />
-                        ) : (
-                            <Flex wrap gap={12} style={{ paddingTop: 8 }}>
-                                {promptGroups.map(group => (
-                                    <PromptGroupCard
-                                        key={group.fingerprint}
-                                        group={group}
-                                        onClick={() => onSelectPrompt(group.fingerprint, group.positive_prompt?.slice(0, 40) ?? group.fingerprint.slice(0, 8))}
-                                    />
-                                ))}
-                            </Flex>
-                        ),
-                    },
-                ]}
-            />
+                        ))}
+                    </Flex>
+                )
+            )}
         </div>
     );
 };

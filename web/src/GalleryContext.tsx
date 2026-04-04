@@ -274,7 +274,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         const colCount = Math.max(1, gridSize.columnCount || 1);
         sortedGroups.forEach(([key, items]) => {
             for (let i = 0; i < colCount; i++) {
-                result.push({ name: key, type: 'divider' } as FileDetails);
+                result.push({ name: key, type: 'divider', count: items.length } as FileDetails);
             }
             result.push(...items);
             const remainder = items.length % colCount;

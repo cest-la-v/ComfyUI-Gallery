@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Flex, AutoComplete, Button, Segmented, Modal, message, Popconfirm, Tag } from 'antd';
-import { CloseSquareFilled, DoubleLeftOutlined, DoubleRightOutlined, CloseOutlined } from '@ant-design/icons';
+import { Flex, AutoComplete, Button, Segmented, Modal, message, Popconfirm, Tag, Select } from 'antd';
+import { CloseSquareFilled, DoubleLeftOutlined, DoubleRightOutlined, CloseOutlined, SortAscendingOutlined } from '@ant-design/icons';
 import { useGalleryContext } from './GalleryContext';
 import type { ViewMode } from './GalleryContext';
 import { useDebounce, useCountDown } from 'ahooks';
@@ -315,13 +315,18 @@ const GalleryHeader = () => {
                     }
                 }}
             />
-            <Segmented<string>
-                style={{ 
-                    marginRight: 15 
-                }}
-                options={['Newest', 'Oldest', 'Name ↑', 'Name ↓']}
+            <Select
+                size="small"
+                style={{ width: 148, marginRight: 15 }}
                 value={sortMethod}
                 onChange={value => setSortMethod(value as any)}
+                suffixIcon={<SortAscendingOutlined />}
+                options={[
+                    { value: 'Newest', label: 'Date: Newest' },
+                    { value: 'Oldest', label: 'Date: Oldest' },
+                    { value: 'Name ↑', label: 'Name: A → Z' },
+                    { value: 'Name ↓', label: 'Name: Z → A' },
+                ]}
             />
         </Flex>
     );
