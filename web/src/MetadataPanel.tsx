@@ -1,4 +1,4 @@
-import { Typography, Button, Descriptions, Tooltip, message, Tag, Popconfirm, Segmented, Spin } from 'antd';
+import { Typography, Button, Descriptions, Tooltip, message, Tag, Popconfirm, Segmented, Skeleton } from 'antd';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type React from 'react';
 import type { FileDetails, ImageParams } from './types';
@@ -10,6 +10,44 @@ import { saveAs } from 'file-saver';
 import ReactJsonView from '@microlink/react-json-view';
 
 const PROMPT_ROW_LIMIT = 6;
+
+const SKELETON_BORDER = '1px solid #303030';
+
+function MetadataSkeleton() {
+    const rows = [
+        { lw: 70,  cw: 200 },
+        { lw: 60,  cw: 80  },
+        { lw: 55,  cw: 90  },
+        { lw: 75,  cw: 120 },
+        { lw: 50,  cw: 90  },
+        { lw: 55,  cw: 220 },
+        { lw: 65,  cw: 60  },
+        { lw: 45,  cw: 50  },
+    ];
+    return (
+        <div style={{ borderRadius: 8, border: SKELETON_BORDER, overflow: 'hidden', width: '100%' }}>
+            {rows.map(({ lw, cw }, i) => (
+                <div key={i} style={{ display: 'flex', borderBottom: i < rows.length - 1 ? SKELETON_BORDER : 'none', minHeight: 32, alignItems: 'center' }}>
+                    <div style={{ width: 110, minWidth: 110, padding: '6px 12px', borderRight: SKELETON_BORDER, display: 'flex', alignItems: 'center' }}>
+                        <Skeleton.Input active size="small" style={{ width: lw, minWidth: lw, height: 14 }} />
+                    </div>
+                    <div style={{ flex: 1, padding: '6px 12px', display: 'flex', alignItems: 'center' }}>
+                        <Skeleton.Input active size="small" style={{ width: cw, minWidth: cw, height: 14 }} />
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function RawJsonSkeleton({ dark }: { dark: boolean }) {
+    const widths = [160, 80, 200, 60, 120, 90, 180, 70, 140, 50, 160, 80];
+    return (
+        <div style={{ borderRadius: 8, background: dark ? '#2b2b2b' : '#f5f5f5', padding: '12px 16px' }}>
+            <Skeleton active title={false} paragraph={{ rows: 12, width: widths }} />
+        </div>
+    );
+}
 
 function paramsToDisplayMap(params: ImageParams | null): Record<string, string> {
     if (!params) return {};
@@ -324,9 +362,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                 {image.type === 'image' && (
                     showRawMetadata ? (
                         rawLoading ? (
-                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: 120 }}>
-                                <Spin />
-                            </div>
+                            <RawJsonSkeleton dark={settings.darkMode} />
                         ) : (
                             <ReactJsonView
                                 theme={settings.darkMode ? 'apathy' : 'apathy:inverted'}
@@ -340,9 +376,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                         )
                     ) : (
                         parsedLoading ? (
-                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: 120 }}>
-                                <Spin />
-                            </div>
+                            <MetadataSkeleton />
                         ) : (
                             <Descriptions
                                 bordered
