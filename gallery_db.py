@@ -356,6 +356,18 @@ class GalleryDB:
         self._init_schema()
         gallery_log("Gallery DB: reset complete, fresh schema initialized")
 
+    def get_status(self) -> dict:
+        """Return diagnostic info: schema version, row counts, DB path."""
+        conn = self._conn()
+        file_count = conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
+        params_count = conn.execute("SELECT COUNT(*) FROM image_params").fetchone()[0]
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "file_count": file_count,
+            "params_count": params_count,
+            "db_path": self._db_path,
+        }
+
     def close(self):
         conn = getattr(self._local, "conn", None)
         if conn is not None:

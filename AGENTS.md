@@ -154,6 +154,23 @@ A1111 writes one combined field: `Sampler: DPM++ 3M SDE Karras`.
   changes, this must be called from inside a node's `execute()` while the generation context is
   active. See `ComfyUI/comfy_execution/generation_context.py`.
 
+### Cross-platform (macOS / Linux / Windows)
+
+- **Path containment: never use `startswith()`** to check if a file is inside a directory.
+  Use `_is_within_directory()` (defined in `server.py`) which uses `os.path.commonpath()`.
+  Reason: `"/output_backup/img"` starts with `"/output"` → security bypass.
+- **Windows inode is unreliable.** `os.stat().st_ino` is often `0` on NTFS.
+  The file cache hit check in `folder_scanner.py` skips the inode comparison on `sys.platform == "win32"`.
+  Never add inode to a cache key without this guard.
+- **`os.path.relpath()` raises `ValueError` on Windows** when the two paths are on different drives
+  (e.g. scanning `D:\images` with ComfyUI on `C:\`). Always wrap in `try/except ValueError`.
+- **`rel_path` in the DB always uses `/`.** The scanner normalizes with `.replace("\\", "/")`.
+  Any endpoint that receives a `rel_path` from the network must apply the same normalization.
+- **Model name normalization: use `os.path.basename()`**, not `split('/').pop()`.
+  `os.path.basename()` handles both `/` and `\`; `split('/').pop()` silently fails on Windows paths.
+  (The TS `normalizeModelName` uses `split('/').pop()` — acceptable because ComfyUI normalizes
+  prompt JSON paths to `/`, but A1111 text may carry OS-native backslashes.)
+
 ---
 
 ## Pull Request Guidelines

@@ -1,5 +1,6 @@
 # folder_scanner.py
 import os
+import sys
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
@@ -78,8 +79,13 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
 
                 file_type = _file_type(ext)
 
-                # rel_path relative to full_base_path (DB identity key)
-                rel_path = os.path.relpath(entry.path, full_base_path).replace("\\", "/")
+                # rel_path relative to full_base_path (DB identity key, always uses /)
+                try:
+                    rel_path = os.path.relpath(entry.path, full_base_path).replace("\\", "/")
+                except ValueError:
+                    # Windows: raised when entry.path and full_base_path are on different drives
+                    gallery_log(f"Skipping {entry.path}: on different drive from gallery root")
+                    continue
                 current_rel_paths.add(rel_path)
 
                 try:
@@ -92,8 +98,11 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
 
                 date_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
 
-                # URL construction
-                rel_dir = os.path.relpath(dir_path, full_base_path).replace("\\", "/")
+                # URL construction (rel_dir always uses / for URL compatibility)
+                try:
+                    rel_dir = os.path.relpath(dir_path, full_base_path).replace("\\", "/")
+                except ValueError:
+                    rel_dir = "."
                 if rel_dir == ".":
                     url_path = f"/static_gallery/{entry.name}"
                 else:
@@ -106,9 +115,11 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
                     cached = cache.get(rel_path)
                     cache_hit = (
                         cached is not None
-                        and cached["inode"] == inode
                         and abs(cached["mtime"] - mtime) < 0.001
                         and cached["size"] == size
+                        # Skip inode check on Windows: NTFS often returns 0 for st_ino,
+                        # making every file a false positive cache hit.
+                        and (sys.platform == "win32" or cached["inode"] == inode)
                     )
                     if cache_hit:
                         width = cached.get("width")

@@ -1,6 +1,7 @@
 from server import PromptServer
 from aiohttp import web
 import os
+import sys
 import folder_paths
 import time
 from datetime import datetime
@@ -43,7 +44,38 @@ _gallery_db = open_gallery_db(_ext_dir)
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_settings.json")
 
 
-def load_settings():
+def _is_within_directory(file_path: str, base_dir: str) -> bool:
+    """Return True if file_path is inside base_dir (cross-platform safe).
+
+    Uses os.path.commonpath() instead of startswith() to avoid the classic
+    prefix bypass where '/output_backup' starts with '/output'.
+    Raises no exception; returns False on any OS error or different-drive paths.
+    """
+    try:
+        real_file = os.path.realpath(file_path)
+        real_base = os.path.realpath(base_dir)
+        return os.path.commonpath([real_file, real_base]) == real_base
+    except (ValueError, OSError):
+        # ValueError on Windows when paths are on different drives
+        return False
+
+
+def _get_static_dir() -> str:
+    """Return the current static gallery root directory."""
+    static_route = next(
+        (r for r in PromptServer.instance.app.router.routes()
+         if getattr(r, "name", None) == "static_gallery_placeholder"),
+        None,
+    )
+    if static_route is not None:
+        try:
+            return str(static_route.resource._directory)
+        except AttributeError:
+            pass
+    return folder_paths.get_output_directory()
+
+
+
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
@@ -164,19 +196,14 @@ async def get_file_metadata(request):
     ?type=comfyui           — same, filtered to ComfyUI-sourced rows only
     ?type=raw               — raw PNG metadata from file (only mode that reads the file)
     """
-    rel_path = request.match_info["path"]
+    # Normalize rel_path: Windows clients may send backslashes
+    rel_path = request.match_info["path"].replace("\\", "/")
     meta_type = request.rel_url.query.get("type", "civitai")
 
-    static_route = next(
-        (r for r in PromptServer.instance.app.router.routes()
-         if getattr(r, "name", None) == "static_gallery_placeholder"),
-        None,
-    )
-    static_dir = str(static_route.resource._directory) if static_route else folder_paths.get_output_directory()
+    static_dir = _get_static_dir()
     full_path = os.path.realpath(os.path.join(static_dir, rel_path))
-    real_static_dir = os.path.realpath(static_dir)
 
-    if not os.path.normcase(full_path).startswith(os.path.normcase(real_static_dir + os.sep)):
+    if not _is_within_directory(full_path, static_dir):
         return web.Response(status=403, text="Access denied: path outside gallery root")
 
     if meta_type == "raw":
@@ -257,9 +284,18 @@ async def reset_gallery_db(request):
         gallery_log(f"Error resetting gallery DB: {e}")
         return web.Response(status=500, text=str(e))
 
+@PromptServer.instance.routes.get("/Gallery/db/status")
+async def get_gallery_db_status(request):
+    """Return diagnostic info about the gallery cache database."""
+    try:
+        status = _gallery_db.get_status()
+        return web.json_response(status)
+    except Exception as e:
+        gallery_log(f"Error getting gallery DB status: {e}")
+        return web.Response(status=500, text=str(e))
 
 
-async def start_gallery_monitor(request):
+
     """Endpoint to start gallery monitoring, accepts relative_path."""
     global monitor
     from . import gallery_config
@@ -274,7 +310,14 @@ async def start_gallery_monitor(request):
         scan_extensions = data.get("scan_extensions", DEFAULT_EXTENSIONS)
         disable_logs = gallery_config.disable_logs
         use_polling_observer = gallery_config.use_polling_observer
-        full_monitor_path = os.path.normpath(os.path.join(folder_paths.get_output_directory(), "..", "output", relative_path))
+        # Build full monitor path: absolute paths are used as-is, relative ones are joined to output dir
+        base_output_dir = folder_paths.get_output_directory()
+        if relative_path and os.path.isabs(relative_path):
+            full_monitor_path = os.path.normpath(relative_path)
+        elif relative_path in ("./", ".", ""):
+            full_monitor_path = base_output_dir
+        else:
+            full_monitor_path = os.path.normpath(os.path.join(base_output_dir, relative_path))
         gallery_log("disable_logs", disable_logs)
         gallery_log("use_polling_observer", use_polling_observer)
         if monitor and monitor.thread and monitor.thread.is_alive():
@@ -343,18 +386,11 @@ async def delete_image(request):
 
         else:
             return web.Response(status=400, text="Invalid image_path format")
-        static_route = next((r for r in PromptServer.instance.app.router.routes() if getattr(r, 'name', None) == 'static_gallery_placeholder'), None)
-        if static_route is not None:
-            static_dir = str(static_route.resource._directory)
-        else:
-            static_dir = folder_paths.get_output_directory()
+        static_dir = _get_static_dir()
         full_image_path = os.path.realpath(os.path.join(static_dir, relative_path))
-        real_static_dir = os.path.realpath(static_dir)
         if not os.path.exists(full_image_path):
             return web.Response(status=404, text=f"File not found: {full_image_path}")
-        if not os.path.normcase(full_image_path).startswith(
-            os.path.normcase(real_static_dir + os.sep)
-        ):
+        if not _is_within_directory(full_image_path, static_dir):
             return web.Response(status=403, text="Access denied: File outside of static directory")
         try:
             from send2trash import send2trash
@@ -384,19 +420,16 @@ async def move_image(request):
         gallery_log(f"current_path: {current_path}")
         if not source_path or not target_path:
             return web.Response(status=400, text="source_path and target_path are required")
-        static_route = next((r for r in PromptServer.instance.app.router.routes() if getattr(r, 'name', None) == 'static_gallery_placeholder'), None)
-        if static_route is not None:
-            static_dir = str(static_route.resource._directory)
-        else:
-            static_dir = folder_paths.get_output_directory()
+        static_dir = _get_static_dir()
         static_dir_basename = os.path.basename(os.path.normpath(static_dir))
         def make_path(p):
+            # Normalize separators first so both / and \ are handled on Windows
+            p = p.replace("/", os.sep).replace("\\", os.sep)
             if os.path.isabs(p):
                 return os.path.normpath(p)
-            if p.startswith(static_dir_basename + os.sep):
-                p = p[len(static_dir_basename + os.sep):]
-            elif p.startswith(static_dir_basename + "/"):
-                p = p[len(static_dir_basename + "/") :]
+            prefix = static_dir_basename + os.sep
+            if p.startswith(prefix):
+                p = p[len(prefix):]
             return os.path.normpath(os.path.join(static_dir, p))
         full_source_path = make_path(source_path)
         full_target_path = make_path(target_path)
@@ -405,10 +438,10 @@ async def move_image(request):
         gallery_log(f"full_target_path: {full_target_path}")
         if not os.path.exists(full_source_path):
             return web.Response(status=404, text=f"Source file not found: {full_source_path}")
-        if not os.path.realpath(full_source_path).startswith(os.path.realpath(static_dir)) or \
-            not os.path.realpath(full_target_path).startswith(os.path.realpath(static_dir)) or \
-            not os.path.realpath(full_source_path).startswith(os.path.realpath(comfy_path)) or \
-            not os.path.realpath(full_target_path).startswith(os.path.realpath(comfy_path)):
+        if not _is_within_directory(full_source_path, static_dir) or \
+            not _is_within_directory(full_target_path, static_dir) or \
+            not _is_within_directory(full_source_path, comfy_path) or \
+            not _is_within_directory(full_target_path, comfy_path):
             return web.Response(status=403, text="Access denied: File outside of allowed directory")
         if os.path.isdir(full_target_path):
             full_target_path = os.path.join(full_target_path, os.path.basename(full_source_path))

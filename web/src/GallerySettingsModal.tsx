@@ -5,17 +5,25 @@ import { useSetState } from 'ahooks';
 import { useEffect, useState } from 'react';
 import { BASE_Z_INDEX } from './ComfyAppApi';
 
+interface DbStatus {
+    schema_version: number;
+    file_count: number;
+    params_count: number;
+    db_path: string;
+}
+
 const GallerySettingsModal = () => {
     const { showSettings, setShowSettings, settings, setSettings } = useGalleryContext();
-    // Staged (unsaved) settings
     const [staged, setStaged] = useSetState<SettingsState>(settings);
     const [extInput, setExtInput] = useState("");
+    const [dbStatus, setDbStatus] = useState<DbStatus | null>(null);
 
-    // When modal opens, reset staged to current settings
+    // When modal opens, reset staged to current settings and fetch DB status
     useEffect(() => {
         if (showSettings) {
             setStaged(settings);
             setExtInput((settings && (settings as any).scanExtensions) ? (settings as any).scanExtensions.join(', ') : "");
+            fetch('/Gallery/db/status').then(r => r.ok ? r.json() : null).then(d => setDbStatus(d)).catch(() => {});
         }
     }, [showSettings, settings, setStaged]);
 
@@ -149,6 +157,14 @@ const GallerySettingsModal = () => {
                 <Divider style={{ margin: '12px 0' }} />
                 <div>
                     <Typography.Title level={5} type="danger">Danger Zone</Typography.Title>
+                    {dbStatus && (
+                        <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
+                            DB v{dbStatus.schema_version} · {dbStatus.file_count} files · {dbStatus.params_count} with metadata
+                            {dbStatus.params_count === 0 && dbStatus.file_count > 0 && (
+                                <span style={{ color: '#ff4d4f' }}> — no metadata cached, reset to rebuild</span>
+                            )}
+                        </Typography.Text>
+                    )}
                     <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
                         Reset the gallery database — clears all cached metadata. The next scan will rebuild it from scratch.
                     </Typography.Text>
@@ -163,6 +179,7 @@ const GallerySettingsModal = () => {
                                 const res = await fetch('/Gallery/db/reset', { method: 'POST' });
                                 if (res.ok) {
                                     message.success('Database reset. Metadata will be rebuilt on next scan.');
+                                    setDbStatus(null);
                                 } else {
                                     message.error('Reset failed: ' + res.statusText);
                                 }
