@@ -84,7 +84,7 @@ def parse(workflow_json: object) -> Optional[dict]:
         return None
 
     model = normalize_model_name(model_raw)
-    result: dict = {"source": "comfyui", "model": model}
+    result: dict = {"formats": ["comfyui"], "model": model}
 
     # --- KSampler → params + linked pos/neg node IDs ---
     positive_id: Optional[int] = None

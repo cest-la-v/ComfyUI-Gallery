@@ -24,7 +24,7 @@ export interface FileDetails {
 }
 
 export interface ImageParams {
-    source?: 'a1111' | 'comfyui' | null;
+    formats?: string[] | null;
     model?: string | null;
     model_hash?: string | null;
     positive_prompt?: string | null;

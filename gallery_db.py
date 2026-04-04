@@ -25,7 +25,7 @@ from typing import Optional
 from .gallery_config import gallery_log
 
 DB_FILENAME = "gallery_cache.db"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 class GalleryDB:
@@ -78,7 +78,7 @@ class GalleryDB:
 
             CREATE TABLE IF NOT EXISTS image_params (
                 file_id            INTEGER PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
-                source             TEXT,
+                formats            TEXT,
                 model              TEXT,
                 model_hash         TEXT,
                 positive_prompt    TEXT,
@@ -180,14 +180,14 @@ class GalleryDB:
         with conn:
             conn.executemany(
                 """INSERT INTO image_params
-                   (file_id, source, model, model_hash, positive_prompt, negative_prompt,
+                   (file_id, formats, model, model_hash, positive_prompt, negative_prompt,
                     sampler, scheduler, steps, cfg_scale, seed,
                     vae, clip_skip, denoise_strength,
                     hires_upscaler, hires_steps, hires_denoise,
                     loras, extras, prompt_fingerprint)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(file_id) DO UPDATE SET
-                       source=excluded.source,
+                       formats=excluded.formats,
                        model=excluded.model, model_hash=excluded.model_hash,
                        positive_prompt=excluded.positive_prompt,
                        negative_prompt=excluded.negative_prompt,
@@ -204,7 +204,7 @@ class GalleryDB:
                 [
                     (
                         p["file_id"],
-                        p.get("source"),
+                        p.get("formats"),
                         p.get("model"),
                         p.get("model_hash"),
                         p.get("positive_prompt"),
@@ -291,7 +291,7 @@ class GalleryDB:
         Returns None only if the file itself is not in the DB.
         """
         row = self._conn().execute(
-            """SELECT ip.source, ip.model, ip.model_hash,
+            """SELECT ip.formats, ip.model, ip.model_hash,
                       ip.positive_prompt, ip.negative_prompt,
                       ip.sampler, ip.scheduler, ip.steps, ip.cfg_scale, ip.seed,
                       ip.vae, ip.clip_skip, ip.denoise_strength,

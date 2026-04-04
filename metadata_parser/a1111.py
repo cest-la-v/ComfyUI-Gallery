@@ -74,7 +74,7 @@ def parse(parameters_text: str) -> Optional[dict]:
         # No recognizable parameter line
         if not positive_prompt:
             return None
-        return {"source": "a1111", "positive_prompt": positive_prompt}
+        return {"formats": ["a1111"], "positive_prompt": positive_prompt}
 
     raw_kv = _parse_param_line(lines[param_idx])
 
@@ -83,7 +83,7 @@ def parse(parameters_text: str) -> Optional[dict]:
     for line in lines[param_idx + 1:]:
         raw_kv.update(_parse_param_line(line))
 
-    result: dict = {"source": "a1111"}
+    result: dict = {"formats": ["a1111"]}
     extras: dict[str, str] = {}
 
     if positive_prompt:

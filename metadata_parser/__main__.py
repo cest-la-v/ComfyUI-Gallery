@@ -6,7 +6,6 @@ Extracts and prints normalized generation metadata from image files.
 Usage:
     python -m metadata_parser output/image.png
     python -m metadata_parser *.png --json
-    python -m metadata_parser image.png --source civitai
 """
 import argparse
 import json
@@ -21,12 +20,6 @@ def main():
     )
     parser.add_argument("images", nargs="+", metavar="IMAGE", help="Image file path(s)")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument(
-        "--source",
-        choices=["auto", "a1111", "comfyui"],
-        default="auto",
-        help="Force a specific extraction pass (default: auto)",
-    )
     args = parser.parse_args()
 
     # Ensure parent package is importable
@@ -39,9 +32,6 @@ def main():
         sys.exit(1)
 
     from metadata_parser import extract_params
-    from metadata_parser import a1111 as _a1111
-    from metadata_parser import comfyui_prompt as _prompt
-    from metadata_parser import comfyui_workflow as _workflow
 
     results = []
     for path in args.images:
@@ -57,15 +47,7 @@ def main():
             results.append(entry)
             continue
 
-        if args.source == "a1111":
-            params_text = raw.get("parameters") or raw.get("ExifIFD", {}).get("UserComment")
-            params = _a1111.parse(params_text or "")
-        elif args.source == "comfyui":
-            params = _prompt.parse(raw.get("prompt")) or _workflow.parse(raw.get("workflow"))
-        else:
-            params = extract_params(raw)
-
-        entry["params"] = params
+        entry["params"] = extract_params(raw)
         results.append(entry)
 
     if args.json:

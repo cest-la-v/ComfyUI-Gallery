@@ -69,6 +69,67 @@ def _get_static_dir() -> str:
     return _current_gallery_dir
 
 
+def _build_civitai_text(params: dict) -> str:
+    """Reconstruct A1111/CivitAI-style parameters text from merged DB params."""
+    import json as _json
+    parts: list[str] = []
+
+    pos = (params.get("positive_prompt") or "").strip()
+    neg = (params.get("negative_prompt") or "").strip()
+    if pos:
+        parts.append(pos)
+    if neg:
+        parts.append(f"Negative prompt: {neg}")
+
+    kv: list[str] = []
+    if params.get("steps") is not None:
+        kv.append(f"Steps: {params['steps']}")
+    sampler = (params.get("sampler") or "").strip()
+    scheduler = (params.get("scheduler") or "").strip()
+    if sampler:
+        combined = f"{sampler} {scheduler}".strip() if scheduler and scheduler.lower() not in ("normal", "none") else sampler
+        kv.append(f"Sampler: {combined}")
+    if params.get("cfg_scale") is not None:
+        kv.append(f"CFG scale: {params['cfg_scale']}")
+    if params.get("seed") is not None:
+        kv.append(f"Seed: {params['seed']}")
+    fi = params.get("fileinfo") or {}
+    if fi.get("resolution"):
+        kv.append(f"Size: {fi['resolution']}")
+    if params.get("model_hash"):
+        kv.append(f"Model hash: {params['model_hash']}")
+    if params.get("model"):
+        kv.append(f"Model: {params['model']}")
+    if params.get("vae"):
+        kv.append(f"VAE: {params['vae']}")
+    if params.get("clip_skip") is not None:
+        kv.append(f"Clip skip: {params['clip_skip']}")
+    if params.get("denoise_strength") is not None:
+        kv.append(f"Denoising strength: {params['denoise_strength']}")
+    loras = params.get("loras") or []
+    if isinstance(loras, str):
+        try:
+            loras = _json.loads(loras)
+        except Exception:
+            loras = []
+    for lora in loras:
+        name = lora.get("name", "")
+        ms = lora.get("model_strength")
+        kv.append(f"Lora hashes: \"{name}: {ms}\"" if ms is not None else f"Lora hashes: \"{name}\"")
+    extras = params.get("extras") or {}
+    if isinstance(extras, str):
+        try:
+            extras = _json.loads(extras)
+        except Exception:
+            extras = {}
+    for k, v in extras.items():
+        kv.append(f"{k}: {v}")
+
+    if kv:
+        parts.append(", ".join(kv))
+    return "\n".join(parts)
+
+
 def load_settings() -> dict:
     if os.path.exists(SETTINGS_FILE):
         try:
@@ -183,16 +244,15 @@ async def get_gallery_images(request):
 
 @PromptServer.instance.routes.get("/Gallery/metadata/{path:.*}")
 async def get_file_metadata(request):
-    """Lazy metadata endpoint. Returns parsed params or raw PNG JSON.
+    """Lazy metadata endpoint. Returns parsed params or alternative representations.
 
-    ?type=civitai  (default) — image_params from DB joined with fileinfo (no file I/O)
-    ?type=a1111             — same, filtered to A1111-sourced rows only
-    ?type=comfyui           — same, filtered to ComfyUI-sourced rows only
-    ?type=raw               — raw PNG metadata from file (only mode that reads the file)
+    ?format=         (omit, default) — merged image_params from DB as JSON (no file I/O)
+    ?format=raw      — raw PNG metadata chunks from file as JSON
+    ?format=civitai  — A1111/CivitAI-style parameters text, reconstructed from merged params
     """
     # Normalize rel_path: Windows clients may send backslashes
     rel_path = request.match_info["path"].replace("\\", "/")
-    meta_type = request.rel_url.query.get("type", "civitai")
+    fmt = request.rel_url.query.get("format", "parsed")
 
     static_dir = _get_static_dir()
     full_path = os.path.realpath(os.path.join(static_dir, rel_path))
@@ -200,7 +260,7 @@ async def get_file_metadata(request):
     if not _is_within_directory(full_path, static_dir):
         return web.Response(status=403, text="Access denied: path outside gallery root")
 
-    if meta_type == "raw":
+    if fmt == "raw":
         if not os.path.isfile(full_path):
             return web.Response(status=404, text=f"File not found: {rel_path}")
         try:
@@ -212,9 +272,10 @@ async def get_file_metadata(request):
 
     # DB path — no file I/O
     params = _gallery_db.get_params_by_rel_path(rel_path)
-    if params is not None and meta_type in ("a1111", "comfyui"):
-        if params.get("source") != meta_type:
-            params = None
+
+    if fmt == "civitai":
+        text = _build_civitai_text(params) if params else ""
+        return web.Response(text=text, content_type="text/plain")
 
     return web.json_response({"params": params})
 

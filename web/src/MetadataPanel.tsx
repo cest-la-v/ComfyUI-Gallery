@@ -89,7 +89,10 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                 if (!cancelled) {
                     const p = (d as { params?: ImageParams }).params ?? null;
                     if (p) {
-                        // loras/extras are stored as JSON strings in SQLite
+                        // loras/extras/formats are stored as JSON strings in SQLite
+                        if (typeof p.formats === 'string') {
+                            try { p.formats = JSON.parse(p.formats); } catch { p.formats = null; }
+                        }
                         if (typeof p.loras === 'string') {
                             try { p.loras = JSON.parse(p.loras); } catch { p.loras = null; }
                         }
@@ -112,7 +115,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
         rawFetchedForRef.current = relPath;
         let cancelled = false;
         setRawLoading(true);
-        fetch(`${BASE_PATH}/Gallery/metadata/${relPath}?type=raw`)
+        fetch(`${BASE_PATH}/Gallery/metadata/${relPath}?format=raw`)
             .then(r => r.ok ? r.json() as Promise<{ metadata?: Record<string, unknown> }> : Promise.resolve({}))
             .then(d => { if (!cancelled) setRawMetadata((d as { metadata?: Record<string, unknown> }).metadata ?? {}); })
             .catch(() => { if (!cancelled) setRawMetadata({}); })
@@ -243,8 +246,8 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
         >
             {/* Header with close button and action buttons */}
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {parsedParams?.source === 'a1111' && <Tag color="blue">Civitai ✓</Tag>}
-                {parsedParams?.source === 'comfyui' && <Tag color="green">ComfyUI Prompt ✓</Tag>}
+                {parsedParams?.formats?.includes('a1111') && <Tag color="blue">Civitai ✓</Tag>}
+                {parsedParams?.formats?.includes('comfyui') && <Tag color="green">ComfyUI Prompt ✓</Tag>}
             </div>
             <Segmented
                 value={showRawMetadata ? 'raw' : 'metadata'}

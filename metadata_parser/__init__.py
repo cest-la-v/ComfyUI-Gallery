@@ -9,10 +9,9 @@ dict or None. The orchestrator runs all applicable parsers and merges results:
   3. ComfyUI workflow (`workflow` JSON, integer node IDs + links array)
 
 When multiple parsers succeed, results are merged: ComfyUI fields take
-priority (structurally precise); A1111 fills any gaps. `source` is set to
-'comfyui' if ComfyUI contributed any high-value field (model/sampler/steps),
-otherwise 'a1111'. This handles images that embed both A1111 parameters text
-AND a ComfyUI prompt/workflow JSON.
+priority (structurally precise); A1111 fills any gaps. `formats` is a list
+of all parsers that contributed (e.g. ["a1111", "comfyui"]), allowing callers
+to know which metadata sources were present in the image.
 
 Public API
 ----------
@@ -31,15 +30,13 @@ from . import comfyui_workflow as _workflow
 
 __all__ = ["extract_params", "extract_params_from_file"]
 
-# Fields that indicate a parser did real structural work (not just found a prompt string)
-_HIGH_VALUE_FIELDS = frozenset({"model", "sampler", "scheduler", "steps", "cfg_scale", "seed"})
-
 
 def extract_params(raw_metadata: dict) -> Optional[dict]:
     """Extract normalized generation params from a buildMetadata() result.
 
     Returns a dict with any subset of:
-        source, model, model_hash, positive_prompt, negative_prompt,
+        formats (list[str]: which parsers contributed, e.g. ["a1111", "comfyui"]),
+        model, model_hash, positive_prompt, negative_prompt,
         sampler, scheduler, steps, cfg_scale, seed,
         vae, clip_skip, denoise_strength,
         hires_upscaler, hires_steps, hires_denoise,
@@ -93,10 +90,10 @@ def extract_params(raw_metadata: dict) -> Optional[dict]:
         if v is not None:
             merged[k] = v
 
-    # Source: 'comfyui' if it contributed any high-value structural field,
-    # otherwise keep 'a1111' (ComfyUI only found a prompt string, A1111 did the work).
-    comfyui_contributed = any(comfyui_result.get(f) is not None for f in _HIGH_VALUE_FIELDS)
-    merged["source"] = "comfyui" if comfyui_contributed else "a1111"
+    # Collect formats from both parsers (e.g. ["a1111", "comfyui"])
+    a1111_formats = a1111_result.get("formats") or ["a1111"]
+    comfyui_formats = comfyui_result.get("formats") or ["comfyui"]
+    merged["formats"] = sorted(set(a1111_formats) | set(comfyui_formats))
 
     return merged
 
@@ -112,6 +109,8 @@ def extract_params_from_file(image_path: str) -> Optional[dict]:
 def params_to_json_columns(params: dict) -> dict:
     """Convert list/dict values in params to JSON strings for SQLite storage."""
     result = dict(params)
+    if isinstance(result.get("formats"), list):
+        result["formats"] = json.dumps(result["formats"], ensure_ascii=False)
     if isinstance(result.get("loras"), list):
         result["loras"] = json.dumps(result["loras"], ensure_ascii=False)
     if isinstance(result.get("extras"), dict):

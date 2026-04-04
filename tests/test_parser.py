@@ -44,7 +44,7 @@ class TestA1111Basic(unittest.TestCase):
         self.assertIsNotNone(self.params)
 
     def test_source(self):
-        self.assertEqual(self.params["source"], "a1111")
+        self.assertEqual(self.params["formats"], ["a1111"])
 
     def test_model_present(self):
         self.assertTrue(self.params.get("model"), "model should be a non-empty string")
@@ -75,7 +75,7 @@ class TestA1111Hires(unittest.TestCase):
         self.assertIsNotNone(self.params)
 
     def test_source(self):
-        self.assertEqual(self.params["source"], "a1111")
+        self.assertEqual(self.params["formats"], ["a1111"])
 
     def test_hires_upscaler(self):
         self.assertTrue(self.params.get("hires_upscaler"), "hires_upscaler should be extracted")
@@ -99,7 +99,7 @@ class TestA1111Loras(unittest.TestCase):
         self.assertIsNotNone(self.params)
 
     def test_source(self):
-        self.assertEqual(self.params["source"], "a1111")
+        self.assertEqual(self.params["formats"], ["a1111"])
 
     def test_loras_is_list(self):
         loras = self.params.get("loras")
@@ -126,7 +126,7 @@ class TestA1111JpegExif(unittest.TestCase):
         self.assertIsNotNone(self.params)
 
     def test_source(self):
-        self.assertEqual(self.params["source"], "a1111")
+        self.assertEqual(self.params["formats"], ["a1111"])
 
     def test_model(self):
         self.assertTrue(self.params.get("model"))
@@ -151,7 +151,7 @@ class TestComfyUIPromptSimple(unittest.TestCase):
         self.assertIsNotNone(self.params)
 
     def test_source(self):
-        self.assertEqual(self.params["source"], "comfyui")
+        self.assertEqual(self.params["formats"], ["comfyui"])
 
     def test_model(self):
         self.assertTrue(self.params.get("model"))
@@ -181,7 +181,7 @@ class TestComfyUIPromptComplex(unittest.TestCase):
         self.assertIsNotNone(self.params)
 
     def test_source(self):
-        self.assertEqual(self.params["source"], "comfyui")
+        self.assertEqual(self.params["formats"], ["comfyui"])
 
     def test_model(self):
         self.assertTrue(self.params.get("model"))
@@ -207,7 +207,7 @@ class TestComfyUIWorkflow(unittest.TestCase):
         self.assertIsNotNone(self.params, "workflow parser should extract from workflow JSON")
 
     def test_source(self):
-        self.assertEqual(self.params["source"], "comfyui")
+        self.assertEqual(self.params["formats"], ["comfyui"])
 
     def test_model(self):
         self.assertTrue(self.params.get("model"))

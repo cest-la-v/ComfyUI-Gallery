@@ -397,7 +397,7 @@ def parse(prompt_json: object) -> Optional[dict]:
         return None
 
     nodes = prompt_json
-    result: dict = {"source": "comfyui"}
+    result: dict = {"formats": ["comfyui"]}
 
     # -----------------------------------------------------------------------
     # Pass 1 — known class-type fast path
