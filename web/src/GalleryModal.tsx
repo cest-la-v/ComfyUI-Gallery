@@ -51,6 +51,7 @@ const GalleryModal = () => {
             afterOpenChange={setOpen}
             onOk={() => setOpen(false)}
             onCancel={() => setOpen(false)}
+            closable={false}
             width={size?.width}
             footer={null}
         >
