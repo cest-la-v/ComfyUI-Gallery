@@ -25,7 +25,7 @@ from typing import Optional
 from .gallery_config import gallery_log
 
 DB_FILENAME = "gallery_cache.db"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class GalleryDB:
@@ -77,17 +77,25 @@ class GalleryDB:
             );
 
             CREATE TABLE IF NOT EXISTS image_params (
-                file_id           INTEGER PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
-                model             TEXT,
-                model_hash        TEXT,
-                positive_prompt   TEXT,
-                negative_prompt   TEXT,
-                sampler           TEXT,
-                scheduler         TEXT,
-                steps             INTEGER,
-                cfg_scale         REAL,
-                seed              INTEGER,
-                source            TEXT,
+                file_id            INTEGER PRIMARY KEY REFERENCES files(id) ON DELETE CASCADE,
+                source             TEXT,
+                model              TEXT,
+                model_hash         TEXT,
+                positive_prompt    TEXT,
+                negative_prompt    TEXT,
+                sampler            TEXT,
+                scheduler          TEXT,
+                steps              INTEGER,
+                cfg_scale          REAL,
+                seed               INTEGER,
+                vae                TEXT,
+                clip_skip          INTEGER,
+                denoise_strength   REAL,
+                hires_upscaler     TEXT,
+                hires_steps        INTEGER,
+                hires_denoise      REAL,
+                loras              TEXT,
+                extras             TEXT,
                 prompt_fingerprint TEXT
             );
 
@@ -172,20 +180,31 @@ class GalleryDB:
         with conn:
             conn.executemany(
                 """INSERT INTO image_params
-                   (file_id, model, model_hash, positive_prompt, negative_prompt,
-                    sampler, scheduler, steps, cfg_scale, seed, source, prompt_fingerprint)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   (file_id, source, model, model_hash, positive_prompt, negative_prompt,
+                    sampler, scheduler, steps, cfg_scale, seed,
+                    vae, clip_skip, denoise_strength,
+                    hires_upscaler, hires_steps, hires_denoise,
+                    loras, extras, prompt_fingerprint)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(file_id) DO UPDATE SET
+                       source=excluded.source,
                        model=excluded.model, model_hash=excluded.model_hash,
                        positive_prompt=excluded.positive_prompt,
                        negative_prompt=excluded.negative_prompt,
                        sampler=excluded.sampler, scheduler=excluded.scheduler,
                        steps=excluded.steps, cfg_scale=excluded.cfg_scale,
-                       seed=excluded.seed, source=excluded.source,
+                       seed=excluded.seed,
+                       vae=excluded.vae, clip_skip=excluded.clip_skip,
+                       denoise_strength=excluded.denoise_strength,
+                       hires_upscaler=excluded.hires_upscaler,
+                       hires_steps=excluded.hires_steps,
+                       hires_denoise=excluded.hires_denoise,
+                       loras=excluded.loras, extras=excluded.extras,
                        prompt_fingerprint=excluded.prompt_fingerprint""",
                 [
                     (
                         p["file_id"],
+                        p.get("source"),
                         p.get("model"),
                         p.get("model_hash"),
                         p.get("positive_prompt"),
@@ -195,7 +214,14 @@ class GalleryDB:
                         p.get("steps"),
                         p.get("cfg_scale"),
                         p.get("seed"),
-                        p.get("source"),
+                        p.get("vae"),
+                        p.get("clip_skip"),
+                        p.get("denoise_strength"),
+                        p.get("hires_upscaler"),
+                        p.get("hires_steps"),
+                        p.get("hires_denoise"),
+                        p.get("loras"),
+                        p.get("extras"),
                         p.get("prompt_fingerprint"),
                     )
                     for p in params_list
@@ -258,11 +284,15 @@ class GalleryDB:
         ]
 
     def get_params_by_rel_path(self, rel_path: str) -> Optional[dict]:
-        """Return image_params for a single file, or None if not found."""
+        """Return image_params + fileinfo for a single file, or None if not found."""
         row = self._conn().execute(
-            """SELECT ip.model, ip.model_hash, ip.positive_prompt, ip.negative_prompt,
+            """SELECT ip.source, ip.model, ip.model_hash,
+                      ip.positive_prompt, ip.negative_prompt,
                       ip.sampler, ip.scheduler, ip.steps, ip.cfg_scale, ip.seed,
-                      ip.source, ip.prompt_fingerprint
+                      ip.vae, ip.clip_skip, ip.denoise_strength,
+                      ip.hires_upscaler, ip.hires_steps, ip.hires_denoise,
+                      ip.loras, ip.extras, ip.prompt_fingerprint,
+                      f.width, f.height, f.size, f.mtime, f.rel_path
                FROM image_params ip
                JOIN files f ON ip.file_id = f.id
                WHERE f.rel_path = ?""",
@@ -270,13 +300,43 @@ class GalleryDB:
         ).fetchone()
         if row is None:
             return None
-        return dict(row)
+        result = dict(row)
+        # Build fileinfo sub-object
+        width = result.pop("width", None)
+        height = result.pop("height", None)
+        size_bytes = result.pop("size", None)
+        mtime = result.pop("mtime", None)
+        stored_path = result.pop("rel_path", rel_path)
+        result["fileinfo"] = {
+            "filename": os.path.basename(stored_path),
+            "resolution": f"{width}x{height}" if width and height else None,
+            "size": _format_size(size_bytes),
+            "date": _format_date(mtime),
+        }
+        return result
 
     def close(self):
         conn = getattr(self._local, "conn", None)
         if conn is not None:
             conn.close()
             self._local.conn = None
+
+
+def _format_size(size_bytes: Optional[int]) -> Optional[str]:
+    if size_bytes is None:
+        return None
+    for unit in ("B", "KB", "MB", "GB"):
+        if size_bytes < 1024:
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f} TB"
+
+
+def _format_date(mtime: Optional[float]) -> Optional[str]:
+    if mtime is None:
+        return None
+    import datetime
+    return datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
 
 
 def open_gallery_db(base_dir: str) -> GalleryDB:

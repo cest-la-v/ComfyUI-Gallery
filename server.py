@@ -157,14 +157,15 @@ async def get_gallery_images(request):
 
 @PromptServer.instance.routes.get("/Gallery/metadata/{path:.*}")
 async def get_file_metadata(request):
-    """Lazy metadata endpoint. Returns parsed params and/or raw PNG JSON.
+    """Lazy metadata endpoint. Returns parsed params or raw PNG JSON.
 
-    ?view=parsed  (default) — image_params from DB (no file I/O)
-    ?view=raw               — raw PNG metadata from file
-    ?view=both              — both in one response
+    ?type=civitai  (default) — image_params from DB joined with fileinfo (no file I/O)
+    ?type=a1111             — same, filtered to A1111-sourced rows only
+    ?type=comfyui           — same, filtered to ComfyUI-sourced rows only
+    ?type=raw               — raw PNG metadata from file (only mode that reads the file)
     """
     rel_path = request.match_info["path"]
-    view = request.rel_url.query.get("view", "parsed")
+    meta_type = request.rel_url.query.get("type", "civitai")
 
     static_route = next(
         (r for r in PromptServer.instance.app.router.routes()
@@ -178,23 +179,23 @@ async def get_file_metadata(request):
     if not os.path.normcase(full_path).startswith(os.path.normcase(real_static_dir + os.sep)):
         return web.Response(status=403, text="Access denied: path outside gallery root")
 
-    result: dict = {}
-
-    if view in ("parsed", "both"):
-        params = _gallery_db.get_params_by_rel_path(rel_path)
-        result["params"] = params
-
-    if view in ("raw", "both"):
+    if meta_type == "raw":
         if not os.path.isfile(full_path):
             return web.Response(status=404, text=f"File not found: {rel_path}")
         try:
             _, _, metadata = buildMetadata(full_path)
-            result["metadata"] = sanitize_json_data(metadata)
+            return web.json_response({"metadata": sanitize_json_data(metadata)})
         except Exception as e:
             gallery_log(f"Error reading metadata for {rel_path}: {e}")
             return web.Response(status=500, text=str(e))
 
-    return web.json_response(result)
+    # DB path — no file I/O
+    params = _gallery_db.get_params_by_rel_path(rel_path)
+    if params is not None and meta_type in ("a1111", "comfyui"):
+        if params.get("source") != meta_type:
+            params = None
+
+    return web.json_response({"params": params})
 
 
 @PromptServer.instance.routes.get("/Gallery/groups")

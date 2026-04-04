@@ -154,7 +154,7 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
     # Batch upsert new/changed files + their extracted params
     if db is not None and upsert_queue:
         try:
-            from .param_extractor import extract_params
+            from .metadata_parser import extract_params, params_to_json_columns
             file_ids = db.upsert_files_batch(upsert_queue)
             params_list = []
             for entry in upsert_queue:
@@ -165,6 +165,7 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
                 if raw_meta:
                     params = extract_params(raw_meta)
                     if params:
+                        params = params_to_json_columns(params)
                         params["file_id"] = file_id
                         params_list.append(params)
             if params_list:

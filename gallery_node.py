@@ -6,7 +6,7 @@ except ImportError:
     folder_paths = None  # type: ignore[assignment]
 
 from .metadata_extractor import buildMetadata
-from .param_extractor import extract_params
+from .metadata_parser import extract_params
 
 
 class GalleryNode:

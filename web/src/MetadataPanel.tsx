@@ -13,15 +13,50 @@ const PROMPT_ROW_LIMIT = 6;
 function paramsToDisplayMap(params: ImageParams | null): Record<string, string> {
     if (!params) return {};
     const out: Record<string, string> = {};
+
+    // --- Fileinfo section ---
+    const fi = params.fileinfo;
+    if (fi?.filename) out['Filename'] = fi.filename;
+    if (fi?.resolution) out['Resolution'] = fi.resolution;
+    if (fi?.size) out['File Size'] = fi.size;
+    if (fi?.date) out['Date Created'] = fi.date;
+
+    // --- Core generation params ---
     if (params.model) out['Model'] = params.model;
-    if (params.positive_prompt) out['Positive Prompt'] = params.positive_prompt;
-    if (params.negative_prompt) out['Negative Prompt'] = params.negative_prompt;
+    if (params.model_hash) out['Model Hash'] = params.model_hash;
     if (params.sampler) out['Sampler'] = params.sampler;
     if (params.scheduler) out['Scheduler'] = params.scheduler;
     if (params.steps != null) out['Steps'] = String(params.steps);
     if (params.cfg_scale != null) out['CFG Scale'] = String(params.cfg_scale);
     if (params.seed != null) out['Seed'] = String(params.seed);
-    if (params.model_hash) out['Model Hash'] = params.model_hash;
+
+    // --- Extended fields ---
+    if (params.vae) out['VAE'] = params.vae;
+    if (params.clip_skip != null) out['Clip Skip'] = String(params.clip_skip);
+    if (params.denoise_strength != null) out['Denoising Strength'] = String(params.denoise_strength);
+    if (params.hires_upscaler) out['Hires Upscaler'] = params.hires_upscaler;
+    if (params.hires_steps != null) out['Hires Steps'] = String(params.hires_steps);
+    if (params.hires_denoise != null) out['Hires Denoise'] = String(params.hires_denoise);
+
+    // --- Prompts ---
+    if (params.positive_prompt) out['Positive Prompt'] = params.positive_prompt;
+    if (params.negative_prompt) out['Negative Prompt'] = params.negative_prompt;
+
+    // --- LoRAs ---
+    if (params.loras && params.loras.length > 0) {
+        const loraStr = params.loras
+            .map(l => l.model_strength != null ? `${l.name} (${l.model_strength})` : l.name)
+            .join(', ');
+        out['LoRAs'] = loraStr;
+    }
+
+    // --- Extras (dynamic A1111 fields) ---
+    if (params.extras && typeof params.extras === 'object') {
+        for (const [k, v] of Object.entries(params.extras)) {
+            if (v != null && v !== '') out[k] = String(v);
+        }
+    }
+
     return out;
 }
 
@@ -48,9 +83,23 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
         if (image.type !== 'image') return;
         let cancelled = false;
         setParsedLoading(true);
-        fetch(`${BASE_PATH}/Gallery/metadata/${relPath}?view=parsed`)
+        fetch(`${BASE_PATH}/Gallery/metadata/${relPath}`)
             .then(r => r.ok ? r.json() as Promise<{ params?: ImageParams }> : Promise.resolve({}))
-            .then(d => { if (!cancelled) setParsedParams((d as { params?: ImageParams }).params ?? null); })
+            .then(d => {
+                if (!cancelled) {
+                    const p = (d as { params?: ImageParams }).params ?? null;
+                    if (p) {
+                        // loras/extras are stored as JSON strings in SQLite
+                        if (typeof p.loras === 'string') {
+                            try { p.loras = JSON.parse(p.loras); } catch { p.loras = null; }
+                        }
+                        if (typeof p.extras === 'string') {
+                            try { p.extras = JSON.parse(p.extras); } catch { p.extras = null; }
+                        }
+                    }
+                    setParsedParams(p);
+                }
+            })
             .catch(() => { if (!cancelled) setParsedParams(null); })
             .finally(() => { if (!cancelled) setParsedLoading(false); });
         return () => { cancelled = true; };
@@ -63,7 +112,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
         rawFetchedForRef.current = relPath;
         let cancelled = false;
         setRawLoading(true);
-        fetch(`${BASE_PATH}/Gallery/metadata/${relPath}?view=raw`)
+        fetch(`${BASE_PATH}/Gallery/metadata/${relPath}?type=raw`)
             .then(r => r.ok ? r.json() as Promise<{ metadata?: Record<string, unknown> }> : Promise.resolve({}))
             .then(d => { if (!cancelled) setRawMetadata((d as { metadata?: Record<string, unknown> }).metadata ?? {}); })
             .catch(() => { if (!cancelled) setRawMetadata({}); })

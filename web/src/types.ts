@@ -23,17 +23,31 @@ export interface FileDetails {
 }
 
 export interface ImageParams {
-    model?: string;
-    model_hash?: string;
-    positive_prompt?: string;
-    negative_prompt?: string;
-    sampler?: string;
-    scheduler?: string;
-    steps?: number;
-    cfg_scale?: number;
-    seed?: number;
     source?: 'a1111' | 'comfyui' | null;
-    prompt_fingerprint?: string;
+    model?: string | null;
+    model_hash?: string | null;
+    positive_prompt?: string | null;
+    negative_prompt?: string | null;
+    sampler?: string | null;
+    scheduler?: string | null;
+    steps?: number | null;
+    cfg_scale?: number | null;
+    seed?: number | null;
+    vae?: string | null;
+    clip_skip?: number | null;
+    denoise_strength?: number | null;
+    hires_upscaler?: string | null;
+    hires_steps?: number | null;
+    hires_denoise?: number | null;
+    loras?: Array<{ name: string; model_strength?: number | null; clip_strength?: number | null }> | null;
+    extras?: Record<string, string> | null;
+    prompt_fingerprint?: string | null;
+    fileinfo?: {
+        filename?: string | null;
+        resolution?: string | null;
+        size?: string | null;
+        date?: string | null;
+    } | null;
 }
 
 export interface FolderContent {
