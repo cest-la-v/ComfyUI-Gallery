@@ -273,7 +273,7 @@ class GalleryDB:
         """Image counts grouped by prompt-only fingerprint (no model), with aggregated models."""
         rows = self._conn().execute("""
             SELECT ip.prompt_only_fp, ip.positive_prompt,
-                   GROUP_CONCAT(DISTINCT ip.model, '|||') AS models,
+                   GROUP_CONCAT(DISTINCT ip.model) AS models,
                    COUNT(*) AS count, GROUP_CONCAT(f.rel_path, '|||') AS paths
             FROM image_params ip
             JOIN files f ON ip.file_id = f.id
