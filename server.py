@@ -47,6 +47,10 @@ _gallery_db = open_gallery_db(_ext_dir)
 # Settings file for persistent user settings
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_settings.json")
 
+# Applied to all Gallery API responses that return live data — prevents browsers
+# from caching responses across DB resets/rescans.
+_NO_CACHE = {"Cache-Control": "no-store"}
+
 
 def _is_within_directory(file_path: str, base_dir: str) -> bool:
     """Return True if file_path is inside base_dir (cross-platform safe).
@@ -166,7 +170,7 @@ def sanitize_json_data(data):
 
 @PromptServer.instance.routes.get("/Gallery/settings")
 async def get_settings(request):
-    return web.json_response(load_settings())
+    return web.json_response(load_settings(), headers=_NO_CACHE)
 
 
 @PromptServer.instance.routes.post("/Gallery/settings")
@@ -228,7 +232,7 @@ async def get_gallery_images(request):
 
                 sanitized_folders = sanitize_json_data(folders_with_metadata)
                 json_string = json.dumps({"folders": sanitized_folders})
-                return web.Response(text=json_string, content_type="application/json")
+                return web.Response(text=json_string, content_type="application/json", headers=_NO_CACHE)
             except Exception as e:
                     gallery_log(f"Error in on_scan_complete: {e}")
                     return web.Response(status=500, text=str(e))
@@ -265,7 +269,7 @@ async def get_file_metadata(request):
             return web.Response(status=404, text=f"File not found: {rel_path}")
         try:
             _, _, metadata = buildMetadata(full_path)
-            return web.json_response({"metadata": sanitize_json_data(metadata)})
+            return web.json_response({"metadata": sanitize_json_data(metadata)}, headers=_NO_CACHE)
         except Exception as e:
             gallery_log(f"Error reading metadata for {rel_path}: {e}")
             return web.Response(status=500, text=str(e))
@@ -275,9 +279,9 @@ async def get_file_metadata(request):
 
     if fmt == "civitai":
         text = _build_civitai_text(params) if params else ""
-        return web.Response(text=text, content_type="text/plain")
+        return web.Response(text=text, content_type="text/plain", headers=_NO_CACHE)
 
-    return web.json_response({"params": params})
+    return web.json_response({"params": params}, headers=_NO_CACHE)
 
 
 @PromptServer.instance.routes.get("/Gallery/groups")
@@ -294,7 +298,7 @@ async def get_gallery_groups(request):
             groups = _gallery_db.get_groups_by_prompt()
         else:
             groups = _gallery_db.get_groups_by_model()
-        return web.json_response({"by": by, "groups": groups})
+        return web.json_response({"by": by, "groups": groups}, headers=_NO_CACHE)
     except Exception as e:
         gallery_log(f"Error in /Gallery/groups: {e}")
         return web.Response(status=500, text=str(e))
@@ -312,13 +316,13 @@ async def get_group_files(request):
     by = request.rel_url.query.get("by", "model")
     value = request.rel_url.query.get("value", "")
     if not value:
-        return web.json_response({"rel_paths": []})
+        return web.json_response({"rel_paths": []}, headers=_NO_CACHE)
     try:
         if by == "prompt":
             rel_paths = _gallery_db.get_files_by_fingerprint(value)
         else:
             rel_paths = _gallery_db.get_files_by_model(value)
-        return web.json_response({"rel_paths": rel_paths})
+        return web.json_response({"rel_paths": rel_paths}, headers=_NO_CACHE)
     except Exception as e:
         gallery_log(f"Error in /Gallery/groups/files: {e}")
         return web.Response(status=500, text=str(e))
@@ -344,13 +348,14 @@ async def get_gallery_db_status(request):
     """Return diagnostic info about the gallery cache database."""
     try:
         status = _gallery_db.get_status()
-        return web.json_response(status)
+        return web.json_response(status, headers=_NO_CACHE)
     except Exception as e:
         gallery_log(f"Error getting gallery DB status: {e}")
         return web.Response(status=500, text=str(e))
 
 
-
+@PromptServer.instance.routes.post("/Gallery/monitor/start")
+async def start_gallery_monitor(request):
     """Endpoint to start gallery monitoring, accepts relative_path."""
     global monitor
     from . import gallery_config
