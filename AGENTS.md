@@ -153,6 +153,22 @@ A1111 writes one combined field: `Sampler: DPM++ 3M SDE Karras`.
 - **`set_generation_metadata()` API** (ComfyUI side). If working on the ComfyUI repo companion
   changes, this must be called from inside a node's `execute()` while the generation context is
   active. See `ComfyUI/comfy_execution/generation_context.py`.
+- **`rel_path` must be in the scanner output.** `folder_content[entry.name]` in `folder_scanner.py`
+  must include `"rel_path": rel_path`. It is the identity key linking DB records to frontend items.
+  Without it, any feature that filters `imagesDetailsList` by `item.rel_path` silently produces nothing.
+- **Group filters span all folders.** When `filteredRelPaths` is active (group drill-down), search
+  across `data.folders` (all subfolders), not just `data.folders[currentFolder]`. The DB returns
+  rel_paths from every subfolder under the monitor root; scoping to one folder yields zero matches.
+- **`GROUP_CONCAT` for file paths: use `'|||'` separator, not `,`.** A1111-generated filenames
+  embed the positive prompt (e.g. `00012-seed-ultra detailed, nsfw, best quality.png`), so commas
+  appear inside rel_paths. Splitting `GROUP_CONCAT(rel_path)` on `,` shreds these into garbage paths.
+  Use `GROUP_CONCAT(rel_path, '|||')` and split on `'|||'` in Python.
+- **SQLite `GROUP_CONCAT(DISTINCT x, sep)` is not valid.** `DISTINCT` inside `group_concat` only
+  accepts one argument. Use `GROUP_CONCAT(DISTINCT x)` (default comma separator) for values that
+  don't contain commas (e.g. model names). The `'|||'` separator is only available in the non-DISTINCT form.
+- **antd v5 + React 19:** install `@ant-design/v5-patch-for-react-19` and import it first in
+  `main.tsx`. Set `token: { zIndexPopupBase: BASE_Z_INDEX }` in `ConfigProvider` so antd doesn't
+  warn about Select/Tooltip/ImagePreview components using high explicit zIndex values.
 
 ### Cross-platform (macOS / Linux / Windows)
 
