@@ -319,7 +319,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                 </Popconfirm>
             </div>
             {/* Scrollable content — only this area scrolls */}
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', paddingBottom: 8 }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
                 {image.type === 'image' && (
                     showRawMetadata ? (
                         rawLoading ? (
