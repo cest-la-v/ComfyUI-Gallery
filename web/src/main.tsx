@@ -1,8 +1,9 @@
+import '@ant-design/v5-patch-for-react-19';
 import { createRoot } from 'react-dom/client'
 import Gallery from './Gallery.tsx'
 import App from 'antd/es/app/App';
 import { DEFAULT_SETTINGS, STORAGE_KEY, type SettingsState } from './GalleryContext.tsx';
-import { ComfyAppApi, OPEN_BUTTON_ID } from './ComfyAppApi.ts';
+import { BASE_Z_INDEX, ComfyAppApi, OPEN_BUTTON_ID } from './ComfyAppApi.ts';
 import { ConfigProvider, theme } from 'antd';
 import { useLocalStorageState } from 'ahooks';
 
@@ -167,6 +168,7 @@ function Main() {
         <ConfigProvider
             theme={{
                 algorithm: settingsState.darkMode ? theme.darkAlgorithm : undefined,
+                token: { zIndexPopupBase: BASE_Z_INDEX },
             }}
         >
             <App>
