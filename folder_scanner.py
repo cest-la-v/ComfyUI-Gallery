@@ -151,6 +151,7 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
                     "type": file_type,
                     "width": width,
                     "height": height,
+                    "rel_path": rel_path,
                 }
 
         except Exception as e:
