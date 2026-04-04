@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Flex, AutoComplete, Button, Segmented, Modal, message, Popconfirm, Tag, Select } from 'antd';
-import { CloseSquareFilled, DoubleLeftOutlined, DoubleRightOutlined, CloseOutlined, SortAscendingOutlined } from '@ant-design/icons';
+import { Flex, AutoComplete, Button, Segmented, Modal, message, Popconfirm, Tag, Select, Tooltip } from 'antd';
+import { CloseSquareFilled, DoubleLeftOutlined, DoubleRightOutlined, CloseOutlined, SortAscendingOutlined, SettingOutlined, BulbOutlined, MoonFilled } from '@ant-design/icons';
 import { useGalleryContext } from './GalleryContext';
 import type { ViewMode } from './GalleryContext';
 import { useDebounce, useCountDown } from 'ahooks';
@@ -31,6 +31,7 @@ const GalleryHeader = () => {
         selectedImages, setSelectedImages,
         mutate,
         siderCollapsed, setSiderCollapsed,
+        settings, setSettings,
     } = useGalleryContext();
 
     const [search, setSearch] = useState("");
@@ -107,12 +108,6 @@ const GalleryHeader = () => {
                     onClick={() => setSiderCollapsed((prev: boolean) => !prev)}
                 >
                     {siderCollapsed ? <DoubleRightOutlined /> : <DoubleLeftOutlined />}
-                </Button>
-                <Button 
-                    size={"middle"} 
-                    onClick={() => setShowSettings(true)}
-                >
-                    Settings
                 </Button>
             </div>
             {selectedImages && selectedImages.length > 0 && (
@@ -317,7 +312,7 @@ const GalleryHeader = () => {
             />
             <Select
                 size="small"
-                style={{ width: 148, marginRight: 15 }}
+                style={{ width: 148 }}
                 value={sortMethod}
                 onChange={value => setSortMethod(value as any)}
                 suffixIcon={<SortAscendingOutlined />}
@@ -328,6 +323,22 @@ const GalleryHeader = () => {
                     { value: 'Name ↓', label: 'Name: Z → A' },
                 ]}
             />
+            <Tooltip title={settings.darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
+                <Button
+                    size="middle"
+                    type="text"
+                    icon={settings.darkMode ? <BulbOutlined /> : <MoonFilled />}
+                    onClick={() => setSettings({ ...settings, darkMode: !settings.darkMode })}
+                />
+            </Tooltip>
+            <Tooltip title="Settings">
+                <Button
+                    size="middle"
+                    type="text"
+                    icon={<SettingOutlined />}
+                    onClick={() => setShowSettings(true)}
+                />
+            </Tooltip>
         </Flex>
     );
 };
