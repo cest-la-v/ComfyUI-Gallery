@@ -213,7 +213,12 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
 
     // Memoized list of all images in the current folder
     const imagesDetailsList = useMemo(() => {
-        let list: FileDetails[] = Object.values(data?.folders?.[currentFolder] ?? []);
+        // When a group filter is active, search across all folders (results span subfolders)
+        const allItems: FileDetails[] = filteredRelPaths !== null
+            ? Object.values(data?.folders ?? {}).flatMap(folder => Object.values(folder as Record<string, FileDetails>))
+            : Object.values(data?.folders?.[currentFolder] ?? []);
+
+        let list = allItems;
 
         // Apply active filter (drill-down from group card)
         if (filteredRelPaths !== null) {
