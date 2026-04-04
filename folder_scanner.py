@@ -1,7 +1,7 @@
 # folder_scanner.py
 import os
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from .metadata_extractor import buildMetadata
 from .gallery_config import gallery_log
@@ -100,6 +100,8 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
                     url_path = f"/static_gallery/{rel_dir}/{entry.name}"
 
                 metadata: dict = {}
+                width: Optional[int] = None
+                height: Optional[int] = None
                 if file_type == "image":
                     cached = cache.get(rel_path)
                     cache_hit = (
@@ -109,13 +111,15 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
                         and cached["size"] == size
                     )
                     if cache_hit:
-                        metadata = cached.get("raw_metadata") or {}
+                        width = cached.get("width")
+                        height = cached.get("height")
                     else:
                         try:
-                            _, _, metadata = buildMetadata(entry.path)
+                            img, _, metadata = buildMetadata(entry.path)
+                            width = img.width
+                            height = img.height
                         except Exception as e:
                             gallery_log(f"Error building metadata for {entry.path}: {e}")
-                            metadata = {}
                         # Queue for batch DB upsert
                         upsert_queue.append({
                             "rel_path": rel_path,
@@ -123,7 +127,9 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
                             "mtime": mtime,
                             "size": size,
                             "file_type": file_type,
-                            "raw_metadata": metadata or None,
+                            "width": width,
+                            "height": height,
+                            "_metadata": metadata or None,
                         })
 
                 folder_content[entry.name] = {
@@ -131,8 +137,9 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
                     "url": url_path,
                     "timestamp": mtime,
                     "date": date_str,
-                    "metadata": metadata,
                     "type": file_type,
+                    "width": width,
+                    "height": height,
                 }
 
         except Exception as e:
@@ -154,7 +161,7 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
                 file_id = file_ids.get(entry["rel_path"])
                 if file_id is None:
                     continue
-                raw_meta = entry.get("raw_metadata")
+                raw_meta = entry.get("_metadata")
                 if raw_meta:
                     params = extract_params(raw_meta)
                     if params:

@@ -16,6 +16,7 @@ from .folder_monitor import FileSystemMonitor
 from .folder_scanner import _scan_for_images, DEFAULT_EXTENSIONS
 from .gallery_config import disable_logs, gallery_log
 from .gallery_db import open_gallery_db
+from .metadata_extractor import buildMetadata
 
 # Add ComfyUI root to sys.path HERE
 import sys
@@ -152,6 +153,48 @@ async def get_gallery_images(request):
     # Wait result and process it.
     result = result_queue.get() # BLOCKING call
     return on_scan_complete(result)
+
+
+@PromptServer.instance.routes.get("/Gallery/metadata/{path:.*}")
+async def get_file_metadata(request):
+    """Lazy metadata endpoint. Returns parsed params and/or raw PNG JSON.
+
+    ?view=parsed  (default) — image_params from DB (no file I/O)
+    ?view=raw               — raw PNG metadata from file
+    ?view=both              — both in one response
+    """
+    rel_path = request.match_info["path"]
+    view = request.rel_url.query.get("view", "parsed")
+
+    static_route = next(
+        (r for r in PromptServer.instance.app.router.routes()
+         if getattr(r, "name", None) == "static_gallery_placeholder"),
+        None,
+    )
+    static_dir = str(static_route.resource._directory) if static_route else folder_paths.get_output_directory()
+    full_path = os.path.realpath(os.path.join(static_dir, rel_path))
+    real_static_dir = os.path.realpath(static_dir)
+
+    if not os.path.normcase(full_path).startswith(os.path.normcase(real_static_dir + os.sep)):
+        return web.Response(status=403, text="Access denied: path outside gallery root")
+
+    result: dict = {}
+
+    if view in ("parsed", "both"):
+        params = _gallery_db.get_params_by_rel_path(rel_path)
+        result["params"] = params
+
+    if view in ("raw", "both"):
+        if not os.path.isfile(full_path):
+            return web.Response(status=404, text=f"File not found: {rel_path}")
+        try:
+            _, _, metadata = buildMetadata(full_path)
+            result["metadata"] = sanitize_json_data(metadata)
+        except Exception as e:
+            gallery_log(f"Error reading metadata for {rel_path}: {e}")
+            return web.Response(status=500, text=str(e))
+
+    return web.json_response(result)
 
 
 @PromptServer.instance.routes.get("/Gallery/groups")

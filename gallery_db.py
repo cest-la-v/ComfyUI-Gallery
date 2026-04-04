@@ -4,16 +4,19 @@ Serves as the primary gallery database — the filesystem remains the source of
 truth for *which files exist*, but this DB owns all structured metadata.
 
 Three tables, all defined upfront to avoid future migrations:
-  files        — file identity + validity (inode/mtime/size) + raw_metadata blob
+  files        — file identity + validity (inode/mtime/size) + image dimensions
   image_params — structured generation params for SQL grouping
-  model_info   — Civitai/HF model info with TTL invalidation (Phase 4)
+  model_info   — Civitai/HF model info with TTL invalidation (Phase 4+)
 
 Thread safety: each thread gets its own SQLite connection (threading.local).
 WAL mode enables concurrent reads while a write is in progress.
+
+Schema versioning: schema_version table tracks the current version.
+On version mismatch the cache tables are dropped and recreated — the DB is a
+pure cache so no user data is lost.
 """
 
 import os
-import json
 import sqlite3
 import threading
 import time
@@ -22,6 +25,7 @@ from typing import Optional
 from .gallery_config import gallery_log
 
 DB_FILENAME = "gallery_cache.db"
+SCHEMA_VERSION = 2
 
 
 class GalleryDB:
@@ -42,6 +46,23 @@ class GalleryDB:
 
     def _init_schema(self):
         conn = self._conn()
+        # Create schema_version table first (survives cache wipes)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS schema_version (
+                version INTEGER NOT NULL
+            )
+        """)
+        row = conn.execute("SELECT version FROM schema_version").fetchone()
+        current = row["version"] if row else 0
+        if current < SCHEMA_VERSION:
+            gallery_log(f"Gallery DB: schema v{current} → v{SCHEMA_VERSION}, rebuilding cache tables")
+            conn.executescript("""
+                DROP TABLE IF EXISTS image_params;
+                DROP TABLE IF EXISTS files;
+            """)
+            conn.execute("DELETE FROM schema_version")
+            conn.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
+
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS files (
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,7 +71,8 @@ class GalleryDB:
                 mtime        REAL    NOT NULL,
                 size         INTEGER NOT NULL,
                 file_type    TEXT    NOT NULL,
-                raw_metadata TEXT,
+                width        INTEGER,
+                height       INTEGER,
                 cached_at    REAL DEFAULT (unixepoch('now', 'subsec'))
             );
 
@@ -89,9 +111,9 @@ class GalleryDB:
         """)
 
     def get_all_cached(self) -> dict:
-        """Batch-fetch all entries. Returns {rel_path: {id, inode, mtime, size, raw_metadata}}."""
+        """Batch-fetch all entries. Returns {rel_path: {id, inode, mtime, size, width, height}}."""
         rows = self._conn().execute(
-            "SELECT id, rel_path, inode, mtime, size, raw_metadata FROM files"
+            "SELECT id, rel_path, inode, mtime, size, width, height FROM files"
         ).fetchall()
         return {
             row["rel_path"]: {
@@ -99,7 +121,8 @@ class GalleryDB:
                 "inode": row["inode"],
                 "mtime": row["mtime"],
                 "size": row["size"],
-                "raw_metadata": json.loads(row["raw_metadata"]) if row["raw_metadata"] else None,
+                "width": row["width"],
+                "height": row["height"],
             }
             for row in rows
         }
@@ -107,7 +130,7 @@ class GalleryDB:
     def upsert_files_batch(self, entries: list) -> dict:
         """Batch upsert files. Returns {rel_path: file_id}.
 
-        entries: list of {rel_path, inode, mtime, size, file_type, raw_metadata}
+        entries: list of {rel_path, inode, mtime, size, file_type, width, height}
         """
         conn = self._conn()
         now = time.time()
@@ -118,18 +141,19 @@ class GalleryDB:
                 e["mtime"],
                 e["size"],
                 e["file_type"],
-                json.dumps(e["raw_metadata"]) if e.get("raw_metadata") is not None else None,
+                e.get("width"),
+                e.get("height"),
                 now,
             )
             for e in entries
         ]
         with conn:
             conn.executemany(
-                """INSERT INTO files (rel_path, inode, mtime, size, file_type, raw_metadata, cached_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)
+                """INSERT INTO files (rel_path, inode, mtime, size, file_type, width, height, cached_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(rel_path) DO UPDATE SET
                        inode=excluded.inode, mtime=excluded.mtime, size=excluded.size,
-                       file_type=excluded.file_type, raw_metadata=excluded.raw_metadata,
+                       file_type=excluded.file_type, width=excluded.width, height=excluded.height,
                        cached_at=excluded.cached_at""",
                 rows,
             )
@@ -232,6 +256,21 @@ class GalleryDB:
             }
             for row in rows
         ]
+
+    def get_params_by_rel_path(self, rel_path: str) -> Optional[dict]:
+        """Return image_params for a single file, or None if not found."""
+        row = self._conn().execute(
+            """SELECT ip.model, ip.model_hash, ip.positive_prompt, ip.negative_prompt,
+                      ip.sampler, ip.scheduler, ip.steps, ip.cfg_scale, ip.seed,
+                      ip.source, ip.prompt_fingerprint
+               FROM image_params ip
+               JOIN files f ON ip.file_id = f.id
+               WHERE f.rel_path = ?""",
+            (rel_path,),
+        ).fetchone()
+        if row is None:
+            return None
+        return dict(row)
 
     def close(self):
         conn = getattr(self._local, "conn", None)

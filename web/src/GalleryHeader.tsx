@@ -296,8 +296,6 @@ const GalleryHeader = () => {
                 options={[
                     { label: 'No Grouping', value: 'none' },
                     { label: 'By Date', value: 'date' },
-                    { label: 'By Model', value: 'model' },
-                    { label: 'By Sampler', value: 'sampler' },
                     { label: 'By Resolution', value: 'resolution' },
                 ]}
             />

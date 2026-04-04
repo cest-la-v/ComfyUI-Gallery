@@ -17,8 +17,23 @@ export interface FileDetails {
     url: string;
     timestamp: number;
     date: string;
-    metadata: Metadata;
     type: "image" | "media" | "audio" | "divider" | "empty-space";
+    width?: number;
+    height?: number;
+}
+
+export interface ImageParams {
+    model?: string;
+    model_hash?: string;
+    positive_prompt?: string;
+    negative_prompt?: string;
+    sampler?: string;
+    scheduler?: string;
+    steps?: number;
+    cfg_scale?: number;
+    seed?: number;
+    source?: 'a1111' | 'comfyui' | null;
+    prompt_fingerprint?: string;
 }
 
 export interface FolderContent {

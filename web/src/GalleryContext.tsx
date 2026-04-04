@@ -4,7 +4,6 @@ import { useSize, useRequest, useAsyncEffect, useEventListener, useLocalStorageS
 import type { FileDetails, FilesTree } from './types';
 import type { AutoCompleteProps } from 'antd/es/auto-complete';
 import { ComfyAppApi, BASE_PATH, OPEN_BUTTON_ID } from './ComfyAppApi';
-import { parseComfyMetadata } from './metadata-parser/metadataParser';
 
 function getImages(): Promise<FilesTree> {
     return new Promise(async (resolve, reject) => {
@@ -57,7 +56,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
 };
 export const STORAGE_KEY = 'comfy-ui-gallery-settings';
 
-export type GroupBy = 'none' | 'date' | 'model' | 'sampler' | 'resolution';
+export type GroupBy = 'none' | 'date' | 'resolution';
 
 export interface GalleryContextType {
     currentFolder: string;
@@ -235,14 +234,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
                 case 'date':
                     return item.timestamp ? new Date(item.timestamp * 1000).toISOString().slice(0, 10) : 'Unknown';
                 case 'resolution':
-                    return item.metadata?.fileinfo?.resolution || 'Unknown';
-                case 'model':
-                case 'sampler': {
-                    if (item.type !== 'image') return 'N/A';
-                    const parsed = parseComfyMetadata(item.metadata, 'auto');
-                    const fieldName = groupBy === 'model' ? 'Model' : 'Sampler';
-                    return parsed[fieldName] || 'Unknown';
-                }
+                    return (item.width && item.height) ? `${item.width}x${item.height}` : 'Unknown';
                 default:
                     return 'Unknown';
             }

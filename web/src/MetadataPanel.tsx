@@ -1,6 +1,6 @@
-import { Typography, Button, Descriptions, Tooltip, message, Tag, Popconfirm, Segmented } from 'antd';
-import { parseComfyMetadata, detectMetadataSources } from './metadata-parser/metadataParser';
-import { useState, useMemo, useCallback } from 'react';import type { FileDetails } from './types';
+import { Typography, Button, Descriptions, Tooltip, message, Tag, Popconfirm, Segmented, Spin } from 'antd';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import type { FileDetails, ImageParams } from './types';
 import { ComfyAppApi } from './ComfyAppApi';
 import { useGalleryContext } from './GalleryContext';
 import { CopyOutlined, DownloadOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -10,12 +10,69 @@ import ReactJsonView from '@microlink/react-json-view';
 
 const PROMPT_ROW_LIMIT = 6;
 
+function paramsToDisplayMap(params: ImageParams | null): Record<string, string> {
+    if (!params) return {};
+    const out: Record<string, string> = {};
+    if (params.model) out['Model'] = params.model;
+    if (params.positive_prompt) out['Positive Prompt'] = params.positive_prompt;
+    if (params.negative_prompt) out['Negative Prompt'] = params.negative_prompt;
+    if (params.sampler) out['Sampler'] = params.sampler;
+    if (params.scheduler) out['Scheduler'] = params.scheduler;
+    if (params.steps != null) out['Steps'] = String(params.steps);
+    if (params.cfg_scale != null) out['CFG Scale'] = String(params.cfg_scale);
+    if (params.seed != null) out['Seed'] = String(params.seed);
+    if (params.model_hash) out['Model Hash'] = params.model_hash;
+    return out;
+}
+
 export function MetadataPanel({ image }: { image: FileDetails }) {
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
     const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
-    const meta = useMemo(() => parseComfyMetadata(image.metadata, 'auto'), [image.metadata]);
-    const sources = useMemo(() => detectMetadataSources(image.metadata), [image.metadata]);
+    const [parsedParams, setParsedParams] = useState<ImageParams | null>(null);
+    const [parsedLoading, setParsedLoading] = useState(false);
+    const [rawMetadata, setRawMetadata] = useState<Record<string, unknown> | null>(null);
+    const [rawLoading, setRawLoading] = useState(false);
+    const rawFetchedForRef = useRef<string | null>(null);
+
     const { setImageInfoName, imageInfoName, showRawMetadata, setShowRawMetadata, settings, imagesDetailsList, showMetadataPanel } = useGalleryContext();
+
+    const relPath = image.url.startsWith('/static_gallery/')
+        ? image.url.slice('/static_gallery/'.length)
+        : image.url;
+
+    // Fetch parsed params whenever the image changes
+    useEffect(() => {
+        setParsedParams(null);
+        setRawMetadata(null);
+        rawFetchedForRef.current = null;
+        if (image.type !== 'image') return;
+        let cancelled = false;
+        setParsedLoading(true);
+        fetch(`${BASE_PATH}/Gallery/metadata/${relPath}?view=parsed`)
+            .then(r => r.ok ? r.json() as Promise<{ params?: ImageParams }> : Promise.resolve({}))
+            .then(d => { if (!cancelled) setParsedParams((d as { params?: ImageParams }).params ?? null); })
+            .catch(() => { if (!cancelled) setParsedParams(null); })
+            .finally(() => { if (!cancelled) setParsedLoading(false); });
+        return () => { cancelled = true; };
+    }, [relPath]);
+
+    // Lazy-fetch raw JSON only when the Raw JSON tab is opened
+    useEffect(() => {
+        if (!showRawMetadata || image.type !== 'image') return;
+        if (rawFetchedForRef.current === relPath) return;
+        rawFetchedForRef.current = relPath;
+        let cancelled = false;
+        setRawLoading(true);
+        fetch(`${BASE_PATH}/Gallery/metadata/${relPath}?view=raw`)
+            .then(r => r.ok ? r.json() as Promise<{ metadata?: Record<string, unknown> }> : Promise.resolve({}))
+            .then(d => { if (!cancelled) setRawMetadata((d as { metadata?: Record<string, unknown> }).metadata ?? {}); })
+            .catch(() => { if (!cancelled) setRawMetadata({}); })
+            .finally(() => { if (!cancelled) setRawLoading(false); });
+        return () => { cancelled = true; };
+    }, [showRawMetadata, relPath]);
+
+    const displayMap = useMemo(() => paramsToDisplayMap(parsedParams), [parsedParams]);
+
     const previewableImages = useMemo(
         () => imagesDetailsList.filter(img => img.type === 'image' || img.type === 'media' || img.type === 'audio'),
         [imagesDetailsList]
@@ -38,7 +95,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
         );
     }, [expandedKeys]);
 
-    const items = useMemo(() => Object.entries(meta).map(([key, value]) => {
+    const items = useMemo(() => Object.entries(displayMap).map(([key, value]) => {
         const isPrompt = key.toLowerCase().includes('prompt');
         return {
             label: <Typography style={{ fontWeight: 600 }}>{key}</Typography>,
@@ -59,7 +116,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
             ),
             span: 1,
         };
-    }), [meta, copiedKey, renderPromptValue]);
+    }), [displayMap, copiedKey, renderPromptValue]);
 
     const handleDelete = useCallback(async () => {
         const currentIdx = previewableImages.findIndex(img => img.name === imageInfoName);
@@ -137,9 +194,8 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
         >
             {/* Header with close button and action buttons */}
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {sources.hasA1111 && <Tag color="blue">Civitai ✓</Tag>}
-                {sources.hasPrompt && <Tag color="green">ComfyUI Prompt ✓</Tag>}
-                {sources.hasWorkflow && <Tag color="orange">ComfyUI Workflow ✓</Tag>}
+                {parsedParams?.source === 'a1111' && <Tag color="blue">Civitai ✓</Tag>}
+                {parsedParams?.source === 'comfyui' && <Tag color="green">ComfyUI Prompt ✓</Tag>}
             </div>
             <Segmented
                 value={showRawMetadata ? 'raw' : 'metadata'}
@@ -174,27 +230,35 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
             {/* Content: metadata table or raw JSON */}
             {image.type === 'image' && (
                 showRawMetadata ? (
-                    <ReactJsonView
-                        theme={settings.darkMode ? 'apathy' : 'apathy:inverted'}
-                        src={image.metadata || {}}
-                        name={false}
-                        collapsed={2}
-                        enableClipboard
-                        displayDataTypes={false}
-                        style={{ borderRadius: 8, padding: 8, textAlign: 'left', width: '100%' }}
-                    />
+                    rawLoading ? (
+                        <Spin style={{ margin: '32px auto', display: 'block' }} />
+                    ) : (
+                        <ReactJsonView
+                            theme={settings.darkMode ? 'apathy' : 'apathy:inverted'}
+                            src={rawMetadata || {}}
+                            name={false}
+                            collapsed={2}
+                            enableClipboard
+                            displayDataTypes={false}
+                            style={{ borderRadius: 8, padding: 8, textAlign: 'left', width: '100%' }}
+                        />
+                    )
                 ) : (
-                    <Descriptions
-                        bordered
-                        column={1}
-                        items={items}
-                        size="small"
-                        style={{ color: '#fff', borderRadius: 8, width: '100%' }}
-                        styles={{
-                            label: { fontWeight: 600, width: 110 },
-                            content: { fontWeight: 400 }
-                        }}
-                    />
+                    parsedLoading ? (
+                        <Spin style={{ margin: '32px auto', display: 'block' }} />
+                    ) : (
+                        <Descriptions
+                            bordered
+                            column={1}
+                            items={items}
+                            size="small"
+                            style={{ color: '#fff', borderRadius: 8, width: '100%' }}
+                            styles={{
+                                label: { fontWeight: 600, width: 110 },
+                                content: { fontWeight: 400 }
+                            }}
+                        />
+                    )
                 )
             )}
         </div>

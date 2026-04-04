@@ -12,14 +12,12 @@ import { BASE_Z_INDEX } from './ComfyAppApi';
 const GalleryModal = () => {
     const {
         open, setOpen, size, showSettings, siderCollapsed,
-        appMode, setAppMode, setGroupBy,
+        appMode, setAppMode,
     } = useGalleryContext();
 
     const handleSelectModel = (model: string) => {
-        // Switch back to images view with "By Model" grouping active
-        setGroupBy('model');
+        // Switch back to images view — model grouping is served by /Gallery/groups
         setAppMode('images');
-        // Future: could also set a model filter here
         void model;
     };
 

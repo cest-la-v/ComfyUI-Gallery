@@ -7,7 +7,6 @@ import { useGalleryContext } from './GalleryContext';
 import { MetadataPanel } from './MetadataPanel';
 import type { FileDetails } from './types';
 import { BASE_PATH, ComfyAppApi } from "./ComfyAppApi";
-import { parseComfyMetadata } from './metadata-parser/metadataParser';
 import { InfoCircleOutlined, FileTextOutlined, CopyOutlined, DownloadOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import { saveAs } from 'file-saver';
 
@@ -62,14 +61,7 @@ const GalleryImageGrid = () => {
                 case 'date':
                     return item.timestamp ? new Date(item.timestamp * 1000).toISOString().slice(0, 10) : 'Unknown';
                 case 'resolution':
-                    return item.metadata?.fileinfo?.resolution || 'Unknown';
-                case 'model':
-                case 'sampler': {
-                    if (item.type !== 'image') return 'N/A';
-                    const parsed = parseComfyMetadata(item.metadata, 'auto');
-                    const fieldName = groupBy === 'model' ? 'Model' : 'Sampler';
-                    return parsed[fieldName] || 'Unknown';
-                }
+                    return (item.width && item.height) ? `${item.width}x${item.height}` : 'Unknown';
                 default:
                     return 'Unknown';
             }
