@@ -274,22 +274,20 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                 height: '100%',
                 background: 'rgba(30, 30, 30, 0.95)',
                 borderLeft: '1px solid #444',
-                overflowY: 'auto',
-                overflowX: 'hidden',
                 padding: '48px 16px 16px 16px',
                 zIndex: 10,
                 display: 'flex',
                 flexDirection: 'column',
+                gap: 12,
                 // Keep in layout while hidden so Ant Design's JS ellipsis measurement
                 // runs before the panel is revealed — prevents row-height flicker on show.
                 visibility: showMetadataPanel ? 'visible' : 'hidden',
                 opacity: showMetadataPanel ? 1 : 0,
                 pointerEvents: showMetadataPanel ? 'auto' : 'none',
-                gap: 12,
             }}
             onClick={(e) => e.stopPropagation()}
         >
-            {/* Header with close button and action buttons */}
+            {/* Fixed: tab selector */}
             <Segmented
                 value={showRawMetadata ? 'raw' : 'metadata'}
                 options={[
@@ -300,8 +298,8 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                 size="small"
                 block
             />
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {/* Fixed: action buttons */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
                 {image.type === 'image' && (
                     <Tooltip title="Copy image to clipboard">
                         <Button icon={<CopyOutlined />} size="small" onClick={handleCopyImage}>Copy</Button>
@@ -320,40 +318,46 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                     <Button icon={<DeleteOutlined />} size="small" danger>Delete</Button>
                 </Popconfirm>
             </div>
-            {/* Content: metadata table or raw JSON */}
-            {image.type === 'image' && (
-                showRawMetadata ? (
-                    rawLoading ? (
-                        <Spin style={{ margin: '32px auto', display: 'block' }} />
+            {/* Scrollable content — only this area scrolls */}
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+                {image.type === 'image' && (
+                    showRawMetadata ? (
+                        rawLoading ? (
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: 120 }}>
+                                <Spin />
+                            </div>
+                        ) : (
+                            <ReactJsonView
+                                theme={settings.darkMode ? 'apathy' : 'apathy:inverted'}
+                                src={rawMetadata || {}}
+                                name={false}
+                                collapsed={2}
+                                enableClipboard
+                                displayDataTypes={false}
+                                style={{ borderRadius: 8, padding: 8, textAlign: 'left', width: '100%' }}
+                            />
+                        )
                     ) : (
-                        <ReactJsonView
-                            theme={settings.darkMode ? 'apathy' : 'apathy:inverted'}
-                            src={rawMetadata || {}}
-                            name={false}
-                            collapsed={2}
-                            enableClipboard
-                            displayDataTypes={false}
-                            style={{ borderRadius: 8, padding: 8, textAlign: 'left', width: '100%' }}
-                        />
+                        parsedLoading ? (
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: 120 }}>
+                                <Spin />
+                            </div>
+                        ) : (
+                            <Descriptions
+                                bordered
+                                column={1}
+                                items={items}
+                                size="small"
+                                style={{ color: '#fff', borderRadius: 8, width: '100%' }}
+                                styles={{
+                                    label: { fontWeight: 600, width: 110, verticalAlign: 'middle' },
+                                    content: { fontWeight: 400, verticalAlign: 'middle' }
+                                }}
+                            />
+                        )
                     )
-                ) : (
-                    parsedLoading ? (
-                        <Spin style={{ margin: '32px auto', display: 'block' }} />
-                    ) : (
-                        <Descriptions
-                            bordered
-                            column={1}
-                            items={items}
-                            size="small"
-                            style={{ color: '#fff', borderRadius: 8, width: '100%' }}
-                            styles={{
-                                label: { fontWeight: 600, width: 110 },
-                                content: { fontWeight: 400 }
-                            }}
-                        />
-                    )
-                )
-            )}
+                )}
+            </div>
         </div>
     );
 }
