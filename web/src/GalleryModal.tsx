@@ -17,7 +17,7 @@ const GalleryModal = () => {
 
     const handleSelectModel = async (model: string) => {
         try {
-            const res = await fetch(`/Gallery/groups/files?by=model&value=${encodeURIComponent(model)}`);
+            const res = await fetch(`/Gallery/groups/files?by=model&value=${encodeURIComponent(model)}`, { cache: 'no-store' });
             const json = await res.json();
             setFilteredRelPaths(json.rel_paths ?? []);
             setActiveFilter({ by: 'model', value: model, label: model });
@@ -30,7 +30,7 @@ const GalleryModal = () => {
 
     const handleSelectPrompt = async (fingerprint: string, label: string) => {
         try {
-            const res = await fetch(`/Gallery/groups/files?by=prompt&value=${encodeURIComponent(fingerprint)}`);
+            const res = await fetch(`/Gallery/groups/files?by=prompt&value=${encodeURIComponent(fingerprint)}`, { cache: 'no-store' });
             const json = await res.json();
             setFilteredRelPaths(json.rel_paths ?? []);
             setActiveFilter({ by: 'prompt', value: fingerprint, label });

@@ -84,7 +84,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
         if (image.type !== 'image') return;
         let cancelled = false;
         setParsedLoading(true);
-        fetch(`${BASE_PATH}/Gallery/metadata/${relPath}`)
+        fetch(`${BASE_PATH}/Gallery/metadata/${relPath}`, { cache: 'no-store' })
             .then(r => r.ok ? r.json() as Promise<{ params?: ImageParams }> : Promise.resolve({}))
             .then(d => {
                 if (!cancelled) {
@@ -116,7 +116,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
         rawFetchedForRef.current = relPath;
         let cancelled = false;
         setRawLoading(true);
-        fetch(`${BASE_PATH}/Gallery/metadata/${relPath}?format=raw`)
+        fetch(`${BASE_PATH}/Gallery/metadata/${relPath}?format=raw`, { cache: 'no-store' })
             .then(r => r.ok ? r.json() as Promise<{ metadata?: Record<string, unknown> }> : Promise.resolve({}))
             .then(d => { if (!cancelled) setRawMetadata((d as { metadata?: Record<string, unknown> }).metadata ?? {}); })
             .catch(() => { if (!cancelled) setRawMetadata({}); })

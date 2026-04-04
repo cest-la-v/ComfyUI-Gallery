@@ -25,11 +25,11 @@ export function useGalleryGroups(enabled: boolean): GalleryGroupsData {
         setError(null);
 
         Promise.all([
-            fetch(`${BASE_PATH}/Gallery/groups?by=model`).then(r => {
+            fetch(`${BASE_PATH}/Gallery/groups?by=model`, { cache: 'no-store' }).then(r => {
                 if (!r.ok) throw new Error(`groups?by=model: ${r.status}`);
                 return r.json();
             }),
-            fetch(`${BASE_PATH}/Gallery/groups?by=prompt`).then(r => {
+            fetch(`${BASE_PATH}/Gallery/groups?by=prompt`, { cache: 'no-store' }).then(r => {
                 if (!r.ok) throw new Error(`groups?by=prompt: ${r.status}`);
                 return r.json();
             }),

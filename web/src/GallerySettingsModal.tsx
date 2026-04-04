@@ -23,7 +23,7 @@ const GallerySettingsModal = () => {
         if (showSettings) {
             setStaged(settings);
             setExtInput((settings && (settings as any).scanExtensions) ? (settings as any).scanExtensions.join(', ') : "");
-            fetch('/Gallery/db/status').then(r => r.ok ? r.json() : null).then(d => setDbStatus(d)).catch(() => {});
+            fetch('/Gallery/db/status', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => setDbStatus(d)).catch(() => {});
         }
     }, [showSettings, settings, setStaged]);
 

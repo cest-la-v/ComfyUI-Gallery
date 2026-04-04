@@ -90,7 +90,7 @@ export const ComfyAppApi = {
             method: "POST"
         }),
     fetchImages: (relativePath?: string) =>
-        app.api.fetchApi(`/Gallery/images?relative_path=${encodeURIComponent(relativePath ?? './')}`),
+        app.api.fetchApi(`/Gallery/images?relative_path=${encodeURIComponent(relativePath ?? './')}`, { cache: 'no-store' }),
     onFileChange: (cb: GalleryEventCallback) =>
         app.api.addEventListener("Gallery.file_change", cb),
     onUpdate: (cb: GalleryEventCallback) =>
