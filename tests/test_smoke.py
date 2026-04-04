@@ -79,7 +79,14 @@ def run(root: str, fail_on_none: bool = False) -> int:
             status = "⚠ WARN"
             counts["WARN"] += 1
 
-        src = (params or {}).get("source", "") or ""
+        src_raw = (params or {}).get("formats") or []
+        if isinstance(src_raw, str):
+            import json as _j
+            try:
+                src_raw = _j.loads(src_raw)
+            except Exception:
+                src_raw = [src_raw]
+        src = "+".join(src_raw) if src_raw else ""
         model = (params or {}).get("model", "") or ""
         if len(model) > 28:
             model = model[:27] + "…"
