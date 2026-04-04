@@ -12,17 +12,33 @@ import { BASE_Z_INDEX } from './ComfyAppApi';
 const GalleryModal = () => {
     const {
         open, setOpen, size, showSettings, siderCollapsed,
-        appMode, setAppMode,
+        viewMode, setViewMode, setActiveFilter, setFilteredRelPaths,
     } = useGalleryContext();
 
-    const handleSelectModel = (model: string) => {
-        // Switch back to images view — model grouping is served by /Gallery/groups
-        setAppMode('images');
-        void model;
+    const handleSelectModel = async (model: string) => {
+        try {
+            const res = await fetch(`/Gallery/groups/files?by=model&value=${encodeURIComponent(model)}`);
+            const json = await res.json();
+            setFilteredRelPaths(json.rel_paths ?? []);
+            setActiveFilter({ by: 'model', value: model, label: model });
+            setViewMode('all');
+        } catch (e) {
+            console.error('Failed to fetch group files:', e);
+            setViewMode('all');
+        }
     };
 
-    const handleSelectPrompt = () => {
-        setAppMode('images');
+    const handleSelectPrompt = async (fingerprint: string, label: string) => {
+        try {
+            const res = await fetch(`/Gallery/groups/files?by=prompt&value=${encodeURIComponent(fingerprint)}`);
+            const json = await res.json();
+            setFilteredRelPaths(json.rel_paths ?? []);
+            setActiveFilter({ by: 'prompt', value: fingerprint, label });
+            setViewMode('all');
+        } catch (e) {
+            console.error('Failed to fetch group files:', e);
+            setViewMode('all');
+        }
     };
 
     return (
@@ -47,10 +63,11 @@ const GalleryModal = () => {
                     height: "85vh" 
                 }}
             >
-                {appMode === 'groups' ? (
+                {viewMode === 'model' || viewMode === 'prompt' ? (
                     <GroupView
                         onSelectModel={handleSelectModel}
                         onSelectPrompt={handleSelectPrompt}
+                        activeTab={viewMode === 'prompt' ? 'prompt' : 'model'}
                     />
                 ) : (
                     <>

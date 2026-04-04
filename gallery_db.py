@@ -315,6 +315,47 @@ class GalleryDB:
         }
         return result
 
+    def get_files_by_model(self, model: str) -> list[str]:
+        """Return rel_paths for all files with the given model name."""
+        rows = self._conn().execute(
+            """SELECT f.rel_path FROM files f
+               JOIN image_params ip ON ip.file_id = f.id
+               WHERE ip.model = ?
+               ORDER BY f.mtime DESC""",
+            (model,),
+        ).fetchall()
+        return [row["rel_path"] for row in rows]
+
+    def get_files_by_fingerprint(self, fingerprint: str) -> list[str]:
+        """Return rel_paths for all files with the given prompt fingerprint."""
+        rows = self._conn().execute(
+            """SELECT f.rel_path FROM files f
+               JOIN image_params ip ON ip.file_id = f.id
+               WHERE ip.prompt_fingerprint = ?
+               ORDER BY f.mtime DESC""",
+            (fingerprint,),
+        ).fetchall()
+        return [row["rel_path"] for row in rows]
+
+    def reset(self):
+        """Drop all cache tables and close connection. DB file is deleted by caller."""
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            self._local.conn = None
+        try:
+            if os.path.exists(self._db_path):
+                os.remove(self._db_path)
+                gallery_log(f"Gallery DB: deleted {self._db_path}")
+        except Exception as e:
+            gallery_log(f"Gallery DB: error deleting DB file: {e}")
+        # Re-init so the object is usable immediately after reset
+        self._init_schema()
+        gallery_log("Gallery DB: reset complete, fresh schema initialized")
+
     def close(self):
         conn = getattr(self._local, "conn", None)
         if conn is not None:

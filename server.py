@@ -218,7 +218,47 @@ async def get_gallery_groups(request):
         return web.Response(status=500, text=str(e))
 
 
-@PromptServer.instance.routes.post("/Gallery/monitor/start")
+@PromptServer.instance.routes.get("/Gallery/groups/files")
+async def get_group_files(request):
+    """Return all file rel_paths belonging to a model or prompt group.
+
+    Query params:
+      by=model   — group by model name (value = model name string)
+      by=prompt  — group by prompt fingerprint (value = fingerprint hex string)
+      value=X    — the group value to look up
+    """
+    by = request.rel_url.query.get("by", "model")
+    value = request.rel_url.query.get("value", "")
+    if not value:
+        return web.json_response({"rel_paths": []})
+    try:
+        if by == "prompt":
+            rel_paths = _gallery_db.get_files_by_fingerprint(value)
+        else:
+            rel_paths = _gallery_db.get_files_by_model(value)
+        return web.json_response({"rel_paths": rel_paths})
+    except Exception as e:
+        gallery_log(f"Error in /Gallery/groups/files: {e}")
+        return web.Response(status=500, text=str(e))
+
+
+@PromptServer.instance.routes.post("/Gallery/db/reset")
+async def reset_gallery_db(request):
+    """Reset (wipe and rebuild) the gallery database.
+
+    Deletes the SQLite file, re-initializes the schema, and returns ok=true.
+    The next GET /Gallery/images call will trigger a full re-scan and cache rebuild.
+    """
+    try:
+        _gallery_db.reset()
+        gallery_log("Gallery DB: reset via API")
+        return web.json_response({"ok": True})
+    except Exception as e:
+        gallery_log(f"Error resetting gallery DB: {e}")
+        return web.Response(status=500, text=str(e))
+
+
+
 async def start_gallery_monitor(request):
     """Endpoint to start gallery monitoring, accepts relative_path."""
     global monitor

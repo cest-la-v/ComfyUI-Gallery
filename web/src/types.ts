@@ -20,6 +20,7 @@ export interface FileDetails {
     type: "image" | "media" | "audio" | "divider" | "empty-space";
     width?: number;
     height?: number;
+    rel_path?: string;
 }
 
 export interface ImageParams {

@@ -1,5 +1,5 @@
 import Modal from 'antd/es/modal/Modal';
-import { Button, Flex, Input, Switch, Typography } from 'antd';
+import { Button, Flex, Input, Switch, Typography, Popconfirm, message, Divider } from 'antd';
 import { useGalleryContext, type SettingsState } from './GalleryContext';
 import { useSetState } from 'ahooks';
 import { useEffect, useState } from 'react';
@@ -145,6 +145,34 @@ const GallerySettingsModal = () => {
                     <Typography.Title level={5}>Scan File Extensions:</Typography.Title>
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>Comma separated (e.g. png, jpg, mp4, wav)</Typography.Text>
                     <Input value={extInput} onChange={e => setExtInput(e.target.value)} />
+                </div>
+                <Divider style={{ margin: '12px 0' }} />
+                <div>
+                    <Typography.Title level={5} type="danger">Danger Zone</Typography.Title>
+                    <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+                        Reset the gallery database — clears all cached metadata. The next scan will rebuild it from scratch.
+                    </Typography.Text>
+                    <Popconfirm
+                        title="Reset Gallery Database"
+                        description="This will delete all cached metadata. Metadata will be re-extracted on the next scan. Continue?"
+                        okText="Reset"
+                        cancelText="Cancel"
+                        okButtonProps={{ danger: true }}
+                        onConfirm={async () => {
+                            try {
+                                const res = await fetch('/Gallery/db/reset', { method: 'POST' });
+                                if (res.ok) {
+                                    message.success('Database reset. Metadata will be rebuilt on next scan.');
+                                } else {
+                                    message.error('Reset failed: ' + res.statusText);
+                                }
+                            } catch (e) {
+                                message.error('Reset failed: network error');
+                            }
+                        }}
+                    >
+                        <Button danger>Reset Database</Button>
+                    </Popconfirm>
                 </div>
             </Flex>
         </Modal>

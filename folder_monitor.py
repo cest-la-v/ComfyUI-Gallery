@@ -12,6 +12,15 @@ import queue
 from .gallery_config import gallery_log
 
 
+def _get_gallery_db():
+    """Lazy import to avoid circular dependency (server imports folder_monitor)."""
+    try:
+        from . import server as _server
+        return getattr(_server, "_gallery_db", None)
+    except Exception:
+        return None
+
+
 class GalleryEventHandler(PatternMatchingEventHandler):
     """Handles file system events, including symlinks, recursively."""
 
@@ -78,7 +87,7 @@ class GalleryEventHandler(PatternMatchingEventHandler):
             try:
                 folder_name = os.path.basename(self.base_path)
                 # Pass configured extensions to the scanner
-                new_folders_data, _ = _scan_for_images(self.base_path, folder_name, True, self.extensions)
+                new_folders_data, _ = _scan_for_images(self.base_path, folder_name, True, self.extensions, db=_get_gallery_db())
                 old_folders_data = self.last_known_folders
                 changes = detect_folder_changes(old_folders_data, new_folders_data)
 
@@ -168,7 +177,7 @@ class FileSystemMonitor:
         try:
             folder_name = os.path.basename(self.base_path)
             gallery_log("FileSystemMonitor: Starting initial background scan...")
-            initial_data, _ = _scan_for_images(self.base_path, folder_name, True, self.extensions)
+            initial_data, _ = _scan_for_images(self.base_path, folder_name, True, self.extensions, db=_get_gallery_db())
             self.event_handler.last_known_folders = initial_data
             gallery_log("FileSystemMonitor: Initial background scan complete.")
         except Exception as e:

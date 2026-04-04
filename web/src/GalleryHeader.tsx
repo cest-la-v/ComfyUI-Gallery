@@ -1,27 +1,36 @@
 import { useEffect, useRef, useState } from 'react';
-import { Flex, AutoComplete, Button, Segmented, Modal, message, Popconfirm, Select } from 'antd';
-import { CloseSquareFilled, DoubleLeftOutlined, DoubleRightOutlined, AppstoreOutlined } from '@ant-design/icons';
+import { Flex, AutoComplete, Button, Segmented, Modal, message, Popconfirm, Tag } from 'antd';
+import { CloseSquareFilled, DoubleLeftOutlined, DoubleRightOutlined, CloseOutlined } from '@ant-design/icons';
 import { useGalleryContext } from './GalleryContext';
-import type { GroupBy } from './GalleryContext';
+import type { ViewMode } from './GalleryContext';
 import { useDebounce, useCountDown } from 'ahooks';
 import Typography from 'antd/es/typography/Typography';
 import JSZip from 'jszip';
 import FileSaver from 'file-saver';
 import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
 
+const VIEW_MODE_OPTIONS: { label: string; value: ViewMode }[] = [
+    { label: 'All', value: 'all' },
+    { label: 'By Date', value: 'date' },
+    { label: 'By Resolution', value: 'resolution' },
+    { label: 'By Model', value: 'model' },
+    { label: 'By Prompt', value: 'prompt' },
+];
+
 const GalleryHeader = () => {
     const {
         showSettings, setShowSettings,
         searchFileName, setSearchFileName,
         sortMethod, setSortMethod,
-        groupBy, setGroupBy,
+        viewMode, setViewMode,
+        activeFilter, setActiveFilter,
+        setFilteredRelPaths,
         imagesAutoCompleteNames,
         autoCompleteOptions, setAutoCompleteOptions,
         setOpen,
         selectedImages, setSelectedImages,
         mutate,
         siderCollapsed, setSiderCollapsed,
-        appMode, setAppMode,
     } = useGalleryContext();
 
     const [search, setSearch] = useState("");
@@ -72,6 +81,11 @@ const GalleryHeader = () => {
             );
         }
     }, [debouncedSearch, imagesAutoCompleteNames, setAutoCompleteOptions]);
+
+    const clearFilter = () => {
+        setActiveFilter(null);
+        setFilteredRelPaths(null);
+    };
 
     return (
         <Flex 
@@ -154,7 +168,6 @@ const GalleryHeader = () => {
                                     const ok = await ComfyAppApi.deleteImage(url);
                                     if (ok) {
                                         deleted++;
-                                        // Immediately remove from state without waiting for watchdog
                                         mutate((oldData) => {
                                             if (!oldData?.folders) return oldData;
                                             const folders = { ...oldData.folders };
@@ -237,7 +250,7 @@ const GalleryHeader = () => {
                             flexWrap: "wrap",
                             width: 150
                         }}
-                        tabIndex={-1} // Prevent focus flicker
+                        tabIndex={-1}
                     >
                         {targetDate
                             ? (
@@ -263,6 +276,17 @@ const GalleryHeader = () => {
                     </Button>
                 </div>
             )}
+            {activeFilter && (
+                <Tag
+                    color="blue"
+                    closable
+                    closeIcon={<CloseOutlined />}
+                    onClose={clearFilter}
+                    style={{ fontSize: 13, padding: '2px 8px' }}
+                >
+                    {activeFilter.by === 'model' ? 'Model' : 'Prompt'}: {activeFilter.label}
+                </Tag>
+            )}
             <AutoComplete
                 options={
                     autoCompleteOptions && autoCompleteOptions.length > 0 
@@ -270,7 +294,7 @@ const GalleryHeader = () => {
                         : imagesAutoCompleteNames
                     }
                 style={{ 
-                    width: '50%' 
+                    width: '40%' 
                 }}
                 onSearch={text => setSearch(text)}
                 value={search}
@@ -280,24 +304,16 @@ const GalleryHeader = () => {
                     clearIcon: <CloseSquareFilled /> 
                 }}
             />
-            <Button
-                    icon={<AppstoreOutlined />}
-                    type={appMode === 'groups' ? 'primary' : 'default'}
-                    onClick={() => setAppMode(appMode === 'groups' ? 'images' : 'groups')}
-                    title="Groups view — browse by model or prompt"
-                >
-                    Groups
-                </Button>
-            <Select<GroupBy>
-                value={groupBy}
-                onChange={setGroupBy}
-                style={{ width: 130 }}
-                size="middle"
-                options={[
-                    { label: 'No Grouping', value: 'none' },
-                    { label: 'By Date', value: 'date' },
-                    { label: 'By Resolution', value: 'resolution' },
-                ]}
+            <Segmented<ViewMode>
+                options={VIEW_MODE_OPTIONS}
+                value={viewMode}
+                onChange={v => {
+                    setViewMode(v);
+                    // Switching away from model/prompt view clears the filter
+                    if (v !== 'model' && v !== 'prompt') {
+                        clearFilter();
+                    }
+                }}
             />
             <Segmented<string>
                 style={{ 

@@ -27,7 +27,6 @@ export interface SettingsState {
     relativePath: string;
     buttonBoxQuery: string;
     buttonLabel: string;
-    showDateDivider: boolean;
     floatingButton: boolean;
     autoPlayVideos: boolean;
     hideOpenButton: boolean;
@@ -43,7 +42,6 @@ export const DEFAULT_SETTINGS: SettingsState = {
     relativePath: './',
     buttonBoxQuery: 'div.flex.gap-2.mx-2',
     buttonLabel: 'Open Gallery',
-    showDateDivider: true,
     floatingButton: true,
     autoPlayVideos: true,
     hideOpenButton: false,
@@ -56,15 +54,23 @@ export const DEFAULT_SETTINGS: SettingsState = {
 };
 export const STORAGE_KEY = 'comfy-ui-gallery-settings';
 
-export type GroupBy = 'none' | 'date' | 'resolution';
+export type ViewMode = 'all' | 'date' | 'resolution' | 'model' | 'prompt';
+
+export interface ActiveFilter {
+    by: 'model' | 'prompt';
+    value: string;
+    label: string;
+}
 
 export interface GalleryContextType {
     currentFolder: string;
     setCurrentFolder: Dispatch<SetStateAction<string>>;
     searchFileName: string;
     setSearchFileName: Dispatch<SetStateAction<string>>;
-    groupBy: GroupBy;
-    setGroupBy: Dispatch<SetStateAction<GroupBy>>;
+    viewMode: ViewMode;
+    setViewMode: Dispatch<SetStateAction<ViewMode>>;
+    activeFilter: ActiveFilter | null;
+    setActiveFilter: Dispatch<SetStateAction<ActiveFilter | null>>;
     showSettings: boolean;
     setShowSettings: Dispatch<SetStateAction<boolean>>;
     showRawMetadata: boolean;
@@ -101,8 +107,8 @@ export interface GalleryContextType {
     setSiderCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
     showMetadataPanel: boolean;
     setShowMetadataPanel: React.Dispatch<React.SetStateAction<boolean>>;
-    appMode: 'images' | 'groups';
-    setAppMode: React.Dispatch<React.SetStateAction<'images' | 'groups'>>;
+    filteredRelPaths: string[] | null;
+    setFilteredRelPaths: React.Dispatch<React.SetStateAction<string[] | null>>;
 }
 
 const GalleryContext = createContext<GalleryContextType | undefined>(undefined);
@@ -110,7 +116,9 @@ const GalleryContext = createContext<GalleryContextType | undefined>(undefined);
 export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const [currentFolder, setCurrentFolder] = useState("output");
     const [searchFileName, setSearchFileName] = useState("");
-    const [groupBy, setGroupBy] = useState<GroupBy>('date');
+    const [viewMode, setViewMode] = useState<ViewMode>('all');
+    const [activeFilter, setActiveFilter] = useState<ActiveFilter | null>(null);
+    const [filteredRelPaths, setFilteredRelPaths] = useState<string[] | null>(null);
     const [showSettings, setShowSettings] = useState(false);
     const [showRawMetadata, setShowRawMetadata] = useState(false);
     const [sortMethod, setSortMethod] = useState<'Newest' | 'Oldest' | 'Name ↑' | 'Name ↓'>("Newest");
@@ -120,7 +128,6 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const [selectedImages, setSelectedImages] = useState<string[]>([]);
     const [siderCollapsed, setSiderCollapsed] = useState(true);
     const [showMetadataPanel, setShowMetadataPanel] = useState(false);
-    const [appMode, setAppMode] = useState<'images' | 'groups'>('images');
     const size= useSize(document.querySelector('body'));
     const imagesBoxSize = useSize(document.querySelector('#imagesBox'));
     const { data, error, loading, runAsync, mutate, refresh, refreshAsync } = useRequest(getImages, { manual: true });
@@ -207,6 +214,13 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     // Memoized list of all images in the current folder
     const imagesDetailsList = useMemo(() => {
         let list: FileDetails[] = Object.values(data?.folders?.[currentFolder] ?? []);
+
+        // Apply active filter (drill-down from group card)
+        if (filteredRelPaths !== null) {
+            const pathSet = new Set(filteredRelPaths);
+            list = list.filter(item => item.rel_path && pathSet.has(item.rel_path));
+        }
+
         if (searchFileName && searchFileName.trim() !== "") {
             const searchTerm = searchFileName.toLowerCase();
             list = list.filter(imageInfo => imageInfo.name.toLowerCase().includes(searchTerm));
@@ -226,11 +240,11 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
                 list = list.sort((a, b) => b.name.localeCompare(a.name));
                 break;
         }
-        // Step 2: Group (if enabled)
-        if (groupBy === 'none') return list;
+        // Step 2: Group dividers (date/resolution modes only)
+        if (viewMode !== 'date' && viewMode !== 'resolution') return list;
 
         const getGroupKey = (item: FileDetails): string => {
-            switch (groupBy) {
+            switch (viewMode) {
                 case 'date':
                     return item.timestamp ? new Date(item.timestamp * 1000).toISOString().slice(0, 10) : 'Unknown';
                 case 'resolution':
@@ -250,7 +264,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         const sortedGroups = Object.entries(grouped).sort(([a], [b]) => {
             if (a === 'Unknown' || a === 'N/A') return 1;
             if (b === 'Unknown' || b === 'N/A') return -1;
-            if (groupBy === 'date') {
+            if (viewMode === 'date') {
                 return sortMethod === 'Oldest' ? a.localeCompare(b) : b.localeCompare(a);
             }
             return a.localeCompare(b);
@@ -271,7 +285,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
             }
         });
         return result;
-    }, [currentFolder, data, sortMethod, searchFileName, gridSize.columnCount, groupBy]);
+    }, [currentFolder, data, sortMethod, searchFileName, gridSize.columnCount, viewMode, filteredRelPaths]);
 
     // Memoized list of image URLs for preview
     const imagesUrlsLists = useMemo(() =>
@@ -381,7 +395,9 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const value = useMemo(() => ({
         currentFolder, setCurrentFolder,
         searchFileName, setSearchFileName,
-        groupBy, setGroupBy,
+        viewMode, setViewMode,
+        activeFilter, setActiveFilter,
+        filteredRelPaths, setFilteredRelPaths,
         showSettings, setShowSettings,
         showRawMetadata, setShowRawMetadata,
         sortMethod, setSortMethod,
@@ -405,12 +421,12 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         setSiderCollapsed,
         showMetadataPanel,
         setShowMetadataPanel,
-        appMode,
-        setAppMode,
     }), [
         currentFolder, 
         searchFileName, 
-        groupBy, 
+        viewMode,
+        activeFilter,
+        filteredRelPaths,
         showSettings, 
         showRawMetadata, 
         sortMethod, 
@@ -438,8 +454,6 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         setSiderCollapsed,
         showMetadataPanel,
         setShowMetadataPanel,
-        appMode,
-        setAppMode,
     ]);
 
     return <GalleryContext.Provider 

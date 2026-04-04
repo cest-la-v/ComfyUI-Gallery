@@ -51,7 +51,7 @@ def extract_params(raw_metadata: dict) -> Optional[dict]:
         exif_ifd = raw_metadata.get("ExifIFD", {})
         if isinstance(exif_ifd, dict):
             parameters = exif_ifd.get("UserComment")
-    if parameters and isinstance(parameters, str) and "Steps:" in parameters:
+    if parameters and isinstance(parameters, str) and parameters.strip():
         result = _a1111.parse(parameters)
         if result:
             return result

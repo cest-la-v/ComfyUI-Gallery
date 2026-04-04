@@ -76,13 +76,15 @@ function PromptGroupCard({ group, onClick }: { group: PromptGroup; onClick: () =
 }
 
 interface GroupViewProps {
-    /** Called when user clicks a model group. Switches back to images view filtered by model. */
-    onSelectModel: (model: string) => void;
-    /** Called when user clicks a prompt group. Switches back to images view. */
-    onSelectPrompt: () => void;
+    /** Called when user clicks a model group card — fetches filtered rel_paths and drills down. */
+    onSelectModel: (model: string) => Promise<void>;
+    /** Called when user clicks a prompt group card. */
+    onSelectPrompt: (fingerprint: string, label: string) => Promise<void>;
+    /** Which tab to show by default: 'model' or 'prompt'. */
+    activeTab?: 'model' | 'prompt';
 }
 
-const GroupView: React.FC<GroupViewProps> = ({ onSelectModel, onSelectPrompt }) => {
+const GroupView: React.FC<GroupViewProps> = ({ onSelectModel, onSelectPrompt, activeTab = 'model' }) => {
     const { modelGroups, promptGroups, loading, error, refresh } = useGalleryGroups(true);
 
     const header = (
@@ -121,6 +123,7 @@ const GroupView: React.FC<GroupViewProps> = ({ onSelectModel, onSelectPrompt }) 
         <div style={{ padding: 16, height: '100%', overflowY: 'auto' }}>
             {header}
             <Tabs
+                defaultActiveKey={activeTab}
                 items={[
                     {
                         key: 'model',
@@ -170,7 +173,7 @@ const GroupView: React.FC<GroupViewProps> = ({ onSelectModel, onSelectPrompt }) 
                                     <PromptGroupCard
                                         key={group.fingerprint}
                                         group={group}
-                                        onClick={onSelectPrompt}
+                                        onClick={() => onSelectPrompt(group.fingerprint, group.positive_prompt?.slice(0, 40) ?? group.fingerprint.slice(0, 8))}
                                     />
                                 ))}
                             </Flex>
