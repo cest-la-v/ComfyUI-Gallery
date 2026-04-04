@@ -327,9 +327,8 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
             onClick={(e) => e.stopPropagation()}
         >
             {/* Fixed: tab selector */}
-            {/* preventDefault on arrow keys: blocks the browser's native radiogroup focus
-                movement (which would switch tabs) while still letting the event bubble up
-                to the image navigation handler */}
+            {/* Blur immediately after selection so arrow keys don't get captured
+                by the Segmented's radiogroup — user can then switch images freely */}
             <div onKeyDown={(e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.preventDefault(); }}>
                 <Segmented
                     value={showRawMetadata ? 'raw' : 'metadata'}
@@ -337,7 +336,10 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                         { label: 'Metadata', value: 'metadata' },
                         { label: 'Raw JSON', value: 'raw' },
                     ]}
-                    onChange={(value) => setShowRawMetadata(value === 'raw')}
+                    onChange={(value) => {
+                        setShowRawMetadata(value === 'raw');
+                        (document.activeElement as HTMLElement)?.blur();
+                    }}
                     size="small"
                     block
                 />
