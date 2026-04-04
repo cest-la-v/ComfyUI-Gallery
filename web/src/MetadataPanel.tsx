@@ -1,5 +1,6 @@
 import { Typography, Button, Descriptions, Tooltip, message, Tag, Popconfirm, Segmented, Spin } from 'antd';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import type React from 'react';
 import type { FileDetails, ImageParams } from './types';
 import { ComfyAppApi } from './ComfyAppApi';
 import { useGalleryContext } from './GalleryContext';
@@ -131,19 +132,30 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
     );
 
     const renderPromptValue = useCallback((key: string, value: string) => {
+        if (value.length <= 300) {
+            return <span style={{ whiteSpace: 'pre-line', wordBreak: 'break-word' }}>{value}</span>;
+        }
         const isExpanded = expandedKeys[key];
+        // CSS line-clamp clips at paint time with no JS measurement pass,
+        // avoiding the layout-reflow flicker that Typography.Paragraph ellipsis causes.
+        const clampStyle = isExpanded ? {} : {
+            display: '-webkit-box',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: PROMPT_ROW_LIMIT,
+            overflow: 'hidden',
+        } as React.CSSProperties;
         return (
-            <Typography.Paragraph
-                ellipsis={value.length > 300 ? {
-                    rows: PROMPT_ROW_LIMIT,
-                    expandable: 'collapsible',
-                    expanded: isExpanded,
-                    onExpand: () => setExpandedKeys(k => ({ ...k, [key]: !isExpanded })),
-                } : false}
-                style={{ marginBottom: 0, whiteSpace: 'pre-line', wordBreak: 'break-word' }}
-            >
-                {value}
-            </Typography.Paragraph>
+            <div>
+                <div style={{ ...clampStyle, whiteSpace: 'pre-line', wordBreak: 'break-word' }}>
+                    {value}
+                </div>
+                <Typography.Link
+                    style={{ fontSize: 12, marginTop: 2, display: 'inline-block' }}
+                    onClick={e => { e.stopPropagation(); setExpandedKeys(k => ({ ...k, [key]: !isExpanded })); }}
+                >
+                    {isExpanded ? 'Collapse' : 'Expand'}
+                </Typography.Link>
+            </div>
         );
     }, [expandedKeys]);
 
