@@ -69,6 +69,7 @@ def _get_static_dir() -> str:
     return _current_gallery_dir
 
 
+def load_settings() -> dict:
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
