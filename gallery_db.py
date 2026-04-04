@@ -253,7 +253,7 @@ class GalleryDB:
     def get_groups_by_model(self) -> list:
         """Image counts grouped by model, with up to 4 sample rel_paths each."""
         rows = self._conn().execute("""
-            SELECT ip.model, COUNT(*) AS count, GROUP_CONCAT(f.rel_path) AS paths
+            SELECT ip.model, COUNT(*) AS count, GROUP_CONCAT(f.rel_path, '|||') AS paths
             FROM image_params ip
             JOIN files f ON ip.file_id = f.id
             WHERE ip.model IS NOT NULL
@@ -264,7 +264,7 @@ class GalleryDB:
             {
                 "model": row["model"],
                 "count": row["count"],
-                "sample_paths": (row["paths"] or "").split(",")[:4],
+                "sample_paths": [p for p in (row["paths"] or "").split("|||") if p][:4],
             }
             for row in rows
         ]
@@ -273,8 +273,8 @@ class GalleryDB:
         """Image counts grouped by prompt-only fingerprint (no model), with aggregated models."""
         rows = self._conn().execute("""
             SELECT ip.prompt_only_fp, ip.positive_prompt,
-                   GROUP_CONCAT(DISTINCT ip.model) AS models,
-                   COUNT(*) AS count, GROUP_CONCAT(f.rel_path) AS paths
+                   GROUP_CONCAT(DISTINCT ip.model, '|||') AS models,
+                   COUNT(*) AS count, GROUP_CONCAT(f.rel_path, '|||') AS paths
             FROM image_params ip
             JOIN files f ON ip.file_id = f.id
             WHERE ip.prompt_only_fp IS NOT NULL
@@ -285,9 +285,9 @@ class GalleryDB:
             {
                 "fingerprint": row["prompt_only_fp"],
                 "positive_prompt": row["positive_prompt"],
-                "models": [m for m in (row["models"] or "").split(",") if m],
+                "models": [m for m in (row["models"] or "").split("|||") if m],
                 "count": row["count"],
-                "sample_paths": (row["paths"] or "").split(",")[:4],
+                "sample_paths": [p for p in (row["paths"] or "").split("|||") if p][:4],
             }
             for row in rows
         ]

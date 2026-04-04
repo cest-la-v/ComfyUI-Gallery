@@ -210,7 +210,7 @@ const GallerySidebar = () => {
                     alignItems: 'center',
                     justifyContent: 'center',
                 }}>
-                    <Spin size="large" tip="Loading..." />
+                    <Spin size="large" />
                 </div>
             )}
             <style>{`

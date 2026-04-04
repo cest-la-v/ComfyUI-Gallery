@@ -391,7 +391,7 @@ const GalleryImageGrid = () => {
                     alignItems: 'center',
                     justifyContent: 'center',
                 }}>
-                    <Spin size="large" tip="Loading..." />
+                    <Spin size="large" />
                 </div>
             )}
             <Image.PreviewGroup
