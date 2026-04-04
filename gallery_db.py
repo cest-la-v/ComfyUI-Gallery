@@ -23,9 +23,10 @@ import time
 from typing import Optional
 
 from .gallery_config import gallery_log
+from .metadata_parser.fingerprint import prompt_only_fingerprint as _prompt_only_fp
 
 DB_FILENAME = "gallery_cache.db"
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 class GalleryDB:
@@ -96,7 +97,8 @@ class GalleryDB:
                 hires_denoise      REAL,
                 loras              TEXT,
                 extras             TEXT,
-                prompt_fingerprint TEXT
+                prompt_fingerprint TEXT,
+                prompt_only_fp     TEXT
             );
 
             CREATE TABLE IF NOT EXISTS model_info (
@@ -115,6 +117,7 @@ class GalleryDB:
             CREATE INDEX IF NOT EXISTS idx_files_mtime    ON files(mtime DESC);
             CREATE INDEX IF NOT EXISTS idx_params_model   ON image_params(model);
             CREATE INDEX IF NOT EXISTS idx_params_fp      ON image_params(prompt_fingerprint);
+            CREATE INDEX IF NOT EXISTS idx_params_only_fp ON image_params(prompt_only_fp);
             CREATE INDEX IF NOT EXISTS idx_params_mhash   ON image_params(model_hash);
         """)
 
@@ -184,8 +187,8 @@ class GalleryDB:
                     sampler, scheduler, steps, cfg_scale, seed,
                     vae, clip_skip, denoise_strength,
                     hires_upscaler, hires_steps, hires_denoise,
-                    loras, extras, prompt_fingerprint)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    loras, extras, prompt_fingerprint, prompt_only_fp)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(file_id) DO UPDATE SET
                        formats=excluded.formats,
                        model=excluded.model, model_hash=excluded.model_hash,
@@ -200,7 +203,8 @@ class GalleryDB:
                        hires_steps=excluded.hires_steps,
                        hires_denoise=excluded.hires_denoise,
                        loras=excluded.loras, extras=excluded.extras,
-                       prompt_fingerprint=excluded.prompt_fingerprint""",
+                       prompt_fingerprint=excluded.prompt_fingerprint,
+                       prompt_only_fp=excluded.prompt_only_fp""",
                 [
                     (
                         p["file_id"],
@@ -223,6 +227,10 @@ class GalleryDB:
                         p.get("loras"),
                         p.get("extras"),
                         p.get("prompt_fingerprint"),
+                        _prompt_only_fp(
+                            p.get("positive_prompt") or "",
+                            p.get("negative_prompt") or "",
+                        ) if (p.get("positive_prompt") or p.get("negative_prompt")) else None,
                     )
                     for p in params_list
                 ],
@@ -262,21 +270,22 @@ class GalleryDB:
         ]
 
     def get_groups_by_prompt(self) -> list:
-        """Image counts grouped by prompt fingerprint, with up to 4 sample rel_paths each."""
+        """Image counts grouped by prompt-only fingerprint (no model), with aggregated models."""
         rows = self._conn().execute("""
-            SELECT ip.prompt_fingerprint, ip.positive_prompt, ip.model,
+            SELECT ip.prompt_only_fp, ip.positive_prompt,
+                   GROUP_CONCAT(DISTINCT ip.model) AS models,
                    COUNT(*) AS count, GROUP_CONCAT(f.rel_path) AS paths
             FROM image_params ip
             JOIN files f ON ip.file_id = f.id
-            WHERE ip.prompt_fingerprint IS NOT NULL
-            GROUP BY ip.prompt_fingerprint
+            WHERE ip.prompt_only_fp IS NOT NULL
+            GROUP BY ip.prompt_only_fp
             ORDER BY count DESC
         """).fetchall()
         return [
             {
-                "fingerprint": row["prompt_fingerprint"],
+                "fingerprint": row["prompt_only_fp"],
                 "positive_prompt": row["positive_prompt"],
-                "model": row["model"],
+                "models": [m for m in (row["models"] or "").split(",") if m],
                 "count": row["count"],
                 "sample_paths": (row["paths"] or "").split(",")[:4],
             }
@@ -332,11 +341,11 @@ class GalleryDB:
         return [row["rel_path"] for row in rows]
 
     def get_files_by_fingerprint(self, fingerprint: str) -> list[str]:
-        """Return rel_paths for all files with the given prompt fingerprint."""
+        """Return rel_paths for all files with the given prompt-only fingerprint."""
         rows = self._conn().execute(
             """SELECT f.rel_path FROM files f
                JOIN image_params ip ON ip.file_id = f.id
-               WHERE ip.prompt_fingerprint = ?
+               WHERE ip.prompt_only_fp = ?
                ORDER BY f.mtime DESC""",
             (fingerprint,),
         ).fetchall()

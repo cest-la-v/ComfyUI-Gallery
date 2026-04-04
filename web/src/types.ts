@@ -74,7 +74,7 @@ export interface ModelGroup {
 export interface PromptGroup {
     fingerprint: string;
     positive_prompt: string | null;
-    model: string | null;
+    models: string[];
     count: number;
     /** Up to 4 rel_paths for thumbnail strip */
     sample_paths: string[];

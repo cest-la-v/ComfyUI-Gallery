@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import { Empty, Image, Spin, Tooltip, Popconfirm, message, Tag } from 'antd';
 import { AutoSizer } from 'react-virtualized';
-import { FixedSizeGrid } from 'react-window';
+import { FixedSizeGrid, VariableSizeGrid } from 'react-window';
 import ImageCard, { ImageCardHeight, ImageCardWidth } from './ImageCard';
 import { useGalleryContext } from './GalleryContext';
 import { MetadataPanel } from './MetadataPanel';
@@ -30,7 +30,17 @@ const GalleryImageGrid = () => {
         loading,
     } = useGalleryContext();
     const containerRef = useRef<HTMLDivElement>(null);
+    const gridRef = useRef<VariableSizeGrid>(null);
     const [copySuccess, setCopySuccess] = useState(false);
+
+    const getRowHeight = useCallback((rowIndex: number) => {
+        const firstItem = imagesDetailsList[rowIndex * gridSize.columnCount];
+        return firstItem?.type === 'divider' ? 56 : ImageCardHeight + 16;
+    }, [imagesDetailsList, gridSize.columnCount]);
+
+    useEffect(() => {
+        gridRef.current?.resetAfterRowIndex(0);
+    }, [imagesDetailsList, gridSize.columnCount]);
 
     const handleInfoClick = useCallback((imageName: string) => {
         // Set the info modal target
@@ -412,11 +422,12 @@ const GalleryImageGrid = () => {
                                 setTimeout(() => setAutoSizer({ width, height }), 0);
                             }
                             return (
-                                <FixedSizeGrid
+                                <VariableSizeGrid
+                                    ref={gridRef}
                                     columnCount={gridSize.columnCount}
                                     rowCount={gridSize.rowCount}
-                                    columnWidth={ImageCardWidth + 16}
-                                    rowHeight={ImageCardHeight + 16}
+                                    columnWidth={() => ImageCardWidth + 16}
+                                    rowHeight={getRowHeight}
                                     width={width}
                                     height={height}
                                     className={"grid-element"}
@@ -427,7 +438,7 @@ const GalleryImageGrid = () => {
                                     }}
                                 >
                                     {Cell}
-                                </FixedSizeGrid>
+                                </VariableSizeGrid>
                             );
                         }}
                     </AutoSizer>

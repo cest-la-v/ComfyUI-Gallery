@@ -57,12 +57,19 @@ function PromptGroupCard({ group, onClick }: { group: PromptGroup; onClick: () =
             hoverable
             onClick={onClick}
             size="small"
-            style={{ width: 260, cursor: 'pointer' }}
+            style={{ width: 280, cursor: 'pointer' }}
             styles={{ body: { padding: 12 } }}
         >
-            <Flex justify="space-between" align="flex-start" style={{ marginBottom: 4 }}>
-                {group.model && <Tag color="blue" style={{ fontSize: 11, marginRight: 0 }}>{group.model}</Tag>}
-                <Badge count={group.count} color="green" showZero style={{ marginLeft: 'auto', flexShrink: 0 }} />
+            <Flex justify="space-between" align="flex-start" style={{ marginBottom: 6 }}>
+                <Flex wrap gap={4} style={{ flex: 1, marginRight: 8 }}>
+                    {group.models.length > 0
+                        ? group.models.map(m => (
+                            <Tag key={m} color="blue" style={{ fontSize: 11, marginRight: 0 }}>{m}</Tag>
+                        ))
+                        : <Tag style={{ fontSize: 11, marginRight: 0, opacity: 0.4 }}>Unknown model</Tag>
+                    }
+                </Flex>
+                <Badge count={group.count} color="green" showZero style={{ flexShrink: 0 }} />
             </Flex>
             <Paragraph
                 style={{ fontSize: 12, color: '#666', margin: 0, lineHeight: '1.4' }}
