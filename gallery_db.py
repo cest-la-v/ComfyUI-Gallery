@@ -284,7 +284,12 @@ class GalleryDB:
         ]
 
     def get_params_by_rel_path(self, rel_path: str) -> Optional[dict]:
-        """Return image_params + fileinfo for a single file, or None if not found."""
+        """Return image_params + fileinfo for a single file, or None if file not found.
+
+        Uses LEFT JOIN so that files with no extracted AI metadata still return
+        fileinfo (filename, resolution, size, date) — params fields will be None.
+        Returns None only if the file itself is not in the DB.
+        """
         row = self._conn().execute(
             """SELECT ip.source, ip.model, ip.model_hash,
                       ip.positive_prompt, ip.negative_prompt,
@@ -293,8 +298,8 @@ class GalleryDB:
                       ip.hires_upscaler, ip.hires_steps, ip.hires_denoise,
                       ip.loras, ip.extras, ip.prompt_fingerprint,
                       f.width, f.height, f.size, f.mtime, f.rel_path
-               FROM image_params ip
-               JOIN files f ON ip.file_id = f.id
+               FROM files f
+               LEFT JOIN image_params ip ON ip.file_id = f.id
                WHERE f.rel_path = ?""",
             (rel_path,),
         ).fetchone()

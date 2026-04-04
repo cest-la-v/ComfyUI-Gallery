@@ -112,8 +112,29 @@ def run(root: str) -> int:
             print(f"  ✓ params count stable: {params_count_db2}")
 
         # ----------------------------------------------------------------
-        # Sample — show which files have/don't have params
+        # LEFT JOIN check — get_params_by_rel_path returns fileinfo even
+        # for images that have no AI metadata (no image_params row).
         # ----------------------------------------------------------------
+        no_meta_row = db._conn().execute("""
+            SELECT f.rel_path FROM files f
+            LEFT JOIN image_params ip ON f.id = ip.file_id
+            WHERE f.file_type = 'image' AND ip.file_id IS NULL
+            LIMIT 1
+        """).fetchone()
+        if no_meta_row:
+            no_meta_path = no_meta_row[0]
+            result = db.get_params_by_rel_path(no_meta_path)
+            if result is None:
+                print(f"  ✗ FAIL: get_params_by_rel_path returned None for metadata-free image {no_meta_path!r}")
+                ok = False
+            elif not result.get("fileinfo", {}).get("filename"):
+                print(f"  ✗ FAIL: fileinfo.filename missing for metadata-free image {no_meta_path!r}")
+                ok = False
+            else:
+                fi = result["fileinfo"]
+                print(f"  ✓ LEFT JOIN: metadata-free image returns fileinfo — {fi['filename']} ({fi.get('resolution')})")
+        else:
+            print("  ─ No metadata-free images found, LEFT JOIN check skipped")
         rows = db._conn().execute("""
             SELECT f.rel_path, p.source
             FROM files f

@@ -30,6 +30,10 @@ PLACEHOLDER_DIR = os.path.join(comfy_path, "output")  # os.path.abspath("./place
 if not os.path.exists(PLACEHOLDER_DIR):
     os.makedirs(PLACEHOLDER_DIR)
 
+# Current gallery root directory — updated when monitor starts/stops.
+# This avoids reading the private aiohttp _directory attribute which can change across versions.
+_current_gallery_dir: str = PLACEHOLDER_DIR
+
 # Add a *placeholder* static route.  This gets modified later.
 PromptServer.instance.routes.static('/static_gallery', PLACEHOLDER_DIR, follow_symlinks=True, name='static_gallery_placeholder') #give a name to the route
 
@@ -62,18 +66,7 @@ def _is_within_directory(file_path: str, base_dir: str) -> bool:
 
 def _get_static_dir() -> str:
     """Return the current static gallery root directory."""
-    static_route = next(
-        (r for r in PromptServer.instance.app.router.routes()
-         if getattr(r, "name", None) == "static_gallery_placeholder"),
-        None,
-    )
-    if static_route is not None:
-        try:
-            return str(static_route.resource._directory)
-        except AttributeError:
-            pass
-    return folder_paths.get_output_directory()
-
+    return _current_gallery_dir
 
 
     if os.path.exists(SETTINGS_FILE):
@@ -343,6 +336,8 @@ async def get_gallery_db_status(request):
         else:
             gallery_log("Error: Placeholder static route not found!")
             return web.Response(status=500, text="Placeholder route not found.")
+        global _current_gallery_dir
+        _current_gallery_dir = full_monitor_path
         monitor = FileSystemMonitor(full_monitor_path, interval=1.0, use_polling_observer=use_polling_observer, extensions=scan_extensions)
         monitor.start_monitoring()
         return web.Response(text="Gallery monitor started", content_type="text/plain")
@@ -355,11 +350,12 @@ async def get_gallery_db_status(request):
 @PromptServer.instance.routes.post("/Gallery/monitor/stop")
 async def stop_gallery_monitor(request):
     """Endpoint to stop gallery monitoring."""
-    global monitor
+    global monitor, _current_gallery_dir
     from .gallery_config import gallery_log
     if monitor and monitor.thread and monitor.thread.is_alive():
         monitor.stop_monitoring()
         monitor = None
+    _current_gallery_dir = PLACEHOLDER_DIR
     for route in PromptServer.instance.app.router.routes():
         if route.name == 'static_gallery_placeholder':
             route.resource._directory = pathlib.Path(PLACEHOLDER_DIR)

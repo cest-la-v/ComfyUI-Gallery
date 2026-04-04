@@ -11,7 +11,11 @@ try:
 except ImportError:
     folder_paths = None  # type: ignore[assignment]
 
-CONFIG_INDENT = 4  # Assuming a default indent value if CONFIG is not available
+try:
+    from .gallery_config import gallery_log
+except ImportError:
+    def gallery_log(*args):  # type: ignore[misc]
+        print(*args)
 
 
 def get_size(file_path):
@@ -87,7 +91,7 @@ def buildMetadata(image_path):
                     try:
                         metadata["workflow"] = json.loads(v)
                     except json.JSONDecodeError as e:
-                        print(f"Warning: Error parsing metadataFromImg 'workflow' as JSON, keeping as string: {e}")
+                        gallery_log(f"Warning: Error parsing metadataFromImg 'workflow' as JSON, keeping as string: {e}")
                         metadata["workflow"] = v # Keep as string if parsing fails
                 else:
                     metadata["workflow"] = v # If not a string, keep as is (might already be parsed)
@@ -99,20 +103,19 @@ def buildMetadata(image_path):
                         metadata["prompt"] = json.loads(v)
                         prompt = metadata["prompt"] # extract prompt to use on metadata
                     except json.JSONDecodeError as e:
-                        print(f"Warning: Error parsing metadataFromImg 'prompt' as JSON, keeping as string: {e}")
+                        gallery_log(f"Warning: Error parsing metadataFromImg 'prompt' as JSON, keeping as string: {e}")
                         metadata["prompt"] = v # Keep as string if parsing fails
                 else:
                     metadata["prompt"] = v # If not a string, keep as is (might already be parsed)
 
             else:
-                if isinstance(v, str): # Check if v is a string before attempting json.loads
+                if isinstance(v, str):
                     try:
                         metadata[str(k)] = json.loads(v)
-                    except json.JSONDecodeError as e:
-                        # print(f"Debug: Error parsing {k} as JSON, trying as string: {e}")
-                        metadata[str(k)] = v # Keep as string if parsing fails
+                    except json.JSONDecodeError:
+                        metadata[str(k)] = v
                 else:
-                    metadata[str(k)] = v # If not a string, keep as is
+                    metadata[str(k)] = v
 
     if isinstance(img, JpegImageFile):
         exif = img.getexif()
@@ -123,7 +126,7 @@ def buildMetadata(image_path):
                 try:
                     metadata[str(tag)] = str(v)
                 except Exception as e:
-                    print(f"Warning: Error converting EXIF tag {tag} to string: {e}")
+                    gallery_log(f"Warning: Error converting EXIF tag {tag} to string: {e}")
                     metadata[str(tag)] = "Error decoding value" # Handle encoding errors
 
         for ifd_id in IFD:
@@ -153,7 +156,7 @@ def buildMetadata(image_path):
                     try:
                         metadata[ifd_name][str(tag)] = str(v)
                     except Exception as e:
-                        print(f"Warning: Error converting EXIF IFD tag {tag} to string: {e}")
+                        gallery_log(f"Warning: Error converting EXIF IFD tag {tag} to string: {e}")
                         metadata[ifd_name][str(tag)] = "Error decoding value" # Handle encoding errors
 
 
