@@ -2,14 +2,17 @@
 
 Architecture mirrors web/src/metadata-parser/ — each format is an isolated
 module exposing a `parse(raw_metadata)` function that returns a normalized
-dict or None. The orchestrator tries passes in priority order:
+dict or None. The orchestrator runs all applicable parsers and merges results:
 
   1. A1111 / Civitai  (`parameters` text chunk or EXIF UserComment)
   2. ComfyUI prompt   (`prompt` JSON, string node IDs)
   3. ComfyUI workflow (`workflow` JSON, integer node IDs + links array)
 
-First non-None result wins. Grouping (prompt_fingerprint) is a by-product
-of extraction, not its purpose.
+When multiple parsers succeed, results are merged: ComfyUI fields take
+priority (structurally precise); A1111 fills any gaps. `source` is set to
+'comfyui' if ComfyUI contributed any high-value field (model/sampler/steps),
+otherwise 'a1111'. This handles images that embed both A1111 parameters text
+AND a ComfyUI prompt/workflow JSON.
 
 Public API
 ----------
@@ -27,6 +30,9 @@ from . import comfyui_prompt as _prompt
 from . import comfyui_workflow as _workflow
 
 __all__ = ["extract_params", "extract_params_from_file"]
+
+# Fields that indicate a parser did real structural work (not just found a prompt string)
+_HIGH_VALUE_FIELDS = frozenset({"model", "sampler", "scheduler", "steps", "cfg_scale", "seed"})
 
 
 def extract_params(raw_metadata: dict) -> Optional[dict]:
@@ -51,26 +57,49 @@ def extract_params(raw_metadata: dict) -> Optional[dict]:
         exif_ifd = raw_metadata.get("ExifIFD", {})
         if isinstance(exif_ifd, dict):
             parameters = exif_ifd.get("UserComment")
+    a1111_result: Optional[dict] = None
     if parameters and isinstance(parameters, str) and parameters.strip():
-        result = _a1111.parse(parameters)
-        if result:
-            return result
+        a1111_result = _a1111.parse(parameters)
 
     # --- Pass 2: ComfyUI prompt JSON ---
+    comfyui_result: Optional[dict] = None
     prompt_json = raw_metadata.get("prompt")
     if prompt_json:
-        result = _prompt.parse(prompt_json)
-        if result:
-            return result
+        comfyui_result = _prompt.parse(prompt_json)
 
-    # --- Pass 3: ComfyUI workflow JSON ---
-    workflow_json = raw_metadata.get("workflow")
-    if workflow_json:
-        result = _workflow.parse(workflow_json)
-        if result:
-            return result
+    # --- Pass 3: ComfyUI workflow JSON (only if prompt JSON yielded nothing) ---
+    if not comfyui_result:
+        workflow_json = raw_metadata.get("workflow")
+        if workflow_json:
+            comfyui_result = _workflow.parse(workflow_json)
 
-    return None
+    # Nothing found at all
+    if not a1111_result and not comfyui_result:
+        return None
+
+    # Only one source — return it directly
+    if not comfyui_result:
+        return a1111_result
+    if not a1111_result:
+        return comfyui_result
+
+    # Both sources found: merge.
+    # Strategy: start with A1111, overlay with ComfyUI (ComfyUI wins on
+    # every field where it has a non-None value — it's structurally precise).
+    # A1111-only fields (extras, loras extracted from prompt text, hires_*)
+    # are kept when ComfyUI doesn't provide them.
+    merged = dict(a1111_result)
+    for k, v in comfyui_result.items():
+        if v is not None:
+            merged[k] = v
+
+    # Source: 'comfyui' if it contributed any high-value structural field,
+    # otherwise keep 'a1111' (ComfyUI only found a prompt string, A1111 did the work).
+    comfyui_contributed = any(comfyui_result.get(f) is not None for f in _HIGH_VALUE_FIELDS)
+    merged["source"] = "comfyui" if comfyui_contributed else "a1111"
+
+    return merged
+
 
 
 def extract_params_from_file(image_path: str) -> Optional[dict]:
