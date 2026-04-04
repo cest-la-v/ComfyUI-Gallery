@@ -205,6 +205,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                         {formats.includes('comfyui') && <Tag color="green">ComfyUI Prompt ✓</Tag>}
                     </div>
                 ),
+                styles: { label: { verticalAlign: 'middle' }, content: { display: 'flex', alignItems: 'center' } },
                 span: 1,
             });
         }
@@ -350,8 +351,8 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                                 size="small"
                                 style={{ color: '#fff', borderRadius: 8, width: '100%' }}
                                 styles={{
-                                    label: { fontWeight: 600, width: 110, verticalAlign: 'middle' },
-                                    content: { fontWeight: 400, verticalAlign: 'middle' }
+                                    label: { fontWeight: 600, width: 110 },
+                                    content: { fontWeight: 400 }
                                 }}
                             />
                         )
