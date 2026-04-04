@@ -1,0 +1,220 @@
+{
+  "prompt": {
+    "59": {
+      "inputs": {
+        "samples": [
+          "64",
+          0
+        ],
+        "vae": [
+          "63",
+          0
+        ]
+      },
+      "class_type": "VAEDecode",
+      "_meta": {
+        "title": "VAE Decode"
+      }
+    },
+    "60": {
+      "inputs": {
+        "text": "[test negative prompt]",
+        "clip": [
+          "74",
+          1
+        ]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "CLIP Text Encode (Negative Prompt)"
+      }
+    },
+    "61": {
+      "inputs": {
+        "unet_name": "anima-preview.safetensors",
+        "weight_dtype": "default"
+      },
+      "class_type": "UNETLoader",
+      "_meta": {
+        "title": "Load Diffusion Model"
+      }
+    },
+    "62": {
+      "inputs": {
+        "clip_name": "qwen_3_06b_base.safetensors",
+        "type": "stable_diffusion",
+        "device": "default"
+      },
+      "class_type": "CLIPLoader",
+      "_meta": {
+        "title": "Load CLIP"
+      }
+    },
+    "63": {
+      "inputs": {
+        "vae_name": "qwen_image_vae.safetensors"
+      },
+      "class_type": "VAELoader",
+      "_meta": {
+        "title": "Load VAE"
+      }
+    },
+    "64": {
+      "inputs": {
+        "seed": 772478975987357,
+        "steps": 25,
+        "cfg": 4.0,
+        "sampler_name": "sa_solver_pece",
+        "scheduler": "simple",
+        "denoise": 1.0,
+        "model": [
+          "74",
+          0
+        ],
+        "positive": [
+          "73",
+          0
+        ],
+        "negative": [
+          "60",
+          0
+        ],
+        "latent_image": [
+          "75",
+          0
+        ]
+      },
+      "class_type": "KSampler",
+      "_meta": {
+        "title": "KSampler"
+      }
+    },
+    "65": {
+      "inputs": {
+        "images": [
+          "59",
+          0
+        ]
+      },
+      "class_type": "PreviewImage",
+      "_meta": {
+        "title": "Preview Image"
+      }
+    },
+    "66": {
+      "inputs": {
+        "resolution": "portrait - 768x1344 (9:16)"
+      },
+      "class_type": "SDXL Resolutions (JPS)",
+      "_meta": {
+        "title": "SDXL Resolutions (JPS)"
+      }
+    },
+    "67": {
+      "inputs": {
+        "width": [
+          "66",
+          0
+        ],
+        "height": [
+          "66",
+          1
+        ],
+        "batch_size": 1
+      },
+      "class_type": "EmptyLatentImage",
+      "_meta": {
+        "title": "Empty Latent Image"
+      }
+    },
+    "68": {
+      "inputs": {
+        "width": 1536,
+        "height": 1024,
+        "batch_size": 1
+      },
+      "class_type": "EmptyLatentImage",
+      "_meta": {
+        "title": "Empty Latent Image"
+      }
+    },
+    "71": {
+      "inputs": {
+        "filename_prefix": "anima/anima-26320112356",
+        "images": [
+          "59",
+          0
+        ]
+      },
+      "class_type": "SaveImage",
+      "_meta": {
+        "title": "Save Image"
+      }
+    },
+    "73": {
+      "inputs": {
+        "text": "[test positive prompt]",
+        "clip": [
+          "74",
+          1
+        ]
+      },
+      "class_type": "PCLazyTextEncode",
+      "_meta": {
+        "title": "PC: Schedule prompt"
+      }
+    },
+    "74": {
+      "inputs": {
+        "lora_name": "anima-hikariwaza-e46.safetensors",
+        "strength_model": 1.0,
+        "strength_clip": 1.0,
+        "model": [
+          "61",
+          0
+        ],
+        "clip": [
+          "62",
+          0
+        ]
+      },
+      "class_type": "LoraLoader",
+      "_meta": {
+        "title": "Load LoRA (Model and CLIP)"
+      }
+    },
+    "75": {
+      "inputs": {
+        "width": 1024,
+        "height": 1536,
+        "batch_size": 1
+      },
+      "class_type": "EmptyLatentImage",
+      "_meta": {
+        "title": "Empty Latent Image"
+      }
+    },
+    "76": {
+      "inputs": {
+        "width": 960,
+        "height": 1664,
+        "batch_size": 1
+      },
+      "class_type": "EmptyLatentImage",
+      "_meta": {
+        "title": "Empty Latent Image"
+      }
+    },
+    "77": {
+      "inputs": {
+        "width": 1664,
+        "height": 960,
+        "batch_size": 1
+      },
+      "class_type": "EmptyLatentImage",
+      "_meta": {
+        "title": "Empty Latent Image"
+      }
+    }
+  }
+}

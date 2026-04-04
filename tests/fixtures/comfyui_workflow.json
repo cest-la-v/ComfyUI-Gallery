@@ -1,0 +1,31 @@
+{
+  "workflow": {
+    "nodes": [
+      {"id": 1, "type": "CheckpointLoaderSimple", "inputs": [], "widgets_values": ["dreamshaper_8.safetensors"]},
+      {"id": 2, "type": "CLIPTextEncode",         "inputs": [{"name": "clip", "link": 1}], "widgets_values": ["[test positive prompt]"]},
+      {"id": 3, "type": "CLIPTextEncode",         "inputs": [{"name": "clip", "link": 1}], "widgets_values": ["[test negative prompt]"]},
+      {"id": 4, "type": "KSampler",               "inputs": [
+          {"name": "model",     "link": 2},
+          {"name": "positive",  "link": 3},
+          {"name": "negative",  "link": 4},
+          {"name": "latent_image", "link": 5}
+        ],
+        "widgets_values": [42, "fixed", 20, 7.0, "euler", "normal", 1.0]
+      },
+      {"id": 5, "type": "EmptyLatentImage",       "inputs": [], "widgets_values": [512, 512, 1]},
+      {"id": 6, "type": "VAEDecode",              "inputs": [{"name": "samples", "link": 6}, {"name": "vae", "link": 7}], "widgets_values": []},
+      {"id": 7, "type": "VAELoader",              "inputs": [], "widgets_values": ["vae-ft-mse-840000-ema-pruned.safetensors"]},
+      {"id": 8, "type": "SaveImage",              "inputs": [{"name": "images", "link": 8}], "widgets_values": ["ComfyUI"]}
+    ],
+    "links": [
+      [1, 1, 1, 2, 0, "CLIP"],
+      [2, 1, 0, 4, 0, "MODEL"],
+      [3, 2, 0, 4, 1, "CONDITIONING"],
+      [4, 3, 0, 4, 2, "CONDITIONING"],
+      [5, 5, 0, 4, 3, "LATENT"],
+      [6, 4, 0, 6, 0, "LATENT"],
+      [7, 7, 0, 6, 1, "VAE"],
+      [8, 6, 0, 8, 0, "IMAGE"]
+    ]
+  }
+}

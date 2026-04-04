@@ -33,9 +33,9 @@ def main():
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
     try:
-        from metadata_extractor import buildMetadata  # type: ignore[import]
+        from metadata_parser._extractor import buildMetadata  # type: ignore[import]
     except ImportError:
-        print("ERROR: metadata_extractor.py not found. Run from the ComfyUI-Gallery root.", file=sys.stderr)
+        print("ERROR: metadata_parser package not found. Run from the ComfyUI-Gallery root.", file=sys.stderr)
         sys.exit(1)
 
     from metadata_parser import extract_params

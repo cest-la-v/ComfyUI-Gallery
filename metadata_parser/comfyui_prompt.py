@@ -70,14 +70,30 @@ def _is_model_filename(val: object) -> bool:
 
 
 def _is_plain_prompt(val: object) -> bool:
-    """True if val looks like a prompt string (not JSON, not empty)."""
+    """True if val looks like a prompt string (not a JSON structure, not empty)."""
     if not isinstance(val, str):
         return False
     t = val.strip()
     if not t:
         return False
-    if (t.startswith("{") and t.endswith("}")) or (t.startswith("[") and t.endswith("]")):
-        return False
+    # Reject strings that are valid JSON objects or arrays (but NOT plain strings that
+    # happen to start/end with brackets — e.g. "[lora:name]" is a valid prompt).
+    if t.startswith("{") and t.endswith("}"):
+        try:
+            import json as _json
+            v = _json.loads(t)
+            if isinstance(v, dict):
+                return False
+        except (ValueError, TypeError):
+            pass
+    if t.startswith("[") and t.endswith("]"):
+        try:
+            import json as _json
+            v = _json.loads(t)
+            if isinstance(v, list):
+                return False
+        except (ValueError, TypeError):
+            pass
     if len(t) > 2000 and t.count(",") > 100:
         return False
     return True

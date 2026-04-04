@@ -1,0 +1,5 @@
+{
+  "ExifIFD": {
+    "UserComment": "[test positive prompt]\nNegative prompt: [test negative prompt]\nSteps: 20, Sampler: Euler a, CFG scale: 7, Seed: 42, Size: 512x512, Model hash: abc123de, Model: dreamshaper_8, Version: v1.8.0"
+  }
+}

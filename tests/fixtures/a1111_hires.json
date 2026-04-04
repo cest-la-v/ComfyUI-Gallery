@@ -1,0 +1,3 @@
+{
+  "parameters": "[test positive prompt]\nNegative prompt: [test negative prompt]\nSteps: 6, Sampler: DPM++ SDE Karras, CFG scale: 1.5, Seed: 983791494, Size: 512x768, Model hash: 0928b30687, Model: RVHYPO, VAE hash: e9ed949371, VAE: vae-ft-mse-840000-ema-pruned.safetensors, Denoising strength: 0.35, Hires upscale: 2, Hires steps: 2, Hires upscaler: 4x_NMKD-Superscale-SP_178000_G, Version: v1.7.0"
+}

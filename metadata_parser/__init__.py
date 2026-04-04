@@ -75,14 +75,7 @@ def extract_params(raw_metadata: dict) -> Optional[dict]:
 
 def extract_params_from_file(image_path: str) -> Optional[dict]:
     """Convenience: open an image, call buildMetadata(), then extract_params()."""
-    try:
-        from ..metadata_extractor import buildMetadata  # relative import when used as subpackage
-    except ImportError:
-        # Fallback for standalone/CLI use
-        import sys
-        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        from metadata_extractor import buildMetadata  # type: ignore[import]
-
+    from ._extractor import buildMetadata
     _, _, raw = buildMetadata(image_path)
     return extract_params(raw)
 

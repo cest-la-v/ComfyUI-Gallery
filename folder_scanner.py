@@ -4,7 +4,7 @@ import sys
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from .metadata_extractor import buildMetadata
+from .metadata_parser._extractor import buildMetadata
 from .gallery_config import gallery_log
 
 if TYPE_CHECKING:

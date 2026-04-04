@@ -5,7 +5,7 @@ try:
 except ImportError:
     folder_paths = None  # type: ignore[assignment]
 
-from .metadata_extractor import buildMetadata
+from .metadata_parser._extractor import buildMetadata
 from .metadata_parser import extract_params
 
 

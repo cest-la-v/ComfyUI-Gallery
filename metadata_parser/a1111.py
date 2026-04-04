@@ -33,7 +33,7 @@ _KEY_MAP: dict[str, str] = {
     "hires upscaler":     "hires_upscaler",
     "hires steps":        "hires_steps",
     "hires denoising strength": "hires_denoise",
-    "lora hashes":        "lora_hashes",
+    "lora hashes":        "lora_hashes",  # supplementary; extracted from <lora:> tags
 }
 
 # Keys that are structural (handled explicitly) — not put into extras
@@ -125,7 +125,10 @@ def parse(parameters_text: str) -> Optional[dict]:
         elif mapped == "hires_denoise":
             result["hires_denoise"] = _to_float(val)
         elif mapped == "lora_hashes":
-            result["loras"] = val  # stored as raw string; __init__ normalizes
+            # Lora hashes line is supplementary info; actual LoRAs are extracted
+            # from <lora:name:weight> tags in the positive prompt below.
+            # Store as extra so it's not lost.
+            extras["lora_hashes"] = val
         else:
             # Unknown key → extras dict
             if key_low not in _STRUCTURAL_KEYS:
@@ -133,6 +136,21 @@ def parse(parameters_text: str) -> Optional[dict]:
 
     if extras:
         result["extras"] = extras
+
+    # Extract <lora:name:weight> tags from positive prompt
+    pos_text = result.get("positive_prompt", "")
+    if pos_text:
+        lora_pattern = re.compile(r"<lora:([^:>]+):([^>]+)>", re.IGNORECASE)
+        loras = []
+        for m in lora_pattern.finditer(pos_text):
+            name = m.group(1).strip()
+            try:
+                strength = float(m.group(2))
+            except ValueError:
+                strength = 1.0
+            loras.append({"name": normalize_model_name(name) or name, "model_strength": strength, "clip_strength": strength})
+        if loras:
+            result["loras"] = loras
 
     # Fingerprint
     pos = result.get("positive_prompt", "")

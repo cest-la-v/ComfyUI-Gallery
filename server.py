@@ -17,7 +17,7 @@ from .folder_monitor import FileSystemMonitor
 from .folder_scanner import _scan_for_images, DEFAULT_EXTENSIONS
 from .gallery_config import disable_logs, gallery_log
 from .gallery_db import open_gallery_db
-from .metadata_extractor import buildMetadata
+from .metadata_parser._extractor import buildMetadata
 
 # Add ComfyUI root to sys.path HERE
 import sys
