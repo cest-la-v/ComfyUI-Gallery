@@ -159,28 +159,61 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
         );
     }, [expandedKeys]);
 
-    const items = useMemo(() => Object.entries(displayMap).map(([key, value]) => {
-        const isPrompt = key.toLowerCase().includes('prompt');
-        return {
-            label: <Typography style={{ fontWeight: 600 }}>{key}</Typography>,
-            children: (
-                <Tooltip title={copiedKey === key ? 'Copied!' : 'Click to copy'} placement="top" color={copiedKey === key ? 'blue' : undefined}>
-                    <Typography
-                        style={{ cursor: 'pointer', wordBreak: 'break-word', whiteSpace: 'pre-line', display: 'block', maxWidth: 360 }}
-                        onClick={() => {
-                            navigator.clipboard.writeText(value);
-                            setCopiedKey(key);
-                            message.success('Copied!', 1);
-                            setTimeout(() => setCopiedKey(null), 1200);
-                        }}
-                    >
-                        {isPrompt ? renderPromptValue(key, value) : value}
-                    </Typography>
-                </Tooltip>
-            ),
-            span: 1,
+    const items = useMemo(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rows: any[] = [];
+        const FILEINFO_KEYS = new Set(['Filename', 'Resolution', 'File Size', 'Date Created']);
+
+        const makeParamRow = (key: string, value: string) => {
+            const isPrompt = key.toLowerCase().includes('prompt');
+            return {
+                label: <Typography style={{ fontWeight: 600 }}>{key}</Typography>,
+                children: (
+                    <Tooltip title={copiedKey === key ? 'Copied!' : 'Click to copy'} placement="top" color={copiedKey === key ? 'blue' : undefined}>
+                        <Typography
+                            style={{ cursor: 'pointer', wordBreak: 'break-word', whiteSpace: 'pre-line', display: 'block', maxWidth: 360 }}
+                            onClick={() => {
+                                navigator.clipboard.writeText(value);
+                                setCopiedKey(key);
+                                message.success('Copied!', 1);
+                                setTimeout(() => setCopiedKey(null), 1200);
+                            }}
+                        >
+                            {isPrompt ? renderPromptValue(key, value) : value}
+                        </Typography>
+                    </Tooltip>
+                ),
+                span: 1,
+            };
         };
-    }), [displayMap, copiedKey, renderPromptValue]);
+
+        const entries = Object.entries(displayMap);
+        const fileinfoEntries = entries.filter(([k]) => FILEINFO_KEYS.has(k));
+        const metaEntries = entries.filter(([k]) => !FILEINFO_KEYS.has(k));
+
+        // Fileinfo rows first
+        rows.push(...fileinfoEntries.map(([k, v]) => makeParamRow(k, v)));
+
+        // Format tags — between fileinfo and generation params
+        const formats = parsedParams?.formats;
+        if (Array.isArray(formats) && formats.length > 0) {
+            rows.push({
+                label: <Typography style={{ fontWeight: 600 }}>Format</Typography>,
+                children: (
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {formats.includes('a1111') && <Tag color="blue">Civitai ✓</Tag>}
+                        {formats.includes('comfyui') && <Tag color="green">ComfyUI Prompt ✓</Tag>}
+                    </div>
+                ),
+                span: 1,
+            });
+        }
+
+        // Generation params + prompts + loras + extras
+        rows.push(...metaEntries.map(([k, v]) => makeParamRow(k, v)));
+
+        return rows;
+    }, [displayMap, copiedKey, renderPromptValue, parsedParams?.formats]);
 
     const handleDelete = useCallback(async () => {
         const currentIdx = previewableImages.findIndex(img => img.name === imageInfoName);
@@ -257,10 +290,6 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
             onClick={(e) => e.stopPropagation()}
         >
             {/* Header with close button and action buttons */}
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {parsedParams?.formats?.includes('a1111') && <Tag color="blue">Civitai ✓</Tag>}
-                {parsedParams?.formats?.includes('comfyui') && <Tag color="green">ComfyUI Prompt ✓</Tag>}
-            </div>
             <Segmented
                 value={showRawMetadata ? 'raw' : 'metadata'}
                 options={[
