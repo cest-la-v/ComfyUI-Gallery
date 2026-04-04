@@ -343,21 +343,20 @@ class GalleryDB:
         return [row["rel_path"] for row in rows]
 
     def reset(self):
-        """Drop all cache tables and close connection. DB file is deleted by caller."""
-        conn = getattr(self._local, "conn", None)
-        if conn is not None:
-            try:
-                conn.close()
-            except Exception:
-                pass
-            self._local.conn = None
-        try:
-            if os.path.exists(self._db_path):
-                os.remove(self._db_path)
-                gallery_log(f"Gallery DB: deleted {self._db_path}")
-        except Exception as e:
-            gallery_log(f"Gallery DB: error deleting DB file: {e}")
-        # Re-init so the object is usable immediately after reset
+        """Wipe all cache tables and reinitialize the schema in-place.
+
+        Uses SQL DROP TABLE instead of file deletion — avoids Windows file
+        locking errors (WinError 32) that occur when other threads still hold
+        open SQLite connections to the same file.
+        """
+        conn = self._conn()
+        conn.executescript("""
+            DROP TABLE IF EXISTS image_params;
+            DROP TABLE IF EXISTS files;
+            DROP TABLE IF EXISTS model_info;
+            DELETE FROM schema_version;
+        """)
+        # Re-init creates fresh tables at the current schema version
         self._init_schema()
         gallery_log("Gallery DB: reset complete, fresh schema initialized")
 
