@@ -238,12 +238,12 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
             rows.push({
                 label: <Typography style={{ fontWeight: 600 }}>Format</Typography>,
                 children: (
-                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        {formats.includes('a1111') && <Tag color="blue">Civitai ✓</Tag>}
+                    <>
+                        {formats.includes('a1111') && <Tag color="blue" style={{ marginRight: 4 }}>Civitai ✓</Tag>}
                         {formats.includes('comfyui') && <Tag color="green">ComfyUI Prompt ✓</Tag>}
-                    </div>
+                    </>
                 ),
-                styles: { label: { verticalAlign: 'middle' }, content: { display: 'flex', alignItems: 'center' } },
+                styles: { label: { verticalAlign: 'middle' }, content: { textAlign: 'center', verticalAlign: 'middle' } },
                 span: 1,
             });
         }
