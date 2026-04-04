@@ -327,16 +327,20 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
             onClick={(e) => e.stopPropagation()}
         >
             {/* Fixed: tab selector */}
-            <Segmented
-                value={showRawMetadata ? 'raw' : 'metadata'}
-                options={[
-                    { label: 'Metadata', value: 'metadata' },
-                    { label: 'Raw JSON', value: 'raw' },
-                ]}
-                onChange={(value) => setShowRawMetadata(value === 'raw')}
-                size="small"
-                block
-            />
+            {/* stopPropagation on arrow keys: Segmented handles them for tab switching,
+                but they must not bubble up to the image navigation handler */}
+            <div onKeyDown={(e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.stopPropagation(); }}>
+                <Segmented
+                    value={showRawMetadata ? 'raw' : 'metadata'}
+                    options={[
+                        { label: 'Metadata', value: 'metadata' },
+                        { label: 'Raw JSON', value: 'raw' },
+                    ]}
+                    onChange={(value) => setShowRawMetadata(value === 'raw')}
+                    size="small"
+                    block
+                />
+            </div>
             {/* Fixed: action buttons */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
                 {image.type === 'image' && (
