@@ -7,6 +7,7 @@ import { BASE_Z_INDEX, ComfyAppApi, OPEN_BUTTON_ID } from './ComfyAppApi.ts';
 import { ConfigProvider, theme } from 'antd';
 import { useLocalStorageState } from 'ahooks';
 import { Toaster } from 'sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 // In production, Bun.build() outputs Tailwind CSS as a separate file.
 // Inject it via <link> using import.meta.url (works in ES module scripts).
@@ -182,6 +183,7 @@ function Main() {
     });
 
     return (<>
+        <TooltipProvider delayDuration={300}>
         <ConfigProvider
             theme={{
                 algorithm: settingsState.darkMode ? theme.darkAlgorithm : undefined,
@@ -190,6 +192,7 @@ function Main() {
         >
             <Gallery />
         </ConfigProvider>
+        </TooltipProvider>
         <Toaster
             theme={settingsState.darkMode ? 'dark' : 'light'}
             position="bottom-right"
