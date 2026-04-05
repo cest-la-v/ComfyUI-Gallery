@@ -42,11 +42,10 @@ const GalleryModal = () => {
 
     return (
         <>
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog open={open} onOpenChange={setOpen} modal={false}>
                 <DialogContent
                     showCloseButton={false}
                     onInteractOutside={(e) => e.preventDefault()}
-                    onPointerDownOutside={(e) => e.preventDefault()}
                     className="p-0 gap-0 w-[95vw] max-w-none h-[92vh] flex flex-col overflow-hidden rounded-lg"
                     style={{ zIndex: BASE_Z_INDEX + 1 }}
                 >
