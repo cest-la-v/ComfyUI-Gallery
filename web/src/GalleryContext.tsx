@@ -45,7 +45,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
     floatingButton: true,
     autoPlayVideos: true,
     hideOpenButton: false,
-    darkMode: false, 
+    darkMode: true, 
     galleryShortcut: true, 
     expandAllFolders: true, 
     disableLogs: false,

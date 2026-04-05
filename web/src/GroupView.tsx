@@ -11,15 +11,13 @@ const FALLBACK_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYA
 
 function ThumbnailStrip({ samplePaths }: { samplePaths: string[] }) {
     return (
-        <div className="flex gap-1 mt-2">
+        <div className="flex gap-1 mt-2 overflow-hidden">
             {samplePaths.slice(0, 4).map((rel, i) => (
                 <img
                     key={i}
                     src={`${BASE_PATH}/static_gallery/${rel}`}
-                    width={THUMB_SIZE}
-                    height={THUMB_SIZE}
                     className="object-cover rounded shrink-0"
-                    style={{ width: THUMB_SIZE, height: THUMB_SIZE }}
+                    style={{ width: THUMB_SIZE, height: THUMB_SIZE, minWidth: THUMB_SIZE }}
                     onError={e => { (e.target as HTMLImageElement).src = FALLBACK_SRC; }}
                 />
             ))}

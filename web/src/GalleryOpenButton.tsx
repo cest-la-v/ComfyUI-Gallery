@@ -5,7 +5,7 @@ import { useLocalStorageState, useDebounceFn } from 'ahooks';
 import { useRef, useEffect } from 'react';
 
 const GalleryOpenButton = () => {
-    const { open, setOpen, loading, settings } = useGalleryContext();
+    const { setOpen, loading, settings } = useGalleryContext();
     const [position, setPosition] = useLocalStorageState<{ x: number; y: number }>('gallery-floating-btn-pos', {
         defaultValue: { x: 32, y: 32 },
     });
@@ -140,28 +140,24 @@ const GalleryOpenButton = () => {
                 />
                 <Button
                     id="comfy-ui-gallery-open-button"
-                    className="min-w-[120px]"
-                    onClick={() => {
-                        if (!loading) setOpen(true);
-                    }}
+                    className="min-w-[120px] gap-2"
                     disabled={loading}
+                    onClick={() => { if (!loading) setOpen(true); }}
                 >
-                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                     {settings.buttonLabel || 'Open Gallery'}
                 </Button>
             </div>
         );
     }
-    // Not floating
     return (<>
         <Button
             id="comfy-ui-gallery-open-button"
-            onClick={() => {
-                if (!loading) setOpen(true);
-            }}
+            className="gap-2"
             disabled={loading}
+            onClick={() => { if (!loading) setOpen(true); }}
         >
-            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {settings.buttonLabel || 'Open Gallery'}
         </Button>
     </>);

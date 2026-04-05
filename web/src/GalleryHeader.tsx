@@ -311,7 +311,7 @@ const GalleryHeader = () => {
                 <div className="relative flex items-center shrink-0">
                     <ArrowUpDown className="absolute left-2 h-3.5 w-3.5 pointer-events-none text-muted-foreground" />
                     <select
-                        className="h-9 appearance-none bg-background pl-7 pr-6 text-sm focus:outline-none cursor-pointer text-foreground min-w-[130px] rounded-md"
+                        className="h-9 appearance-none bg-background border border-input pl-7 pr-6 text-sm focus:outline-none cursor-pointer text-foreground min-w-[130px] rounded-md"
                         value={sortMethod}
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         onChange={e => setSortMethod(e.target.value as any)}

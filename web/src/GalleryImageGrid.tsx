@@ -193,107 +193,103 @@ const GalleryImageGrid = () => {
         return undefined; // use yarl default image renderer
     }, []);
 
-    const toolbarButtons = useMemo(() => {
-        const iconStyle = { fontSize: 18, padding: '8px 12px', cursor: 'pointer', color: '#ffffffd9' } as const;
-        const activeStyle = { ...iconStyle, color: '#1890ff' } as const;
 
-        return [
-            <div key="gallery-tools" style={{ display: 'flex', alignItems: 'center', gap: 0, marginRight: 8 }}>
-                {currentImage?.type === 'image' && (
-                    <>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Info
-                                    style={showMetadataPanel && !showRawMetadata ? activeStyle : iconStyle}
-                                    onClick={() => {
-                                        if (showMetadataPanel && !showRawMetadata) setShowMetadataPanel(false);
-                                        else { setShowMetadataPanel(true); setShowRawMetadata(false); }
-                                    }}
-                                />
-                            </TooltipTrigger>
-                            <TooltipContent>{showMetadataPanel && !showRawMetadata ? 'Hide metadata' : 'Show metadata'}</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <FileText
-                                    style={showMetadataPanel && showRawMetadata ? activeStyle : iconStyle}
-                                    onClick={() => {
-                                        if (showMetadataPanel && showRawMetadata) setShowMetadataPanel(false);
-                                        else { setShowMetadataPanel(true); setShowRawMetadata(true); }
-                                    }}
-                                />
-                            </TooltipTrigger>
-                            <TooltipContent>{showMetadataPanel && showRawMetadata ? 'Hide Raw JSON' : 'Raw JSON'}</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                {copySuccess ? (
-                                    <Check style={{ ...iconStyle, color: '#52c41a', cursor: 'default' }} />
-                                ) : (
-                                    <Copy
-                                        style={iconStyle}
-                                        onClick={() => {
-                                            if (!currentImage) return;
-                                            const img = new window.Image();
-                                            img.crossOrigin = 'anonymous';
-                                            img.src = `${BASE_PATH}${currentImage.url}`;
-                                            img.onload = () => {
-                                                const canvas = document.createElement('canvas');
-                                                canvas.width = img.width; canvas.height = img.height;
-                                                const ctx = canvas.getContext('2d');
-                                                if (ctx) {
-                                                    ctx.drawImage(img, 0, 0);
-                                                    canvas.toBlob(async blob => {
-                                                        if (blob) {
-                                                            try {
-                                                                await navigator.clipboard.write([new window.ClipboardItem({ [blob.type]: blob })]);
-                                                                setCopySuccess(true);
-                                                                setTimeout(() => setCopySuccess(false), 1200);
-                                                            } catch { toast.error('Clipboard copy failed'); }
-                                                        }
-                                                    }, 'image/png');
-                                                }
-                                            };
-                                        }}
-                                    />
-                                )}
-                            </TooltipTrigger>
-                            <TooltipContent>{copySuccess ? 'Copied!' : 'Copy image'}</TooltipContent>
-                        </Tooltip>
-                    </>
-                )}
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Download
-                            style={iconStyle}
-                            onClick={async () => {
-                                if (!currentImage) return;
+    const renderControls = useCallback(() => {
+        if (!lightboxOpen || !currentImage) return null;
+        if (currentImage.type === 'media' || currentImage.type === 'audio') return null;
+
+        const btnCls = "p-2 rounded hover:bg-white/10 cursor-pointer transition-colors text-white/85 hover:text-white";
+        const activeCls = "p-2 rounded bg-white/10 cursor-pointer transition-colors text-[#1890ff]";
+
+        return (
+            <div
+                style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="flex items-center gap-1 rounded-lg px-2 py-1" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button className={showMetadataPanel && !showRawMetadata ? activeCls : btnCls} onClick={() => {
+                                if (showMetadataPanel && !showRawMetadata) setShowMetadataPanel(false);
+                                else { setShowMetadataPanel(true); setShowRawMetadata(false); }
+                            }}>
+                                <Info size={18} />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>{showMetadataPanel && !showRawMetadata ? 'Hide metadata' : 'Show metadata'}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button className={showMetadataPanel && showRawMetadata ? activeCls : btnCls} onClick={() => {
+                                if (showMetadataPanel && showRawMetadata) setShowMetadataPanel(false);
+                                else { setShowMetadataPanel(true); setShowRawMetadata(true); }
+                            }}>
+                                <FileText size={18} />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>{showMetadataPanel && showRawMetadata ? 'Hide Raw JSON' : 'Raw JSON'}</TooltipContent>
+                    </Tooltip>
+                    <div className="w-px h-5 bg-white/25 mx-1" />
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button className={copySuccess ? `${activeCls} text-green-400` : btnCls} onClick={() => {
+                                const img = new window.Image();
+                                img.crossOrigin = 'anonymous';
+                                img.src = `${BASE_PATH}${currentImage.url}`;
+                                img.onload = () => {
+                                    const canvas = document.createElement('canvas');
+                                    canvas.width = img.width; canvas.height = img.height;
+                                    const ctx = canvas.getContext('2d');
+                                    if (ctx) {
+                                        ctx.drawImage(img, 0, 0);
+                                        canvas.toBlob(async blob => {
+                                            if (blob) {
+                                                try {
+                                                    await navigator.clipboard.write([new window.ClipboardItem({ [blob.type]: blob })]);
+                                                    setCopySuccess(true);
+                                                    setTimeout(() => setCopySuccess(false), 1200);
+                                                } catch { toast.error('Clipboard copy failed'); }
+                                            }
+                                        }, 'image/png');
+                                    }
+                                };
+                                img.onerror = () => toast.error('Failed to load image for copy');
+                            }}>
+                                {copySuccess ? <Check size={18} /> : <Copy size={18} />}
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>{copySuccess ? 'Copied!' : 'Copy image'}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button className={btnCls} onClick={async () => {
                                 try {
                                     const r = await fetch(`${BASE_PATH}${currentImage.url}`, { mode: 'cors' });
                                     if (!r.ok) throw new Error('Failed');
                                     saveAs(await r.blob(), currentImage.name);
                                 } catch { toast.error('Failed to download file'); }
-                            }}
-                        />
-                    </TooltipTrigger>
-                    <TooltipContent>Download</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Trash2
-                            style={{ ...iconStyle, color: '#ff4d4f' }}
-                            onClick={() => {
+                            }}>
+                                <Download size={18} />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Download</TooltipContent>
+                    </Tooltip>
+                    <div className="w-px h-5 bg-white/25 mx-1" />
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button className={`${btnCls} text-red-400 hover:text-red-300`} onClick={() => {
                                 lightboxDeleteImageRef.current = currentImage;
                                 setShowLightboxDeleteConfirm(true);
-                            }}
-                        />
-                    </TooltipTrigger>
-                    <TooltipContent>Delete</TooltipContent>
-                </Tooltip>
-            </div>,
-            'close' as const,
-        ];
-    }, [currentImage, showMetadataPanel, showRawMetadata, setShowMetadataPanel, setShowRawMetadata, copySuccess]);
+                            }}>
+                                <Trash2 size={18} />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete</TooltipContent>
+                    </Tooltip>
+                </div>
+            </div>
+        );
+    }, [lightboxOpen, currentImage, showMetadataPanel, showRawMetadata, setShowMetadataPanel, setShowRawMetadata, copySuccess]);
 
     return (
         <div id="imagesBox" style={{ width: '100%', height: '100%', position: 'relative' }} ref={containerRef}>
@@ -310,8 +306,7 @@ const GalleryImageGrid = () => {
                 slides={slides}
                 close={handleLightboxClose}
                 on={{ view: handleLightboxView }}
-                render={{ slide: renderSlide }}
-                toolbar={{ buttons: toolbarButtons }}
+                render={{ slide: renderSlide, controls: renderControls }}
                 styles={{ root: { '--yarl__color_backdrop': 'rgba(0,0,0,0.88)' } as Parameters<typeof Lightbox>[0]['styles'] extends { root?: infer R } ? R : never }}
             />
 

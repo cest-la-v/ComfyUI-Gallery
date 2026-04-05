@@ -45,8 +45,10 @@ const GalleryModal = () => {
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent
                     showCloseButton={false}
+                    onInteractOutside={(e) => e.preventDefault()}
+                    onPointerDownOutside={(e) => e.preventDefault()}
                     className="p-0 gap-0 w-[95vw] max-w-none h-[92vh] flex flex-col overflow-hidden rounded-lg"
-                    style={{ zIndex: BASE_Z_INDEX }}
+                    style={{ zIndex: BASE_Z_INDEX + 1 }}
                 >
                     {/* Header bar */}
                     <div className="px-3 py-2 border-b shrink-0">
