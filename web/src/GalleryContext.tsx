@@ -35,7 +35,9 @@ export interface SettingsState {
     expandAllFolders: boolean; 
     disableLogs: boolean;
     usePollingObserver: boolean;
-    scanExtensions: string[]; 
+    scanExtensions: string[];
+    /** Incremented when we need to migrate stored settings to new defaults. */
+    _settingsVersion?: number;
 }
 
 export const DEFAULT_SETTINGS: SettingsState = {
@@ -51,6 +53,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
     disableLogs: false,
     usePollingObserver: false,
     scanExtensions: ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'gif', 'webm', 'mov', 'wav', 'mp3', 'm4a', 'flac'],
+    _settingsVersion: 2,
 };
 export const STORAGE_KEY = 'comfy-ui-gallery-settings';
 
@@ -209,6 +212,15 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         }, 5 * 60 * 1000);
         return () => clearInterval(interval);
     }, [open]);
+
+    // One-time migration: settings stored before the shadcn migration (v1) had darkMode:false.
+    // Force darkMode:true for any stored settings that lack _settingsVersion >= 2.
+    useEffect(() => {
+        if (settingsState && (settingsState._settingsVersion ?? 1) < 2) {
+            setSettings({ ...settingsState, darkMode: true, _settingsVersion: 2 });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Sync dark mode setting → Tailwind's .dark class on <html>
     useEffect(() => {

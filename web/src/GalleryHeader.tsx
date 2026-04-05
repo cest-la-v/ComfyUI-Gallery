@@ -2,8 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
-    ChevronsLeft, ChevronsRight, X, ArrowUpDown, Settings, Sun, Moon,
-    ChevronDown, Loader2,
+    ChevronsLeft, ChevronsRight, X, Settings, Sun, Moon, Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -12,6 +11,10 @@ import {
     AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { useGalleryContext } from './GalleryContext';
 import type { ViewMode } from './GalleryContext';
 import { useDebounce, useCountDown } from 'ahooks';
@@ -126,23 +129,19 @@ function SearchAutocomplete({
 
 function ViewModeSelector({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) {
     return (
-        <div className="flex items-center rounded-md border border-input overflow-hidden h-9 text-sm shrink-0">
-            {VIEW_MODE_OPTIONS.map((opt, i) => (
-                <button
-                    key={opt.value}
-                    className={cn(
-                        "px-3 h-full transition-colors whitespace-nowrap",
-                        i > 0 && "border-l border-input",
-                        value === opt.value
-                            ? "bg-primary text-primary-foreground"
-                            : "hover:bg-accent hover:text-accent-foreground"
-                    )}
-                    onClick={() => onChange(opt.value)}
-                >
+        <ToggleGroup
+            type="single"
+            value={value}
+            onValueChange={v => v && onChange(v as ViewMode)}
+            variant="outline"
+            className="shrink-0 h-9"
+        >
+            {VIEW_MODE_OPTIONS.map(opt => (
+                <ToggleGroupItem key={opt.value} value={opt.value} className="text-sm px-3 h-9">
                     {opt.label}
-                </button>
+                </ToggleGroupItem>
             ))}
-        </div>
+        </ToggleGroup>
     );
 }
 
@@ -342,21 +341,21 @@ const GalleryHeader = () => {
                 />
 
                 {/* Sort select */}
-                <div className="relative flex items-center shrink-0">
-                    <ArrowUpDown className="absolute left-2 h-3.5 w-3.5 pointer-events-none text-muted-foreground" />
-                    <select
-                        className="h-9 appearance-none bg-background border border-input pl-7 pr-6 text-sm focus:outline-none cursor-pointer text-foreground min-w-[130px] rounded-md"
-                        value={sortMethod}
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        onChange={e => setSortMethod(e.target.value as any)}
-                    >
-                        <option value="Newest">Date: Newest</option>
-                        <option value="Oldest">Date: Oldest</option>
-                        <option value="Name ↑">Name: A → Z</option>
-                        <option value="Name ↓">Name: Z → A</option>
-                    </select>
-                    <ChevronDown className="absolute right-1 h-3.5 w-3.5 pointer-events-none text-muted-foreground" />
-                </div>
+                <Select
+                    value={sortMethod}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    onValueChange={v => setSortMethod(v as any)}
+                >
+                    <SelectTrigger className="h-9 min-w-[130px] shrink-0">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-[3200]">
+                        <SelectItem value="Newest">Date: Newest</SelectItem>
+                        <SelectItem value="Oldest">Date: Oldest</SelectItem>
+                        <SelectItem value="Name ↑">Name: A → Z</SelectItem>
+                        <SelectItem value="Name ↓">Name: Z → A</SelectItem>
+                    </SelectContent>
+                </Select>
 
                 <Tooltip>
                     <TooltipTrigger asChild>
