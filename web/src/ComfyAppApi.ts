@@ -20,43 +20,15 @@ function getComfyApp() {
     return null;
 }
 
-const mockJsonResponse = (data: unknown) => ({
-    ok: true,
-    json: async () => data,
-    text: async () => JSON.stringify(data),
-});
-
 const mockApi = {
     api: {
         fetchApi: async (url: string, options?: any) => {
-            console.log('[MockAPI] fetchApi called:', url, options);
-            if (url.startsWith("/Gallery/images")) {
-                return fetch("/api.json", {});
-            }
-            if (url === "/Gallery/monitor/start") {
-                return mockJsonResponse({ status: "started" });
-            }
-            if (url === "/Gallery/monitor/stop") {
-                return mockJsonResponse({ status: "stopped" });
-            }
-            if (url === "/Gallery/settings") {
-                return mockJsonResponse({});
-            }
-            return mockJsonResponse({});
+            console.log('[DevAPI] fetchApi:', url);
+            // In dev mode, proxy all Gallery requests to the standalone backend via Vite proxy
+            return fetch(url, options);
         },
-        addEventListener: (event: string, cb: GalleryEventCallback) => {
-            console.log(`[MockAPI] addEventListener called for event: ${event}`);
-            // No-op in mock
-        },
-        moveImage: async (sourcePath: string, targetPath: string) => {
-            console.log(`[MockAPI] moveImage called: ${sourcePath} -> ${targetPath}`);
-            // Simulate success
-            return true;
-        },
-        deleteImage: async (imagePath: string) => {
-            console.log(`[MockAPI] deleteImage called: ${imagePath}`);
-            // Simulate success
-            return true;
+        addEventListener: (event: string, _cb: GalleryEventCallback) => {
+            console.log(`[DevAPI] addEventListener: ${event} (no-op — no WebSocket in standalone mode)`);
         },
     },
     registerExtension: (ext: any) => {

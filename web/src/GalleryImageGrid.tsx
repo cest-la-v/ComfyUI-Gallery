@@ -234,8 +234,8 @@ const GalleryImageGrid = () => {
         if (!lightboxOpen || !currentImage) return null;
         if (currentImage.type === 'media' || currentImage.type === 'audio') return null;
 
-        const btnCls = "p-2 rounded hover:bg-white/10 cursor-pointer transition-colors text-white/85 hover:text-white";
-        const activeCls = "p-2 rounded bg-white/10 cursor-pointer transition-colors text-[#1890ff]";
+        const btnCls = "lb-btn";
+        const activeCls = "lb-btn lb-btn-active";
 
         return (
             <div
@@ -266,7 +266,7 @@ const GalleryImageGrid = () => {
                         </TooltipTrigger>
                         <TooltipContent>{showMetadataPanel && showRawMetadata ? 'Hide Raw JSON' : 'Raw JSON'}</TooltipContent>
                     </Tooltip>
-                    <div className="w-px h-5 bg-white/25 mx-1" />
+                    <div className="lb-divider" />
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <button className={btnCls} onClick={() => setImageRotation(r => ((r - 90 + 360) % 360) as 0 | 90 | 180 | 270)}>
@@ -299,10 +299,10 @@ const GalleryImageGrid = () => {
                         </TooltipTrigger>
                         <TooltipContent>Flip Vertical</TooltipContent>
                     </Tooltip>
-                    <div className="w-px h-5 bg-white/25 mx-1" />
+                    <div className="lb-divider" />
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button className={copySuccess ? `${activeCls} text-green-400` : btnCls} onClick={() => {
+                            <button className={copySuccess ? `lb-btn lb-btn-active lb-btn-success` : btnCls} onClick={() => {
                                 const img = new window.Image();
                                 img.crossOrigin = 'anonymous';
                                 img.src = `${BASE_PATH}${currentImage.url}`;
@@ -344,7 +344,7 @@ const GalleryImageGrid = () => {
                         </TooltipTrigger>
                         <TooltipContent>Download</TooltipContent>
                     </Tooltip>
-                    <div className="w-px h-5 bg-white/25 mx-1" />
+                    <div className="lb-divider" />
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <button className={`${btnCls} text-red-400 hover:text-red-300`} onClick={() => {

@@ -7,6 +7,40 @@
 @import "tw-animate-css";
 @import "yet-another-react-lightbox/styles.css";
 
+/* Lightbox toolbar button styles — defined here because Tailwind's static scanner
+   misses classes stored in JS string variables (btnCls / activeCls pattern). */
+.lb-btn {
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: color 150ms, background-color 150ms;
+    color: rgb(255 255 255 / 0.85);
+    background: transparent;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.lb-btn:hover {
+    background-color: rgb(255 255 255 / 0.1);
+    color: white;
+}
+.lb-btn-active {
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: color 150ms, background-color 150ms;
+    background-color: rgb(255 255 255 / 0.1);
+    color: #1890ff;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.lb-btn-success {
+    color: #4ade80; /* green-400 */
+}
+
 /* Ensure yarl lightbox portal sits above the gallery modal (z-[3001]) */
 .yarl__portal {
     z-index: 3100;
@@ -80,4 +114,13 @@
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.546 0.245 262.881);
+}
+
+/* Lightbox toolbar divider */
+.lb-divider {
+    width: 1px;
+    height: 1.25rem;
+    background-color: rgb(255 255 255 / 0.25);
+    margin: 0 0.25rem;
+    flex-shrink: 0;
 }
