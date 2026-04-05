@@ -1,5 +1,6 @@
 import Modal from 'antd/es/modal/Modal';
-import { Button, Flex, Input, Switch, Typography, Popconfirm, message, Divider } from 'antd';
+import { Button, Flex, Input, Switch, Typography, Popconfirm, Divider } from 'antd';
+import { toast } from 'sonner';
 import { useGalleryContext, type SettingsState } from './GalleryContext';
 import { useSetState } from 'ahooks';
 import { useEffect, useState } from 'react';
@@ -178,13 +179,13 @@ const GallerySettingsModal = () => {
                             try {
                                 const res = await fetch('/Gallery/db/reset', { method: 'POST' });
                                 if (res.ok) {
-                                    message.success('Database reset. Metadata will be rebuilt on next scan.');
+                                    toast.success('Database reset. Metadata will be rebuilt on next scan.');
                                     setDbStatus(null);
                                 } else {
-                                    message.error('Reset failed: ' + res.statusText);
+                                    toast.error('Reset failed: ' + res.statusText);
                                 }
                             } catch (e) {
-                                message.error('Reset failed: network error');
+                                toast.error('Reset failed: network error');
                             }
                         }}
                     >

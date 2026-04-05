@@ -1,4 +1,5 @@
-import { Button, Image, Typography, Popconfirm, message } from 'antd';
+import { Button, Image, Typography, Popconfirm } from 'antd';
+import { toast } from 'sonner';
 import type { FileDetails } from './types';
 import { InfoCircleOutlined, DeleteOutlined, SoundOutlined } from '@ant-design/icons';
 import React, { useRef, useState } from 'react';
@@ -128,9 +129,9 @@ function ImageCard({
                             setDeleteConfirmOpen(false);
                             const success = await ComfyAppApi.deleteImage(image.url);
                             if (success) {
-                                message.success('Image deleted');
+                                toast.success('Image deleted');
                             } else {
-                                message.error('Failed to delete image');
+                                toast.error('Failed to delete image');
                             }
                         }}
                         onCancel={(e) => {

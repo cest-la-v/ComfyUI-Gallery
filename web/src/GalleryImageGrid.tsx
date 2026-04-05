@@ -1,5 +1,6 @@
 import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
-import { Empty, Image, Spin, Tooltip, Popconfirm, message, Tag } from 'antd';
+import { Empty, Image, Spin, Tooltip, Popconfirm, Tag } from 'antd';
+import { toast } from 'sonner';
 import { AutoSizer } from 'react-virtualized';
 import { FixedSizeGrid, VariableSizeGrid } from 'react-window';
 import ImageCard, { ImageCardHeight, ImageCardWidth } from './ImageCard';
@@ -295,7 +296,7 @@ const GalleryImageGrid = () => {
                                                             await navigator.clipboard.write([new window.ClipboardItem({ [blob.type]: blob })]);
                                                             setCopySuccess(true);
                                                             setTimeout(() => setCopySuccess(false), 1200);
-                                                        } catch { message.error('Clipboard copy failed'); }
+                                                        } catch { toast.error('Clipboard copy failed'); }
                                                     }
                                                 }, 'image/png');
                                             }
@@ -315,7 +316,7 @@ const GalleryImageGrid = () => {
                                     if (!response.ok) throw new Error('Failed');
                                     const blob = await response.blob();
                                     saveAs(blob, image.name);
-                                } catch { message.error('Failed to download file'); }
+                                } catch { toast.error('Failed to download file'); }
                             }}
                         />
                     </Tooltip>
@@ -328,9 +329,9 @@ const GalleryImageGrid = () => {
                             const success = await ComfyAppApi.deleteImage(image.url);
                             if (success) {
                                 setImageInfoName(next?.name);
-                                message.success('Image deleted');
+                                toast.success('Image deleted');
                             } else {
-                                message.error('Failed to delete image');
+                                toast.error('Failed to delete image');
                             }
                         }}
                         okText="Yes"

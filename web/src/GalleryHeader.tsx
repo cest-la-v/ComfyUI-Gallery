@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Flex, AutoComplete, Button, Segmented, message, Popconfirm, Tag, Select, Tooltip } from 'antd';
+import { Flex, AutoComplete, Button, Segmented, Popconfirm, Tag, Select, Tooltip } from 'antd';
+import { toast } from 'sonner';
 import { CloseSquareFilled, DoubleLeftOutlined, DoubleRightOutlined, CloseOutlined, SortAscendingOutlined, SettingOutlined, BulbOutlined, MoonFilled } from '@ant-design/icons';
 import { useGalleryContext } from './GalleryContext';
 import type { ViewMode } from './GalleryContext';
@@ -122,12 +123,12 @@ const GalleryHeader = () => {
                                     const content = await zip.generateAsync({ type: 'blob' });
                                     FileSaver.saveAs(content, 'comfy-ui-gallery-images.zip');
                                 } catch (error) {
-                                    message.error('Failed to download images.');
+                                    toast.error('Failed to download images.');
                                 } finally {
                                     setDownloading(false);
                                 }
                             }}
-                            onCancel={() => message.info('Download cancelled')}
+                            onCancel={() => toast.info('Download cancelled')}
                             okText={`Download (${selectedImages.length})`}
                             cancelText="Cancel"
                             okButtonProps={{ loading: downloading }}
@@ -176,12 +177,12 @@ const GalleryHeader = () => {
                                 }
                                 setSelectedImages([]);
                                 if (failed.length > 0) {
-                                    message.warning(`Deleted ${deleted} image(s), ${failed.length} failed.`);
+                                    toast.warning(`Deleted ${deleted} image(s), ${failed.length} failed.`);
                                 } else {
-                                    message.success(`Deleted ${deleted} image(s).`);
+                                    toast.success(`Deleted ${deleted} image(s).`);
                                 }
                             }}
-                            onCancel={() => message.info('Delete cancelled')}
+                            onCancel={() => toast.info('Delete cancelled')}
                             okText={`Delete (${selectedImages.length})`}
                             cancelText="Cancel"
                             okButtonProps={{ danger: true }}

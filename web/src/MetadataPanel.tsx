@@ -1,4 +1,5 @@
-import { Typography, Button, Descriptions, Tooltip, message, Tag, Popconfirm, Segmented, Skeleton } from 'antd';
+import { Typography, Button, Descriptions, Tooltip, Tag, Popconfirm, Segmented, Skeleton } from 'antd';
+import { toast } from 'sonner';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type React from 'react';
 import type { FileDetails, ImageParams } from './types';
@@ -213,7 +214,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                             onClick={() => {
                                 navigator.clipboard.writeText(value);
                                 setCopiedKey(key);
-                                message.success('Copied!', 1);
+                                toast.success('Copied!', { duration: 1000 });
                                 setTimeout(() => setCopiedKey(null), 1200);
                             }}
                         >
@@ -260,9 +261,9 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
         const success = await ComfyAppApi.deleteImage(image.url);
         if (success) {
             setImageInfoName(next?.name);
-            message.success('Image deleted');
+            toast.success('Image deleted');
         } else {
-            message.error('Failed to delete image');
+            toast.error('Failed to delete image');
         }
     }, [image.url, imageInfoName, previewableImages, setImageInfoName]);
 
@@ -273,7 +274,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
             const blob = await response.blob();
             saveAs(blob, image.name);
         } catch {
-            message.error('Failed to download file');
+            toast.error('Failed to download file');
         }
     }, [image.url, image.name]);
 
@@ -293,14 +294,14 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                         if (blob) {
                             try {
                                 await navigator.clipboard.write([new window.ClipboardItem({ [blob.type]: blob })]);
-                                message.success('Image copied to clipboard');
-                            } catch { message.error('Clipboard copy failed'); }
-                        } else { message.error('Failed to copy image'); }
+                                toast.success('Image copied to clipboard');
+                            } catch { toast.error('Clipboard copy failed'); }
+                        } else { toast.error('Failed to copy image'); }
                     }, 'image/png');
                 }
             };
-            img.onerror = () => message.error('Failed to load image for copy');
-        } catch { message.error('Failed to copy image'); }
+            img.onerror = () => toast.error('Failed to load image for copy');
+        } catch { toast.error('Failed to copy image'); }
     }, [image.url]);
 
     return (
