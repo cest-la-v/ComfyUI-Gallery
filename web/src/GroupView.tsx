@@ -1,49 +1,44 @@
 import React from 'react';
-import { Card, Badge, Image, Spin, Empty, Alert, Typography, Flex, Tag } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { useGalleryGroups } from './hooks/useGalleryGroups';
 import { BASE_PATH } from './ComfyAppApi';
 import type { ModelGroup, PromptGroup } from './types';
 
-const { Text, Paragraph } = Typography;
-
 const THUMB_SIZE = 64;
+
+const FALLBACK_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 function ThumbnailStrip({ samplePaths }: { samplePaths: string[] }) {
     return (
-        <Flex gap={4} style={{ marginTop: 8 }}>
+        <div className="flex gap-1 mt-2">
             {samplePaths.slice(0, 4).map((rel, i) => (
-                <Image
+                <img
                     key={i}
                     src={`${BASE_PATH}/static_gallery/${rel}`}
                     width={THUMB_SIZE}
                     height={THUMB_SIZE}
-                    style={{ objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
-                    preview={false}
-                    fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+                    className="object-cover rounded shrink-0"
+                    style={{ width: THUMB_SIZE, height: THUMB_SIZE }}
+                    onError={e => { (e.target as HTMLImageElement).src = FALLBACK_SRC; }}
                 />
             ))}
-        </Flex>
+        </div>
     );
 }
 
 function ModelGroupCard({ group, onClick }: { group: ModelGroup; onClick: () => void }) {
     return (
-        <Card
-            hoverable
+        <div
+            className="w-[220px] cursor-pointer rounded-lg border bg-card text-card-foreground shadow-sm p-3 transition-colors hover:bg-accent/50"
             onClick={onClick}
-            size="small"
-            style={{ width: 220, cursor: 'pointer' }}
-            styles={{ body: { padding: 12 } }}
         >
-            <Flex justify="space-between" align="flex-start">
-                <Text strong style={{ fontSize: 13, flex: 1, marginRight: 8, wordBreak: 'break-word' }}>
-                    {group.model}
-                </Text>
-                <Badge count={group.count} color="blue" showZero style={{ flexShrink: 0 }} />
-            </Flex>
+            <div className="flex justify-between items-start gap-2">
+                <span className="font-semibold text-[13px] flex-1 break-words">{group.model}</span>
+                <Badge variant="blue" className="shrink-0">{group.count}</Badge>
+            </div>
             <ThumbnailStrip samplePaths={group.sample_paths} />
-        </Card>
+        </div>
     );
 }
 
@@ -53,32 +48,24 @@ function PromptGroupCard({ group, onClick }: { group: PromptGroup; onClick: () =
         : '(no prompt)';
 
     return (
-        <Card
-            hoverable
+        <div
+            className="w-[280px] cursor-pointer rounded-lg border bg-card text-card-foreground shadow-sm p-3 transition-colors hover:bg-accent/50"
             onClick={onClick}
-            size="small"
-            style={{ width: 280, cursor: 'pointer' }}
-            styles={{ body: { padding: 12 } }}
         >
-            <Flex justify="space-between" align="flex-start" style={{ marginBottom: 6 }}>
-                <Flex wrap gap={4} style={{ flex: 1, marginRight: 8 }}>
+            <div className="flex justify-between items-start gap-2 mb-1.5">
+                <div className="flex flex-wrap gap-1 flex-1">
                     {group.models.length > 0
                         ? group.models.map(m => (
-                            <Tag key={m} color="blue" style={{ fontSize: 11, marginRight: 0 }}>{m}</Tag>
+                            <Badge key={m} variant="blue" className="text-[11px]">{m}</Badge>
                         ))
-                        : <Tag style={{ fontSize: 11, marginRight: 0, opacity: 0.4 }}>Unknown model</Tag>
+                        : <Badge variant="outline" className="text-[11px] opacity-40">Unknown model</Badge>
                     }
-                </Flex>
-                <Badge count={group.count} color="green" showZero style={{ flexShrink: 0 }} />
-            </Flex>
-            <Paragraph
-                style={{ fontSize: 12, color: '#666', margin: 0, lineHeight: '1.4' }}
-                ellipsis={{ rows: 2 }}
-            >
-                {preview}
-            </Paragraph>
+                </div>
+                <Badge variant="green" className="shrink-0">{group.count}</Badge>
+            </div>
+            <p className="line-clamp-2 text-xs text-muted-foreground m-0 leading-[1.4]">{preview}</p>
             <ThumbnailStrip samplePaths={group.sample_paths} />
-        </Card>
+        </div>
     );
 }
 
@@ -95,45 +82,47 @@ const GroupView: React.FC<GroupViewProps> = ({ onSelectModel, onSelectPrompt, ac
     const { modelGroups, promptGroups, loading, error, refresh } = useGalleryGroups(true);
 
     const header = (
-        <Flex justify="flex-end" style={{ marginBottom: 12 }}>
-            <ReloadOutlined
+        <div className="flex justify-end mb-3">
+            <button
+                className="text-muted-foreground hover:text-foreground transition-colors"
                 onClick={refresh}
-                style={{ cursor: 'pointer', color: '#666' }}
                 title="Refresh groups"
-            />
-        </Flex>
+            >
+                <RefreshCw className="h-4 w-4" />
+            </button>
+        </div>
     );
 
     if (loading) {
         return (
-            <Flex justify="center" align="center" style={{ height: '100%', minHeight: 200 }}>
-                <Spin size="large" />
-            </Flex>
+            <div className="flex items-center justify-center h-full min-h-[200px]">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
         );
     }
 
     if (error) {
         return (
-            <div style={{ padding: 16 }}>
+            <div className="p-4">
                 {header}
-                <Alert
-                    type="warning"
-                    message="Could not load groups"
-                    description={error}
-                    showIcon
-                />
+                <div className="rounded-md border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/30 p-4 flex gap-3">
+                    <span className="text-yellow-600 dark:text-yellow-400 text-sm font-medium">Could not load groups</span>
+                    <span className="text-sm text-muted-foreground">{error}</span>
+                </div>
             </div>
         );
     }
 
     return (
-        <div style={{ padding: 16, height: '100%', overflowY: 'auto' }}>
+        <div className="p-4 h-full overflow-y-auto">
             {header}
             {activeTab === 'model' ? (
                 modelGroups.length === 0 ? (
-                    <Empty description="No model metadata found. Run a scan to populate the database." style={{ marginTop: 40 }} />
+                    <div className="flex flex-col items-center justify-center py-10 text-center text-sm text-muted-foreground">
+                        No model metadata found. Run a scan to populate the database.
+                    </div>
                 ) : (
-                    <Flex wrap gap={12} style={{ paddingTop: 8 }}>
+                    <div className="flex flex-wrap gap-3 pt-2">
                         {modelGroups.map(group => (
                             <ModelGroupCard
                                 key={group.model}
@@ -141,13 +130,15 @@ const GroupView: React.FC<GroupViewProps> = ({ onSelectModel, onSelectPrompt, ac
                                 onClick={() => onSelectModel(group.model)}
                             />
                         ))}
-                    </Flex>
+                    </div>
                 )
             ) : (
                 promptGroups.length === 0 ? (
-                    <Empty description="No prompt metadata found. Run a scan to populate the database." style={{ marginTop: 40 }} />
+                    <div className="flex flex-col items-center justify-center py-10 text-center text-sm text-muted-foreground">
+                        No prompt metadata found. Run a scan to populate the database.
+                    </div>
                 ) : (
-                    <Flex wrap gap={12} style={{ paddingTop: 8 }}>
+                    <div className="flex flex-wrap gap-3 pt-2">
                         {promptGroups.map(group => (
                             <PromptGroupCard
                                 key={group.fingerprint}
@@ -155,7 +146,7 @@ const GroupView: React.FC<GroupViewProps> = ({ onSelectModel, onSelectPrompt, ac
                                 onClick={() => onSelectPrompt(group.fingerprint, group.positive_prompt?.slice(0, 40) ?? group.fingerprint.slice(0, 8))}
                             />
                         ))}
-                    </Flex>
+                    </div>
                 )
             )}
         </div>

@@ -1,10 +1,20 @@
-import Modal from 'antd/es/modal/Modal';
-import { Button, Flex, Input, Switch, Typography, Popconfirm, Divider } from 'antd';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
+import {
+    AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
+    AlertDialogTitle, AlertDialogDescription, AlertDialogFooter,
+    AlertDialogCancel, AlertDialogAction,
+} from '@/components/ui/alert-dialog';
+import { buttonVariants } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useGalleryContext, type SettingsState } from './GalleryContext';
 import { useSetState } from 'ahooks';
 import { useEffect, useState } from 'react';
-import { BASE_Z_INDEX } from './ComfyAppApi';
 
 interface DbStatus {
     schema_version: number;
@@ -41,159 +51,123 @@ const GallerySettingsModal = () => {
     };
 
     return (
-        <Modal
-            zIndex={BASE_Z_INDEX + 1}
-            title={"Settings"}
-            open={showSettings}
-            centered
-            afterOpenChange={setShowSettings}
-            onOk={handleSave}
-            onCancel={handleCancel}
-            footer={[
-                <Button 
-                    key="back" 
-                    onClick={handleCancel}
-                >
-                    Return
-                </Button>,
-                <Button 
-                    key="submit" 
-                    type="primary" 
-                    onClick={handleSave}
-                >
-                    Save
-                </Button>
-            ]}
-        >
-            <Flex 
-                vertical 
-                gap={16}
-            >
-                <div>
-                    <Typography.Title 
-                        level={5}
-                    >
-                        Relative Path:
-                    </Typography.Title>
-                    <Input 
-                        value={staged.relativePath} 
-                        onChange={e => setStaged({ relativePath: e.target.value })} 
-                    />
+        <Dialog open={showSettings} onOpenChange={setShowSettings}>
+            <DialogContent className="max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Settings</DialogTitle>
+                </DialogHeader>
+
+                <div className="flex flex-col gap-4 py-2">
+                    <div>
+                        <label className="text-sm font-medium">Relative Path:</label>
+                        <Input
+                            className="mt-1"
+                            value={staged.relativePath}
+                            onChange={e => setStaged({ relativePath: e.target.value })}
+                        />
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium">Button Box Query:</label>
+                        <Input
+                            className="mt-1"
+                            value={staged.buttonBoxQuery}
+                            onChange={e => setStaged({ buttonBoxQuery: e.target.value })}
+                        />
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium">Button Label:</label>
+                        <Input
+                            className="mt-1"
+                            value={staged.buttonLabel}
+                            onChange={e => setStaged({ buttonLabel: e.target.value })}
+                        />
+                    </div>
+
+                    {([
+                        { key: 'floatingButton',      on: 'Floating Button',        off: 'Normal Button' },
+                        { key: 'autoPlayVideos',      on: 'Auto Play Videos',       off: "Don't Auto Play Videos" },
+                        { key: 'hideOpenButton',      on: 'Hide Open Button',       off: 'Show Open Button' },
+                        { key: 'darkMode',            on: 'Dark Mode',              off: 'Light Mode' },
+                        { key: 'galleryShortcut',     on: 'Enable Ctrl+G Shortcut', off: 'Disable Ctrl+G Shortcut' },
+                        { key: 'expandAllFolders',    on: 'Expand All Folders',     off: 'Collapse All Folders' },
+                        { key: 'disableLogs',         on: 'Disable Terminal Logs',  off: 'Enable Terminal Logs' },
+                        { key: 'usePollingObserver',  on: 'Use Polling Observer',   off: 'Use Native Observer' },
+                    ] as const).map(({ key, on, off }) => (
+                        <div key={key} className="flex items-center justify-between">
+                            <span className="text-sm select-none">
+                                {(staged as unknown as Record<string, boolean>)[key] ? on : off}
+                            </span>
+                            <Switch
+                                checked={(staged as unknown as Record<string, boolean>)[key]}
+                                onCheckedChange={checked => setStaged({ [key]: checked } as unknown as Pick<SettingsState, keyof SettingsState>)}
+                            />
+                        </div>
+                    ))}
+
+                    <div>
+                        <label className="text-sm font-medium">Scan File Extensions:</label>
+                        <p className="text-xs text-muted-foreground mb-1">Comma separated (e.g. png, jpg, mp4, wav)</p>
+                        <Input value={extInput} onChange={e => setExtInput(e.target.value)} />
+                    </div>
+
+                    <Separator className="my-1" />
+
+                    <div>
+                        <label className="text-sm font-medium text-destructive">Danger Zone</label>
+                        {dbStatus && (
+                            <p className="text-[11px] text-muted-foreground mt-1 mb-1.5">
+                                DB v{dbStatus.schema_version} · {dbStatus.file_count} files · {dbStatus.params_count} with metadata
+                                {dbStatus.params_count === 0 && dbStatus.file_count > 0 && (
+                                    <span className="text-destructive"> — no metadata cached, reset to rebuild</span>
+                                )}
+                            </p>
+                        )}
+                        <p className="text-xs text-muted-foreground mb-2">
+                            Reset the gallery database — clears all cached metadata. The next scan will rebuild it from scratch.
+                        </p>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="sm">Reset Database</Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Reset Gallery Database</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This will delete all cached metadata. Metadata will be re-extracted on the next scan. Continue?
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        className={buttonVariants({ variant: 'destructive' })}
+                                        onClick={async () => {
+                                            try {
+                                                const res = await fetch('/Gallery/db/reset', { method: 'POST' });
+                                                if (res.ok) {
+                                                    toast.success('Database reset. Metadata will be rebuilt on next scan.');
+                                                    setDbStatus(null);
+                                                } else {
+                                                    toast.error('Reset failed: ' + res.statusText);
+                                                }
+                                            } catch {
+                                                toast.error('Reset failed: network error');
+                                            }
+                                        }}
+                                    >
+                                        Reset
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
                 </div>
-                <div>
-                    <Typography.Title 
-                        level={5}
-                    >
-                        Button Box Query:
-                    </Typography.Title>
-                    <Input 
-                        value={staged.buttonBoxQuery} 
-                        onChange={e => setStaged({ buttonBoxQuery: e.target.value })} 
-                    />
-                </div>
-                <div>
-                    <Typography.Title 
-                        level={5}
-                    >
-                        Button Label:
-                    </Typography.Title>
-                    <Input 
-                        value={staged.buttonLabel} 
-                        onChange={e => setStaged({ buttonLabel: e.target.value })} 
-                    />
-                </div>
-                <Switch
-                    checkedChildren={"Floating Button"}
-                    unCheckedChildren={"Normal Button"}
-                    checked={staged.floatingButton}
-                    onChange={checked => setStaged({ floatingButton: checked })}
-                />
-                <Switch
-                    checkedChildren={"Auto Play Videos"}
-                    unCheckedChildren={"Don't Auto Play Videos"}
-                    checked={staged.autoPlayVideos}
-                    onChange={checked => setStaged({ autoPlayVideos: checked })}
-                />
-                <Switch
-                    checkedChildren={"Hide Open Button"}
-                    unCheckedChildren={"Show Open Button"}
-                    checked={staged.hideOpenButton}
-                    onChange={checked => setStaged({ hideOpenButton: checked })}
-                />
-                <Switch
-                    checkedChildren={"Dark Mode"}
-                    unCheckedChildren={"Light Mode"}
-                    checked={staged.darkMode}
-                    onChange={checked => setStaged({ darkMode: checked })}
-                />
-                <Switch
-                    checkedChildren={"Enable Ctrl+G Shortcut"}
-                    unCheckedChildren={"Disable Ctrl+G Shortcut"}
-                    checked={staged.galleryShortcut}
-                    onChange={checked => setStaged({ galleryShortcut: checked })}
-                />
-                <Switch
-                    checkedChildren={"Expand All Folders"}
-                    unCheckedChildren={"Collapse All Folders"}
-                    checked={staged.expandAllFolders}
-                    onChange={checked => setStaged({ expandAllFolders: checked })}
-                />
-                <Switch
-                    checkedChildren={"Disable Terminal Logs"}
-                    unCheckedChildren={"Enable Terminal Logs"}
-                    checked={staged.disableLogs}
-                    onChange={checked => setStaged({ disableLogs: checked })}
-                />
-                <Switch
-                    checkedChildren={"Use Polling Observer"}
-                    unCheckedChildren={"Use Native Observer"}
-                    checked={staged.usePollingObserver}
-                    onChange={checked => setStaged({ usePollingObserver: checked })}
-                />
-                <div>
-                    <Typography.Title level={5}>Scan File Extensions:</Typography.Title>
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>Comma separated (e.g. png, jpg, mp4, wav)</Typography.Text>
-                    <Input value={extInput} onChange={e => setExtInput(e.target.value)} />
-                </div>
-                <Divider style={{ margin: '12px 0' }} />
-                <div>
-                    <Typography.Title level={5} type="danger">Danger Zone</Typography.Title>
-                    {dbStatus && (
-                        <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6 }}>
-                            DB v{dbStatus.schema_version} · {dbStatus.file_count} files · {dbStatus.params_count} with metadata
-                            {dbStatus.params_count === 0 && dbStatus.file_count > 0 && (
-                                <span style={{ color: '#ff4d4f' }}> — no metadata cached, reset to rebuild</span>
-                            )}
-                        </Typography.Text>
-                    )}
-                    <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
-                        Reset the gallery database — clears all cached metadata. The next scan will rebuild it from scratch.
-                    </Typography.Text>
-                    <Popconfirm
-                        title="Reset Gallery Database"
-                        description="This will delete all cached metadata. Metadata will be re-extracted on the next scan. Continue?"
-                        okText="Reset"
-                        cancelText="Cancel"
-                        okButtonProps={{ danger: true }}
-                        onConfirm={async () => {
-                            try {
-                                const res = await fetch('/Gallery/db/reset', { method: 'POST' });
-                                if (res.ok) {
-                                    toast.success('Database reset. Metadata will be rebuilt on next scan.');
-                                    setDbStatus(null);
-                                } else {
-                                    toast.error('Reset failed: ' + res.statusText);
-                                }
-                            } catch (e) {
-                                toast.error('Reset failed: network error');
-                            }
-                        }}
-                    >
-                        <Button danger>Reset Database</Button>
-                    </Popconfirm>
-                </div>
-            </Flex>
-        </Modal>
+
+                <DialogFooter>
+                    <Button variant="outline" onClick={handleCancel}>Return</Button>
+                    <Button onClick={handleSave}>Save</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };
 

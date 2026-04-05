@@ -1,4 +1,5 @@
-import Button from 'antd/es/button/button';
+import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 import { useGalleryContext } from './GalleryContext';
 import { useLocalStorageState, useDebounceFn } from 'ahooks';
 import { useRef, useEffect } from 'react';
@@ -139,14 +140,13 @@ const GalleryOpenButton = () => {
                 />
                 <Button
                     id="comfy-ui-gallery-open-button"
-                    type={"primary"}
-                    style={{ minWidth: 120 }}
+                    className="min-w-[120px]"
                     onClick={() => {
                         if (!loading) setOpen(true);
                     }}
                     disabled={loading}
-                    loading={loading}
                 >
+                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                     {settings.buttonLabel || 'Open Gallery'}
                 </Button>
             </div>
@@ -156,13 +156,12 @@ const GalleryOpenButton = () => {
     return (<>
         <Button
             id="comfy-ui-gallery-open-button"
-            type={"primary"}
             onClick={() => {
                 if (!loading) setOpen(true);
             }}
             disabled={loading}
-            loading={loading}
         >
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             {settings.buttonLabel || 'Open Gallery'}
         </Button>
     </>);
