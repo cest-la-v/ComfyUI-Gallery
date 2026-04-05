@@ -1,8 +1,6 @@
-from server import PromptServer
 from aiohttp import web
 import os
 import sys
-import folder_paths
 import time
 from datetime import datetime
 import json
@@ -13,22 +11,56 @@ import queue
 import asyncio
 import shutil
 
+# ---------------------------------------------------------------------------
+# ComfyUI adapter — zero changes to route handlers regardless of runtime
+# ---------------------------------------------------------------------------
+_IS_STANDALONE = False
+_folder_paths = None
+
+try:
+    from server import PromptServer  # ComfyUI provides this at runtime
+    import folder_paths as _folder_paths  # type: ignore[import-not-found]
+    comfy_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.append(comfy_path)
+except ImportError:
+    _IS_STANDALONE = True
+    comfy_path = os.path.dirname(os.path.abspath(__file__))  # gallery dir is the boundary
+
+    class _StandalonePromptServer:
+        """Minimal shim matching PromptServer's aiohttp-based interface."""
+        routes: web.RouteTableDef = web.RouteTableDef()
+        scan_lock: threading.Lock = threading.Lock()
+        app: web.Application = web.Application()
+
+        def send_sync(self, event: str, data: dict) -> None:
+            pass  # no WebSocket in standalone mode
+
+    class PromptServer:  # type: ignore[no-redef]  # mirrors ComfyUI class name
+        instance = _StandalonePromptServer()
+
 from .folder_monitor import FileSystemMonitor
 from .folder_scanner import _scan_for_images, DEFAULT_EXTENSIONS
 from .gallery_config import disable_logs, gallery_log
 from .gallery_db import open_gallery_db
 from .metadata_parser._extractor import buildMetadata
 
-# Add ComfyUI root to sys.path HERE
-import sys
-comfy_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.append(comfy_path)
+
+def _get_output_directory() -> str:
+    """Return the gallery output directory regardless of runtime context."""
+    if not _IS_STANDALONE and _folder_paths is not None:
+        return __get_output_directory()
+    env_dir = os.environ.get("GALLERY_OUTPUT_DIR", "")
+    if env_dir:
+        return env_dir
+    default = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+    os.makedirs(default, exist_ok=True)
+    return default
+
 
 monitor = None
-# Placeholder directory.  This *must* exist, even if it's empty.
-PLACEHOLDER_DIR = os.path.join(comfy_path, "output")  # os.path.abspath("./placeholder_static")
-if not os.path.exists(PLACEHOLDER_DIR):
-    os.makedirs(PLACEHOLDER_DIR)
+# Placeholder directory — must exist even if empty.
+PLACEHOLDER_DIR = _get_output_directory()
+os.makedirs(PLACEHOLDER_DIR, exist_ok=True)
 
 # Current gallery root directory — updated when monitor starts/stops.
 # This avoids reading the private aiohttp _directory attribute which can change across versions.
@@ -193,7 +225,7 @@ async def get_gallery_images(request):
         relative_path = raw_rel
 
     # Fix: Only join if relative_path is not absolute or '.'
-    base_output_dir = folder_paths.get_output_directory()
+    base_output_dir = _get_output_directory()
     if os.path.isabs(relative_path):
         full_monitor_path = os.path.normpath(relative_path)
     elif relative_path in ("./", ".", ""):  # treat as root
@@ -371,7 +403,7 @@ async def start_gallery_monitor(request):
         disable_logs = gallery_config.disable_logs
         use_polling_observer = gallery_config.use_polling_observer
         # Build full monitor path: absolute paths are used as-is, relative ones are joined to output dir
-        base_output_dir = folder_paths.get_output_directory()
+        base_output_dir = _get_output_directory()
         if relative_path and os.path.isabs(relative_path):
             full_monitor_path = os.path.normpath(relative_path)
         elif relative_path in ("./", ".", ""):
@@ -503,8 +535,9 @@ async def move_image(request):
             return web.Response(status=404, text=f"Source file not found: {full_source_path}")
         if not _is_within_directory(full_source_path, static_dir) or \
             not _is_within_directory(full_target_path, static_dir) or \
-            not _is_within_directory(full_source_path, comfy_path) or \
-            not _is_within_directory(full_target_path, comfy_path):
+            (not _IS_STANDALONE and (
+                not _is_within_directory(full_source_path, comfy_path) or
+                not _is_within_directory(full_target_path, comfy_path))):
             return web.Response(status=403, text="Access denied: File outside of allowed directory")
         if os.path.isdir(full_target_path):
             full_target_path = os.path.join(full_target_path, os.path.basename(full_source_path))

@@ -7,7 +7,6 @@ from watchdog.observers.polling import PollingObserver
 from watchdog.events import FileSystemEventHandler, PatternMatchingEventHandler
 from .folder_scanner import _scan_for_images  # Import folder scanner
 import asyncio
-from server import PromptServer
 import queue
 from .gallery_config import gallery_log
 
@@ -115,6 +114,10 @@ class GalleryEventHandler(PatternMatchingEventHandler):
                 if changes:
                     gallery_log("FileSystemMonitor: Changes detected after debounce, sending updates")
                     from .server import sanitize_json_data
+                    try:
+                        from server import PromptServer  # ComfyUI runtime
+                    except ImportError:
+                        from .server import PromptServer  # type: ignore[no-redef]  # standalone (no-op send_sync)
                     # Correctly schedule the send_sync call on the main thread.
                     PromptServer.instance.send_sync("Gallery.file_change", sanitize_json_data(changes)) # NO ASYNCIO NEEDED
                 else:
