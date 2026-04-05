@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useMemo, useEffect } from '
 import type { Dispatch, SetStateAction } from 'react';
 import { useSize, useRequest, useAsyncEffect, useEventListener, useLocalStorageState, useClickAway } from 'ahooks';
 import type { FileDetails, FilesTree } from './types';
-import type { AutoCompleteProps } from 'antd/es/auto-complete';
+type AutoCompleteOption = { value?: string; label?: React.ReactNode };
 import { ComfyAppApi, BASE_PATH, OPEN_BUTTON_ID } from './ComfyAppApi';
 
 function getImages(): Promise<FilesTree> {
@@ -96,9 +96,9 @@ export interface GalleryContextType {
     setAutoSizer: Dispatch<SetStateAction<{ width: number; height: number }>>;
     imagesDetailsList: FileDetails[];
     imagesUrlsLists: string[];
-    imagesAutoCompleteNames: NonNullable<AutoCompleteProps['options']>;
-    autoCompleteOptions: NonNullable<AutoCompleteProps['options']>;
-    setAutoCompleteOptions: React.Dispatch<React.SetStateAction<NonNullable<AutoCompleteProps['options']>>>;
+    imagesAutoCompleteNames: AutoCompleteOption[];
+    autoCompleteOptions: AutoCompleteOption[];
+    setAutoCompleteOptions: React.Dispatch<React.SetStateAction<AutoCompleteOption[]>>;
     settings: SettingsState;
     setSettings: (v: SettingsState) => void;
     selectedImages: string[];
@@ -133,7 +133,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const { data, error, loading, runAsync, mutate, refresh, refreshAsync } = useRequest(getImages, { manual: true });
     const [gridSize, setGridSize] = useState({ width: 1000, height: 600, columnCount: 1, rowCount: 1 });
     const [autoSizer, setAutoSizer] = useState({ width: 1000, height: 600 });
-    const [autoCompleteOptions, setAutoCompleteOptions] = useState<NonNullable<AutoCompleteProps['options']>>([]);
+    const [autoCompleteOptions, setAutoCompleteOptions] = useState<AutoCompleteOption[]>([]);
     const [settingsState, setSettings] = useLocalStorageState<SettingsState>(STORAGE_KEY, {
         defaultValue: DEFAULT_SETTINGS,
         listenStorageChange: true,
@@ -304,7 +304,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     );
 
     // Memoized autocomplete options for image names
-    const imagesAutoCompleteNames = useMemo<NonNullable<AutoCompleteProps['options']>>(() => {
+    const imagesAutoCompleteNames = useMemo<AutoCompleteOption[]>(() => {
         let filtered = imagesDetailsList.filter(image => (image.type === "image" || image.type === "media" || image.type === "audio") && typeof image.name === 'string');
         if (sortMethod === 'Name ↑') {
             filtered = filtered.sort((a, b) => (a.name as string).localeCompare(b.name as string));
