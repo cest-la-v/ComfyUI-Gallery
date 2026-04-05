@@ -11,7 +11,7 @@ import { useGalleryContext } from './GalleryContext';
 import { MetadataPanel } from './MetadataPanel';
 import type { FileDetails } from './types';
 import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
-import { Info, FileText, Copy, Download, Trash2, Check, Loader2, Music } from 'lucide-react';
+import { Info, FileText, Copy, Download, Trash2, Check, Loader2, Music, RotateCcw, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import {
@@ -49,6 +49,9 @@ const GalleryImageGrid = () => {
     const [lightboxIndex, setLightboxIndex] = useState(0);
     const [showLightboxDeleteConfirm, setShowLightboxDeleteConfirm] = useState(false);
     const lightboxDeleteImageRef = useRef<FileDetails | undefined>(undefined);
+    const [imageRotation, setImageRotation] = useState<0 | 90 | 180 | 270>(0);
+    const [imageFlipH, setImageFlipH] = useState(false);
+    const [imageFlipV, setImageFlipV] = useState(false);
 
     const previewableImages = useMemo(() =>
         imagesDetailsList.filter(img => img.type === 'image' || img.type === 'media' || img.type === 'audio'),
@@ -157,6 +160,9 @@ const GalleryImageGrid = () => {
     const handleLightboxView = useCallback(({ index }: { index: number }) => {
         const img = previewableImages[index];
         setLightboxIndex(index);
+        setImageRotation(0);
+        setImageFlipH(false);
+        setImageFlipV(false);
         if (img) {
             setImageInfoName(img.name);
             if (img.type === 'media' || img.type === 'audio') setPreviewingVideo(img.name);
@@ -170,6 +176,9 @@ const GalleryImageGrid = () => {
         setPreviewingVideo(undefined);
         setShowMetadataPanel(false);
         setShowRawMetadata(false);
+        setImageRotation(0);
+        setImageFlipH(false);
+        setImageFlipV(false);
     }, [setImageInfoName, setPreviewingVideo, setShowMetadataPanel, setShowRawMetadata]);
 
     const renderSlide = useCallback(({ slide }: { slide: Slide }) => {
@@ -200,6 +209,26 @@ const GalleryImageGrid = () => {
         return undefined; // use yarl default image renderer
     }, []);
 
+    // Apply rotation/flip via slideContainer so it wraps the Zoom plugin's content
+    const renderSlideContainer = useCallback(({ slide, children }: { slide: Slide; children?: React.ReactNode }) => {
+        const gs = slide as GallerySlide;
+        if (gs.fileDetails?.type !== 'image') return <>{children}</>;
+
+        const transforms: string[] = [];
+        if (imageRotation) transforms.push(`rotate(${imageRotation}deg)`);
+        if (imageFlipH) transforms.push('scaleX(-1)');
+        if (imageFlipV) transforms.push('scaleY(-1)');
+
+        if (!transforms.length) return <>{children}</>;
+
+        return (
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transform: transforms.join(' '), transition: 'transform 0.2s ease' }}>
+                {children}
+            </div>
+        );
+    }, [imageRotation, imageFlipH, imageFlipV]);
+
 
     const renderControls = useCallback(() => {
         if (!lightboxOpen || !currentImage) return null;
@@ -212,6 +241,7 @@ const GalleryImageGrid = () => {
             <div
                 style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}
                 onClick={e => e.stopPropagation()}
+                onPointerDown={e => e.stopPropagation()}
             >
                 <div className="flex items-center gap-1 rounded-lg px-2 py-1" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
                     <Tooltip>
@@ -235,6 +265,39 @@ const GalleryImageGrid = () => {
                             </button>
                         </TooltipTrigger>
                         <TooltipContent>{showMetadataPanel && showRawMetadata ? 'Hide Raw JSON' : 'Raw JSON'}</TooltipContent>
+                    </Tooltip>
+                    <div className="w-px h-5 bg-white/25 mx-1" />
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button className={btnCls} onClick={() => setImageRotation(r => ((r - 90 + 360) % 360) as 0 | 90 | 180 | 270)}>
+                                <RotateCcw size={18} />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Rotate Left</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button className={btnCls} onClick={() => setImageRotation(r => ((r + 90) % 360) as 0 | 90 | 180 | 270)}>
+                                <RotateCw size={18} />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Rotate Right</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button className={imageFlipH ? activeCls : btnCls} onClick={() => setImageFlipH(v => !v)}>
+                                <FlipHorizontal size={18} />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Flip Horizontal</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <button className={imageFlipV ? activeCls : btnCls} onClick={() => setImageFlipV(v => !v)}>
+                                <FlipVertical size={18} />
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Flip Vertical</TooltipContent>
                     </Tooltip>
                     <div className="w-px h-5 bg-white/25 mx-1" />
                     <Tooltip>
@@ -296,7 +359,7 @@ const GalleryImageGrid = () => {
                 </div>
             </div>
         );
-    }, [lightboxOpen, currentImage, showMetadataPanel, showRawMetadata, setShowMetadataPanel, setShowRawMetadata, copySuccess]);
+    }, [lightboxOpen, currentImage, showMetadataPanel, showRawMetadata, setShowMetadataPanel, setShowRawMetadata, copySuccess, imageFlipH, imageFlipV]);
 
     return (
         <div id="imagesBox" style={{ width: '100%', height: '100%', position: 'relative' }} ref={containerRef}>
@@ -313,7 +376,7 @@ const GalleryImageGrid = () => {
                 slides={slides}
                 close={handleLightboxClose}
                 on={{ view: handleLightboxView }}
-                render={{ slide: renderSlide, controls: renderControls }}
+                render={{ slide: renderSlide, controls: renderControls, slideContainer: renderSlideContainer }}
                 plugins={[Zoom]}
                 styles={{ root: { '--yarl__portal_zindex': '3100', '--yarl__color_backdrop': 'rgba(0,0,0,0.88)' } as Parameters<typeof Lightbox>[0]['styles'] extends { root?: infer R } ? R : never }}
             />
