@@ -7,8 +7,8 @@
 @import "tw-animate-css";
 @import "yet-another-react-lightbox/styles.css";
 
-/* Ensure yarl lightbox sits above the gallery modal (z-[3001]) */
-.yarl__root {
+/* Ensure yarl lightbox portal sits above the gallery modal (z-[3001]) */
+.yarl__portal {
     z-index: 3100;
 }
 

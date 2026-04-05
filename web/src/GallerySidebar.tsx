@@ -1,8 +1,8 @@
-import React, { useMemo, useCallback, memo, useRef, useState, useEffect } from 'react';
+import React, { useMemo, useCallback, memo, useRef, useState } from 'react';
 import { Folder, ChevronRight, Loader2 } from 'lucide-react';
 import { useGalleryContext } from './GalleryContext';
 import type { FilesTree } from './types';
-import { useDrop, useCountDown } from 'ahooks';
+import { useDrop } from 'ahooks';
 import { ComfyAppApi } from './ComfyAppApi';
 import { cn } from '@/lib/utils';
 
@@ -149,28 +149,13 @@ function CustomTreeNode({
 }
 
 const GallerySidebar = () => {
-    const { data, loading, currentFolder, setCurrentFolder, setOpen, siderCollapsed, settings } = useGalleryContext();
+    const { data, loading, currentFolder, setCurrentFolder, siderCollapsed, settings } = useGalleryContext();
 
     const treeData = useMemo(() => {
         if (loading || !data) return [];
         return foldersToTreeData(data);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loading, data && JSON.stringify(data.folders)]);
-
-    const [showClose, setShowClose] = useState(false);
-    const [targetDate, setTargetDate] = useState<number>();
-    const [_countdown] = useCountDown({
-        targetDate,
-        onEnd: () => { setOpen(false); setShowClose(false); setTargetDate(undefined); },
-    });
-
-    useEffect(() => {
-        const onDragStart = () => setShowClose(true);
-        const onDragEnd = () => { setShowClose(false); setTargetDate(undefined); };
-        window.addEventListener('dragstart', onDragStart);
-        window.addEventListener('dragend', onDragEnd);
-        return () => { window.removeEventListener('dragstart', onDragStart); window.removeEventListener('dragend', onDragEnd); };
-    }, []);
 
     const handleSelect = useCallback((key: string) => setCurrentFolder(key), [setCurrentFolder]);
 

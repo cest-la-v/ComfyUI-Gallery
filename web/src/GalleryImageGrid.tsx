@@ -1,6 +1,8 @@
 import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Lightbox from 'yet-another-react-lightbox';
 import type { Slide } from 'yet-another-react-lightbox';
+import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import { toast } from 'sonner';
 import { AutoSizer } from 'react-virtualized';
 import { VariableSizeGrid } from 'react-window';
@@ -18,7 +20,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { buttonVariants } from '@/components/ui/button';
 
-type GallerySlide = Slide & { fileDetails: FileDetails };
+// 'custom' type prevents yarl's isImageSlide() from returning true for video/audio,
+// which would incorrectly activate the Zoom plugin on non-image slides.
+type GallerySlide = Slide & { fileDetails: FileDetails; type?: string };
 
 const GalleryImageGrid = () => {
     const {
@@ -51,11 +55,14 @@ const GalleryImageGrid = () => {
         [imagesDetailsList]
     );
 
-    const slides = useMemo<GallerySlide[]>(() =>
+    const slides = useMemo(() =>
         previewableImages.map(img => ({
             src: `${BASE_PATH}${img.url}`,
             fileDetails: img,
-        })),
+            // Mark non-image slides so yarl's isImageSlide() returns false,
+            // preventing the Zoom plugin from wrapping video/audio slides.
+            ...(img.type !== 'image' ? { type: 'custom' } : {}),
+        })) as GallerySlide[],
         [previewableImages]
     );
 
@@ -307,12 +314,15 @@ const GalleryImageGrid = () => {
                 close={handleLightboxClose}
                 on={{ view: handleLightboxView }}
                 render={{ slide: renderSlide, controls: renderControls }}
-                styles={{ root: { '--yarl__color_backdrop': 'rgba(0,0,0,0.88)' } as Parameters<typeof Lightbox>[0]['styles'] extends { root?: infer R } ? R : never }}
+                plugins={[Zoom]}
+                styles={{ root: { '--yarl__portal_zindex': '3100', '--yarl__color_backdrop': 'rgba(0,0,0,0.88)' } as Parameters<typeof Lightbox>[0]['styles'] extends { root?: infer R } ? R : never }}
             />
 
-            {/* MetadataPanel: fixed overlay shown when lightbox is open */}
-            {lightboxOpen && currentImage && (
-                <MetadataPanel image={currentImage} />
+            {/* MetadataPanel: portaled to document.body to escape DialogContent's
+                translate-x/y transform stacking context */}
+            {lightboxOpen && currentImage && createPortal(
+                <MetadataPanel image={currentImage} />,
+                document.body
             )}
 
             {/* Lightbox delete confirm */}

@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useSize, useRequest, useAsyncEffect, useEventListener, useLocalStorageState, useClickAway } from 'ahooks';
 import type { FileDetails, FilesTree } from './types';
 type AutoCompleteOption = { value?: string; label?: React.ReactNode };
-import { ComfyAppApi, BASE_PATH, OPEN_BUTTON_ID } from './ComfyAppApi';
+import { ComfyAppApi, OPEN_BUTTON_ID } from './ComfyAppApi';
 
 function getImages(): Promise<FilesTree> {
     return new Promise(async (resolve, reject) => {
@@ -95,7 +95,6 @@ export interface GalleryContextType {
     autoSizer: { width: number; height: number };
     setAutoSizer: Dispatch<SetStateAction<{ width: number; height: number }>>;
     imagesDetailsList: FileDetails[];
-    imagesUrlsLists: string[];
     imagesAutoCompleteNames: AutoCompleteOption[];
     autoCompleteOptions: AutoCompleteOption[];
     setAutoCompleteOptions: React.Dispatch<React.SetStateAction<AutoCompleteOption[]>>;
@@ -297,12 +296,6 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         return result;
     }, [currentFolder, data, sortMethod, searchFileName, gridSize.columnCount, viewMode, filteredRelPaths]);
 
-    // Memoized list of image URLs for preview
-    const imagesUrlsLists = useMemo(() =>
-        imagesDetailsList.filter(image => image.type === "image" || image.type === "media" || image.type === "audio").map(image => `${BASE_PATH}${image.url}`),
-        [imagesDetailsList]
-    );
-
     // Memoized autocomplete options for image names
     const imagesAutoCompleteNames = useMemo<AutoCompleteOption[]>(() => {
         let filtered = imagesDetailsList.filter(image => (image.type === "image" || image.type === "media" || image.type === "audio") && typeof image.name === 'string');
@@ -419,7 +412,6 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         gridSize, setGridSize,
         autoSizer, setAutoSizer,
         imagesDetailsList,
-        imagesUrlsLists,
         imagesAutoCompleteNames,
         autoCompleteOptions,
         setAutoCompleteOptions,
@@ -453,7 +445,6 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         gridSize, 
         autoSizer, 
         imagesDetailsList, 
-        imagesUrlsLists, 
         imagesAutoCompleteNames, 
         autoCompleteOptions,
         settingsState, 
