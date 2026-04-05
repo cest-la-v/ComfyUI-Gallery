@@ -26,7 +26,13 @@
         "noUncheckedSideEffectImports": true,
 
         /* Custom */
-        "allowUnusedLabels": true
+        "allowUnusedLabels": true,
+
+        /* Path aliases for shadcn/ui */
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["./src/*"]
+        }
     },
     "include": [
         "src"

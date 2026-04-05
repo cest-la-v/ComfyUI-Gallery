@@ -211,6 +211,11 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         return () => clearInterval(interval);
     }, [open]);
 
+    // Sync dark mode setting → Tailwind's .dark class on <html>
+    useEffect(() => {
+        document.documentElement.classList.toggle('dark', !!settingsState?.darkMode);
+    }, [settingsState?.darkMode]);
+
     // Memoized list of all images in the current folder
     const imagesDetailsList = useMemo(() => {
         // When a group filter is active, search across all folders (results span subfolders)

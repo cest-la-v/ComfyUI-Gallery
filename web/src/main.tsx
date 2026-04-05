@@ -1,4 +1,5 @@
 import '@ant-design/v5-patch-for-react-19';
+import './globals.css';
 import { createRoot } from 'react-dom/client'
 import Gallery from './Gallery.tsx'
 import App from 'antd/es/app/App';
@@ -6,6 +7,22 @@ import { DEFAULT_SETTINGS, STORAGE_KEY, type SettingsState } from './GalleryCont
 import { BASE_Z_INDEX, ComfyAppApi, OPEN_BUTTON_ID } from './ComfyAppApi.ts';
 import { ConfigProvider, theme } from 'antd';
 import { useLocalStorageState } from 'ahooks';
+
+// In production, Bun.build() outputs Tailwind CSS as a separate file.
+// Inject it via <link> using import.meta.url (works in ES module scripts).
+// In dev (Bun.serve), the [serve.static] bun-plugin-tailwind handles CSS automatically.
+if (process.env.NODE_ENV === 'production') {
+    try {
+        const cssUrl = new URL('./comfy-ui-gallery.css', import.meta.url).href;
+        if (!document.querySelector(`link[href="${cssUrl}"]`)) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = cssUrl;
+            document.head.appendChild(link);
+        }
+    } catch { /* ignore if URL API is unavailable */ }
+}
+
 
 function waitForElement(selectorOrSelectors: string | string[], delay = 1500, timeout = 10000): Promise<Element | null> {
     return new Promise((resolve) => {
