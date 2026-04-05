@@ -1,244 +1,199 @@
 import React, { useMemo, useCallback, memo, useRef, useState, useEffect } from 'react';
-import { Tree, Spin } from 'antd';
+import { Folder, ChevronRight, Loader2 } from 'lucide-react';
 import { useGalleryContext } from './GalleryContext';
 import type { FilesTree } from './types';
 import { useDrop, useCountDown } from 'ahooks';
-import { FolderOutlined } from '@ant-design/icons';
 import { ComfyAppApi } from './ComfyAppApi';
+import { cn } from '@/lib/utils';
 
 interface TreeDataNode {
     title: string;
     key: string;
-    icon?: React.ReactNode;
     children?: TreeDataNode[];
     isLeaf?: boolean;
 }
 
-// Optimize foldersToTreeData: avoid unnecessary array mutation, use const, and avoid .sort() if not needed
 const foldersToTreeData = (data: FilesTree): TreeDataNode[] => {
-    const foldersInput = data.folders;
+    const paths = Object.keys(data.folders);
+    if (paths.length > 1) paths.sort();
     const tree: TreeDataNode[] = [];
     const nodeMap = new Map<string, TreeDataNode>();
-    // Only sort if more than 1 path
-    const paths = Object.keys(foldersInput);
-    if (paths.length > 1) paths.sort();
     for (const fullPath of paths) {
         const segments = fullPath.split('/');
         let currentPath = "";
         for (let i = 0; i < segments.length; i++) {
-            const segment = segments[i];
             if (i > 0) currentPath += "/";
-            currentPath += segment;
+            currentPath += segments[i];
             if (!nodeMap.has(currentPath)) {
-                const newNode: TreeDataNode = {
-                    title: segment,
-                    key: currentPath,
-                    icon: <FolderOutlined />, // Always show folder icon
-                    children: [],
-                };
-                nodeMap.set(currentPath, newNode);
-                if (i === 0) {
-                    tree.push(newNode);
-                } else {
-                    const parentPath = segments.slice(0, i).join('/');
-                    const parentNode = nodeMap.get(parentPath);
-                    if (parentNode) {
-                        parentNode.children!.push(newNode);
-                    }
-                }
+                const node: TreeDataNode = { title: segments[i], key: currentPath, children: [] };
+                nodeMap.set(currentPath, node);
+                if (i === 0) tree.push(node);
+                else nodeMap.get(segments.slice(0, i).join('/'))?.children!.push(node);
             }
         }
     }
     for (const node of nodeMap.values()) {
-        if (!node.children || node.children.length === 0) {
-            node.isLeaf = true;
-        }
+        if (!node.children?.length) node.isLeaf = true;
     }
     return tree;
 };
 
-// Memoize FolderTitle to avoid unnecessary re-renders
-const FolderTitle = memo(({ nodeData, currentFolder }: { nodeData: any, currentFolder: string }) => {
-    const folderRef = useRef<HTMLDivElement>(null);
+// Folder title — handles drag-drop target and ctrl+click image selection
+const FolderTitle = memo(({ nodeData }: { nodeData: TreeDataNode }) => {
+    const folderRef = useRef<HTMLSpanElement>(null);
     const { data, selectedImages, setSelectedImages } = useGalleryContext();
 
-    // Get all image URLs in this folder
-    const folderImages = React.useMemo(() => {
-        if (!data?.folders || !data.folders[nodeData.key]) return [];
-        return Object.values(data.folders[nodeData.key])
-            .filter((img: any) => img && img.url)
-            .map((img: any) => img.url);
+    const folderImages = useMemo(() => {
+        if (!data?.folders?.[nodeData.key]) return [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return Object.values(data.folders[nodeData.key]).filter((img: any) => img?.url).map((img: any) => img.url);
     }, [data, nodeData.key]);
 
-    // Check if all images in this folder are selected
     const allSelected = folderImages.length > 0 && folderImages.every(url => selectedImages.includes(url));
 
-    // Handle click: ctrl/cmd toggles all images in folder
-    const handleCardClick = (event: React.MouseEvent, folder: string) => {
-        if (event.ctrlKey || event.metaKey) {
-            event.stopPropagation();
-            event.preventDefault();
-            setSelectedImages((oldSelectedImages) => {
-                if (allSelected) {
-                    // Remove all folder images
-                    return oldSelectedImages.filter(url => !folderImages.includes(url));
-                } else {
-                    // Add all folder images (avoid duplicates)
-                    return Array.from(new Set([...oldSelectedImages, ...folderImages]));
-                }
-            });
+    const handleClick = (e: React.MouseEvent) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.stopPropagation();
+            e.preventDefault();
+            setSelectedImages(prev =>
+                allSelected ? prev.filter(u => !folderImages.includes(u)) : Array.from(new Set([...prev, ...folderImages]))
+            );
         } else {
             setSelectedImages([]);
         }
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useDrop(folderRef, {
-        onDom: (content: any, e: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onDom: (content: any) => {
             try {
-                // Accept drag data from ImageCard (should be JSON string with name, folder, etc)
-                const dragData = typeof content === 'string' ? JSON.parse(content) : content;
-                if (dragData && dragData.name && dragData.folder) {
-                    if (dragData.folder === nodeData.key) return; // Same folder, do nothing
-                    // Move image using ComfyAppApi
-                    const sourcePath = `${dragData.folder}/${dragData.name}`;
-                    const targetPath = `${nodeData.key}/${dragData.name}`;
-                    ComfyAppApi.moveImage(sourcePath, targetPath).then(success => {
-                        if (success) {
-                            // Optionally: show a message or refresh UI
-                            // message.success('Image moved');
-                        } else {
-                            // message.error('Failed to move image');
-                        }
-                    });
+                const d = typeof content === 'string' ? JSON.parse(content) : content;
+                if (d?.name && d?.folder && d.folder !== nodeData.key) {
+                    ComfyAppApi.moveImage(`${d.folder}/${d.name}`, `${nodeData.key}/${d.name}`);
                 }
-            } catch (err) {
-                console.error('Error parsing drag data:', err, content);
-            }
+            } catch (err) { console.error('Error parsing drag data:', err); }
         },
     });
+
     return (
         <span
             ref={folderRef}
-            className={`folder ${allSelected ? 'folder-selected' : ''}`}
-            style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                padding: '2px 6px',
-                borderRadius: 4,
-                transition: 'background 0.2s',
-                cursor: 'pointer',
-                background: allSelected ? 'rgba(24, 144, 255, 0.15)' : undefined,
-                border: allSelected ? '1.5px solid #1890ff' : undefined,
-            }}
-            onClick={(event) => handleCardClick(event, nodeData.title)}
+            className={cn(
+                "inline-flex items-center px-1.5 py-0.5 rounded transition-colors cursor-pointer text-sm",
+                allSelected && "bg-blue-500/15 ring-1 ring-blue-500"
+            )}
+            onClick={handleClick}
         >
-            <span style={{ marginLeft: 0 }}>{nodeData.title}</span>
-            <style>{`
-                .folder-selected {
-                    background: rgba(24, 144, 255, 0.15) !important;
-                    border: 1.5px solid #1890ff !important;
-                }
-            `}</style>
+            {nodeData.title}
         </span>
     );
 });
+FolderTitle.displayName = 'FolderTitle';
+
+// Recursive tree node
+function CustomTreeNode({
+    node,
+    selectedKey,
+    onSelect,
+    defaultExpandAll,
+    depth,
+}: {
+    node: TreeDataNode;
+    selectedKey: string;
+    onSelect: (key: string) => void;
+    defaultExpandAll: boolean;
+    depth: number;
+}) {
+    const [expanded, setExpanded] = useState(defaultExpandAll);
+    const hasChildren = !node.isLeaf && !!node.children?.length;
+
+    return (
+        <div>
+            <div
+                style={{ paddingLeft: depth * 16 }}
+                className={cn(
+                    "flex items-center gap-0.5 py-0.5 pr-2 cursor-pointer rounded-sm text-sm select-none",
+                    selectedKey === node.key ? "bg-primary/20" : "hover:bg-accent/40"
+                )}
+                onClick={() => onSelect(node.key)}
+            >
+                <button
+                    className="flex items-center justify-center h-5 w-5 shrink-0"
+                    onClick={e => { e.stopPropagation(); if (hasChildren) setExpanded(x => !x); }}
+                    tabIndex={-1}
+                >
+                    {hasChildren && (
+                        <ChevronRight className={cn("h-3.5 w-3.5 transition-transform text-muted-foreground", expanded && "rotate-90")} />
+                    )}
+                </button>
+                <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground mr-1" />
+                <FolderTitle nodeData={node} />
+            </div>
+            {hasChildren && expanded && (
+                <div>
+                    {node.children!.map(child => (
+                        <CustomTreeNode
+                            key={child.key}
+                            node={child}
+                            selectedKey={selectedKey}
+                            onSelect={onSelect}
+                            defaultExpandAll={defaultExpandAll}
+                            depth={depth + 1}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
 
 const GallerySidebar = () => {
     const { data, loading, currentFolder, setCurrentFolder, setOpen, siderCollapsed, settings } = useGalleryContext();
-    // Only recalculate treeData if folder structure actually changes
+
     const treeData = useMemo(() => {
         if (loading || !data) return [];
         return foldersToTreeData(data);
-    }, [loading, data && JSON.stringify(data.folders)]); // Only depend on folder structure
-    const sidebarRef = useRef<HTMLDivElement>(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loading, data && JSON.stringify(data.folders)]);
+
     const [showClose, setShowClose] = useState(false);
     const [targetDate, setTargetDate] = useState<number>();
-    const [countdown] = useCountDown({
+    const [_countdown] = useCountDown({
         targetDate,
-        onEnd: () => {
-            setOpen(false);
-            setShowClose(false);
-            setTargetDate(undefined);
-        },
+        onEnd: () => { setOpen(false); setShowClose(false); setTargetDate(undefined); },
     });
 
-    // Track if an image is being dragged
     useEffect(() => {
-        const onDragStart = (e: DragEvent) => {
-            setShowClose(true);
-        };
-        const onDragEnd = (e: DragEvent) => {
-            setShowClose(false);
-            setTargetDate(undefined);
-        };
+        const onDragStart = () => setShowClose(true);
+        const onDragEnd = () => { setShowClose(false); setTargetDate(undefined); };
         window.addEventListener('dragstart', onDragStart);
         window.addEventListener('dragend', onDragEnd);
-        return () => {
-            window.removeEventListener('dragstart', onDragStart);
-            window.removeEventListener('dragend', onDragEnd);
-        };
+        return () => { window.removeEventListener('dragstart', onDragStart); window.removeEventListener('dragend', onDragEnd); };
     }, []);
 
-    // Use FolderTitle component for each folder node (remove icon from here)
-    const renderTreeTitle = useCallback((nodeData: any) => (
-        <FolderTitle             
-            nodeData={nodeData} 
-            currentFolder={currentFolder} 
-        />
-    ), [currentFolder]);
+    const handleSelect = useCallback((key: string) => setCurrentFolder(key), [setCurrentFolder]);
 
-    // Memoize onSelect handler for performance
-    const handleTreeSelect = useCallback((keys: React.Key[]) => {
-        if (keys.length > 0) setCurrentFolder(keys[0] as string);
-        
-    }, [setCurrentFolder]);
-
-    if (siderCollapsed) return (<></>);
+    if (siderCollapsed) return null;
 
     return (
-        <div className="gallery-sidebar" style={{ position: 'relative', height: '100%' }}>
+        <div className="gallery-sidebar relative h-full">
             {loading && (
-                <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    background: 'rgba(30,30,30,0.5)',
-                    zIndex: 100,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                }}>
-                    <Spin size="large" />
+                <div className="absolute inset-0 bg-zinc-900/50 z-[100] flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
             )}
-            <style>{`
-                .gallery-sidebar-tree-box > * {
-                    height: auto;
-                    min-height: -webkit-fill-available;
-                }
-            `}</style>
-            <div
-                className="gallery-sidebar-tree-box"
-                style={{
-                    position: 'relative',
-                    height: '100%'
-                }}
-                ref={sidebarRef}
-            >
-                <Tree.DirectoryTree
-                    // @ts-ignore
-                    // height={"100%"}
-                    // multiple
-                    defaultExpandAll={settings.expandAllFolders}
-                    showLine
-                    showIcon
-                    onSelect={handleTreeSelect}
-                    treeData={treeData}
-                    titleRender={renderTreeTitle}
-                    expandAction={false} // Prevent collapse/expand on click
-                />
+            <div className="relative h-full overflow-y-auto p-1">
+                {treeData.map(node => (
+                    <CustomTreeNode
+                        key={node.key}
+                        node={node}
+                        selectedKey={currentFolder ?? ''}
+                        onSelect={handleSelect}
+                        defaultExpandAll={settings.expandAllFolders}
+                        depth={0}
+                    />
+                ))}
             </div>
         </div>
     );
