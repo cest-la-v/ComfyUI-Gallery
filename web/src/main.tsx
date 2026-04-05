@@ -1,10 +1,8 @@
-import '@ant-design/v5-patch-for-react-19';
 import './globals.css';
 import { createRoot } from 'react-dom/client'
 import Gallery from './Gallery.tsx'
 import { DEFAULT_SETTINGS, STORAGE_KEY, type SettingsState } from './GalleryContext.tsx';
-import { BASE_Z_INDEX, ComfyAppApi, OPEN_BUTTON_ID } from './ComfyAppApi.ts';
-import { ConfigProvider, theme } from 'antd';
+import { ComfyAppApi, OPEN_BUTTON_ID } from './ComfyAppApi.ts';
 import { useLocalStorageState } from 'ahooks';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -184,14 +182,7 @@ function Main() {
 
     return (<>
         <TooltipProvider delayDuration={300}>
-        <ConfigProvider
-            theme={{
-                algorithm: settingsState.darkMode ? theme.darkAlgorithm : undefined,
-                token: { zIndexPopupBase: BASE_Z_INDEX },
-            }}
-        >
             <Gallery />
-        </ConfigProvider>
         </TooltipProvider>
         <Toaster
             theme={settingsState.darkMode ? 'dark' : 'light'}

@@ -11,18 +11,18 @@ import {
     AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { buttonVariants } from '@/components/ui/button';
-// Image from antd is kept temporarily as the PreviewGroup trigger mechanism
-import { Image } from 'antd';
 
 export const ImageCardWidth = 350;
 export const ImageCardHeight = 450;
 
 function ImageCard({
     image,
-    onInfoClick
+    onInfoClick,
+    onOpenLightbox,
 }: {
     image: FileDetails & { dragFolder?: string };
     onInfoClick: (imageName: string | undefined) => void;
+    onOpenLightbox: () => void;
 }) {
     const { settings, selectedImages, setSelectedImages, setShowMetadataPanel } = useGalleryContext();
     const dragRef = useRef<HTMLDivElement>(null);
@@ -60,6 +60,8 @@ function ImageCard({
         event.dataTransfer.setData('text/uri-list', `${BASE_PATH}${image.url}`);
         event.dataTransfer.setData('DownloadURL', `${mime}:${image.name}:${window.location.origin + BASE_PATH + image.url}`);
     };
+
+    const openLightbox = () => { onInfoClick(image.name); onOpenLightbox(); };
 
     return (
         <>
@@ -102,52 +104,39 @@ function ImageCard({
 
                 {/* Image content */}
                 {image.type === 'image' ? (
-                    <Image
-                        id={image.url}
-                        style={{ objectFit: 'cover', maxWidth: ImageCardWidth, width: '100%', height: 'auto', userSelect: 'none', cursor: 'grab' }}
+                    <img
+                        style={{ objectFit: 'cover', maxWidth: ImageCardWidth, width: '100%', height: 'auto', userSelect: 'none', cursor: 'pointer' }}
                         src={`${BASE_PATH}${image.url}`}
                         loading="lazy"
-                        onClick={() => { onInfoClick(image.name); document.getElementById(image.url)?.click(); }}
+                        onClick={openLightbox}
                         alt={image.name}
                         draggable
                         onDragStart={handleNativeDragStart}
                     />
                 ) : image.type === 'audio' ? (
                     <div className="flex flex-col items-center justify-center w-full h-full">
-                        <Music style={{ fontSize: 64, color: '#1890ff', marginBottom: 24 }} className="h-16 w-16" />
+                        <Music style={{ marginBottom: 24, color: '#1890ff' }} className="h-16 w-16" />
                         <span className="mb-4 px-4 text-center max-w-full text-[#e6e6e6] truncate text-sm">
                             {image.name}
                         </span>
                         <audio controls style={{ width: '90%', height: 40 }} src={`${BASE_PATH}${image.url}`} onClick={e => e.stopPropagation()} />
-                        <Image
-                            id={image.url}
-                            style={{ display: 'none' }}
-                            src={`${BASE_PATH}${image.url}`}
-                            loading="lazy"
-                            alt={image.name}
-                        />
+                        <button
+                            className="mt-2 text-xs text-cyan-400 hover:underline"
+                            onClick={openLightbox}
+                        >Open in viewer</button>
                     </div>
                 ) : (
-                    <>
-                        <video
-                            style={{ maxHeight: ImageCardHeight, cursor: 'pointer' }}
-                            src={`${BASE_PATH}${image.url}`}
-                            autoPlay={settings.autoPlayVideos}
-                            loop={settings.autoPlayVideos}
-                            muted
-                            preload={!settings.autoPlayVideos ? undefined : 'none'}
-                            onClick={() => { onInfoClick(image.name); document.getElementById(image.url)?.click(); }}
-                            draggable
-                            onDragStart={handleNativeDragStart}
-                        />
-                        <Image
-                            id={image.url}
-                            style={{ display: 'none' }}
-                            src={`${BASE_PATH}${image.url}`}
-                            loading="lazy"
-                            alt={image.name}
-                        />
-                    </>
+                    <video
+                        style={{ maxHeight: ImageCardHeight, cursor: 'pointer' }}
+                        src={`${BASE_PATH}${image.url}`}
+                        autoPlay={settings.autoPlayVideos}
+                        loop={settings.autoPlayVideos}
+                        muted
+                        preload={!settings.autoPlayVideos ? undefined : 'none'}
+                        onClick={openLightbox}
+                        draggable
+                        onDragStart={handleNativeDragStart}
+                    />
                 )}
 
                 {/* Bottom bar: filename + info button */}
@@ -176,7 +165,7 @@ function ImageCard({
                             e.stopPropagation();
                             onInfoClick(image.name);
                             setShowMetadataPanel(true);
-                            document.getElementById(image.url)?.click();
+                            onOpenLightbox();
                         }}
                     >
                         <Info className="h-4 w-4" />

@@ -1,5 +1,6 @@
 import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
-import { Image } from 'antd'; // PreviewGroup kept until Phase 7 lightbox migration
+import Lightbox from 'yet-another-react-lightbox';
+import type { Slide } from 'yet-another-react-lightbox';
 import { toast } from 'sonner';
 import { AutoSizer } from 'react-virtualized';
 import { VariableSizeGrid } from 'react-window';
@@ -8,7 +9,7 @@ import { useGalleryContext } from './GalleryContext';
 import { MetadataPanel } from './MetadataPanel';
 import type { FileDetails } from './types';
 import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
-import { Info, FileText, Copy, Download, Trash2, Check, Loader2 } from 'lucide-react';
+import { Info, FileText, Copy, Download, Trash2, Check, Loader2, Music } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import {
@@ -16,6 +17,8 @@ import {
     AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { buttonVariants } from '@/components/ui/button';
+
+type GallerySlide = Slide & { fileDetails: FileDetails };
 
 const GalleryImageGrid = () => {
     const {
@@ -33,14 +36,30 @@ const GalleryImageGrid = () => {
         showMetadataPanel,
         setShowMetadataPanel,
         imagesDetailsList,
-        imagesUrlsLists,
         loading,
     } = useGalleryContext();
     const containerRef = useRef<HTMLDivElement>(null);
     const gridRef = useRef<VariableSizeGrid>(null);
     const [copySuccess, setCopySuccess] = useState(false);
+    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
     const [showLightboxDeleteConfirm, setShowLightboxDeleteConfirm] = useState(false);
     const lightboxDeleteImageRef = useRef<FileDetails | undefined>(undefined);
+
+    const previewableImages = useMemo(() =>
+        imagesDetailsList.filter(img => img.type === 'image' || img.type === 'media' || img.type === 'audio'),
+        [imagesDetailsList]
+    );
+
+    const slides = useMemo<GallerySlide[]>(() =>
+        previewableImages.map(img => ({
+            src: `${BASE_PATH}${img.url}`,
+            fileDetails: img,
+        })),
+        [previewableImages]
+    );
+
+    const currentImage: FileDetails | undefined = previewableImages[lightboxIndex];
 
     const getRowHeight = useCallback((rowIndex: number) => {
         const firstItem = imagesDetailsList[rowIndex * gridSize.columnCount];
@@ -53,13 +72,15 @@ const GalleryImageGrid = () => {
 
     const handleInfoClick = useCallback((imageName: string) => {
         const item = data?.folders?.[currentFolder]?.[imageName];
-        if (item && (item.type === 'media' || item.type === 'audio')) {
-            setPreviewingVideo(item.name);
-        } else {
-            setPreviewingVideo(undefined);
-        }
+        if (item && (item.type === 'media' || item.type === 'audio')) setPreviewingVideo(item.name);
+        else setPreviewingVideo(undefined);
         setImageInfoName(imageName);
     }, [setImageInfoName, data, currentFolder, setPreviewingVideo]);
+
+    const openLightbox = useCallback((url: string) => {
+        const idx = previewableImages.findIndex(img => img.url === url);
+        if (idx >= 0) { setLightboxIndex(idx); setLightboxOpen(true); }
+    }, [previewableImages]);
 
     const Cell = useCallback(({ columnIndex, rowIndex, style }: { columnIndex: number; rowIndex: number; style: React.CSSProperties }) => {
         const index = rowIndex * gridSize.columnCount + columnIndex;
@@ -70,7 +91,6 @@ const GalleryImageGrid = () => {
             if (columnIndex !== 0) return null;
             return (
                 <div
-                    key={`divider-${index}`}
                     style={{
                         ...style,
                         width: `calc(${gridSize.columnCount} * ${ImageCardWidth + 16}px)`,
@@ -98,19 +118,20 @@ const GalleryImageGrid = () => {
         }
 
         if (image.type === 'empty-space') {
-            return <div key={`empty-space-${index}`} style={{ ...style, background: 'transparent' }} />;
+            return <div style={{ ...style, background: 'transparent' }} />;
         }
 
         return (
-            <div key={`div-${image.name}`} style={{ ...style, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div style={{ ...style, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 <ImageCard
                     image={{ ...image, dragFolder: currentFolder }}
                     key={image.name}
                     onInfoClick={() => handleInfoClick(image.name)}
+                    onOpenLightbox={() => openLightbox(image.url)}
                 />
             </div>
         );
-    }, [gridSize.columnCount, imagesDetailsList, handleInfoClick, currentFolder]);
+    }, [gridSize.columnCount, imagesDetailsList, handleInfoClick, openLightbox, currentFolder]);
 
     useEffect(() => {
         const { width, height } = autoSizer;
@@ -126,70 +147,84 @@ const GalleryImageGrid = () => {
         }
     }, [gridSize, imageInfoName, currentFolder, data]);
 
-    const previewableImages = useMemo(() =>
-        imagesDetailsList.filter(img => img.type === 'image' || img.type === 'media' || img.type === 'audio'),
-        [imagesDetailsList]
-    );
-
-    const resolvePreviewableImage = useCallback((image: FileDetails | undefined, info: { current: number }) => {
-        if (image) return image;
-        for (let i = info.current; i < previewableImages.length; i++) {
-            const cur = previewableImages[i];
-            if (cur) { setImageInfoName(cur.name); return cur; }
+    const handleLightboxView = useCallback(({ index }: { index: number }) => {
+        const img = previewableImages[index];
+        setLightboxIndex(index);
+        if (img) {
+            setImageInfoName(img.name);
+            if (img.type === 'media' || img.type === 'audio') setPreviewingVideo(img.name);
+            else setPreviewingVideo(undefined);
         }
-        return undefined;
-    }, [previewableImages, setImageInfoName]);
+    }, [previewableImages, setImageInfoName, setPreviewingVideo]);
 
-    const previewImageRender = useCallback((originalNode: React.ReactElement, info: { current: number }) => {
-        let image: FileDetails | undefined = previewableImages[info.current];
-        if (!image) image = resolvePreviewableImage(image, info);
-        if (!image) return originalNode;
+    const handleLightboxClose = useCallback(() => {
+        setLightboxOpen(false);
+        setImageInfoName(undefined);
+        setPreviewingVideo(undefined);
+        setShowMetadataPanel(false);
+        setShowRawMetadata(false);
+    }, [setImageInfoName, setPreviewingVideo, setShowMetadataPanel, setShowRawMetadata]);
 
-        if (image.type === 'media') {
-            return <video key={image.name} style={{ maxWidth: '80%', maxHeight: '85vh' }} src={`${BASE_PATH}${image.url}`} autoPlay controls preload="none" />;
+    const renderSlide = useCallback(({ slide }: { slide: Slide }) => {
+        const s = slide as GallerySlide;
+        const img = s.fileDetails;
+        if (!img) return undefined;
+        if (img.type === 'media') {
+            return (
+                <video
+                    key={img.name}
+                    style={{ maxWidth: '80%', maxHeight: '85vh' }}
+                    src={`${BASE_PATH}${img.url}`}
+                    autoPlay
+                    controls
+                    preload="none"
+                />
+            );
         }
-        if (image.type === 'audio') {
-            return <audio key={image.name} style={{ width: '80%' }} src={`${BASE_PATH}${image.url}`} autoPlay controls preload="none" />;
+        if (img.type === 'audio') {
+            return (
+                <div key={img.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80vh', gap: 24 }}>
+                    <Music style={{ color: '#1890ff' }} className="h-20 w-20" />
+                    <span style={{ color: '#e6e6e6', fontSize: 16, maxWidth: 400, textAlign: 'center' }}>{img.name}</span>
+                    <audio src={`${BASE_PATH}${img.url}`} autoPlay controls style={{ width: 360 }} />
+                </div>
+            );
         }
-        return <>{originalNode}<MetadataPanel image={image} /></>;
-    }, [previewableImages, resolvePreviewableImage]);
+        return undefined; // use yarl default image renderer
+    }, []);
 
-    const previewToolbarRender = useCallback((originalNode: React.ReactElement, info: { actions: { onClose: () => void }; current: number }) => {
-        const image = previewableImages[info.current];
-        if (image && (image.type === 'media' || image.type === 'audio')) return null;
-
+    const toolbarButtons = useMemo(() => {
         const iconStyle = { fontSize: 18, padding: '8px 12px', cursor: 'pointer', color: '#ffffffd9' } as const;
         const activeStyle = { ...iconStyle, color: '#1890ff' } as const;
 
-        return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-                {originalNode}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginLeft: 12, borderLeft: '1px solid rgba(255,255,255,0.25)', paddingLeft: 12 }}>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Info
-                                style={showMetadataPanel && !showRawMetadata ? activeStyle : iconStyle}
-                                onClick={() => {
-                                    if (showMetadataPanel && !showRawMetadata) setShowMetadataPanel(false);
-                                    else { setShowMetadataPanel(true); setShowRawMetadata(false); }
-                                }}
-                            />
-                        </TooltipTrigger>
-                        <TooltipContent>{showMetadataPanel && !showRawMetadata ? 'Hide metadata' : 'Show metadata'}</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <FileText
-                                style={showMetadataPanel && showRawMetadata ? activeStyle : iconStyle}
-                                onClick={() => {
-                                    if (showMetadataPanel && showRawMetadata) setShowMetadataPanel(false);
-                                    else { setShowMetadataPanel(true); setShowRawMetadata(true); }
-                                }}
-                            />
-                        </TooltipTrigger>
-                        <TooltipContent>{showMetadataPanel && showRawMetadata ? 'Hide Raw JSON' : 'Raw JSON'}</TooltipContent>
-                    </Tooltip>
-                    {image?.type === 'image' && (
+        return [
+            <div key="gallery-tools" style={{ display: 'flex', alignItems: 'center', gap: 0, marginRight: 8 }}>
+                {currentImage?.type === 'image' && (
+                    <>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Info
+                                    style={showMetadataPanel && !showRawMetadata ? activeStyle : iconStyle}
+                                    onClick={() => {
+                                        if (showMetadataPanel && !showRawMetadata) setShowMetadataPanel(false);
+                                        else { setShowMetadataPanel(true); setShowRawMetadata(false); }
+                                    }}
+                                />
+                            </TooltipTrigger>
+                            <TooltipContent>{showMetadataPanel && !showRawMetadata ? 'Hide metadata' : 'Show metadata'}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <FileText
+                                    style={showMetadataPanel && showRawMetadata ? activeStyle : iconStyle}
+                                    onClick={() => {
+                                        if (showMetadataPanel && showRawMetadata) setShowMetadataPanel(false);
+                                        else { setShowMetadataPanel(true); setShowRawMetadata(true); }
+                                    }}
+                                />
+                            </TooltipTrigger>
+                            <TooltipContent>{showMetadataPanel && showRawMetadata ? 'Hide Raw JSON' : 'Raw JSON'}</TooltipContent>
+                        </Tooltip>
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 {copySuccess ? (
@@ -198,10 +233,10 @@ const GalleryImageGrid = () => {
                                     <Copy
                                         style={iconStyle}
                                         onClick={() => {
-                                            if (!image) return;
+                                            if (!currentImage) return;
                                             const img = new window.Image();
                                             img.crossOrigin = 'anonymous';
-                                            img.src = `${BASE_PATH}${image.url}`;
+                                            img.src = `${BASE_PATH}${currentImage.url}`;
                                             img.onload = () => {
                                                 const canvas = document.createElement('canvas');
                                                 canvas.width = img.width; canvas.height = img.height;
@@ -225,62 +260,40 @@ const GalleryImageGrid = () => {
                             </TooltipTrigger>
                             <TooltipContent>{copySuccess ? 'Copied!' : 'Copy image'}</TooltipContent>
                         </Tooltip>
-                    )}
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Download
-                                style={iconStyle}
-                                onClick={async () => {
-                                    if (!image) return;
-                                    try {
-                                        const r = await fetch(`${BASE_PATH}${image.url}`, { mode: 'cors' });
-                                        if (!r.ok) throw new Error('Failed');
-                                        saveAs(await r.blob(), image.name);
-                                    } catch { toast.error('Failed to download file'); }
-                                }}
-                            />
-                        </TooltipTrigger>
-                        <TooltipContent>Download</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Trash2
-                                style={{ ...iconStyle, color: '#ff4d4f' }}
-                                onClick={() => {
-                                    lightboxDeleteImageRef.current = image;
-                                    setShowLightboxDeleteConfirm(true);
-                                }}
-                            />
-                        </TooltipTrigger>
-                        <TooltipContent>Delete</TooltipContent>
-                    </Tooltip>
-                </div>
-            </div>
-        );
-    }, [previewableImages, showMetadataPanel, setShowMetadataPanel, setShowRawMetadata, showRawMetadata, copySuccess]);
-
-    const previewOnChange = useCallback((current: number) => {
-        const img = previewableImages[current];
-        if (img) {
-            setImageInfoName(img.name);
-            if (img.type === 'media' || img.type === 'audio') setPreviewingVideo(img.name);
-            else setPreviewingVideo(undefined);
-        }
-    }, [previewableImages, setImageInfoName, setPreviewingVideo]);
-
-    const previewAfterOpenChange = useCallback((open: boolean) => {
-        if (!open) {
-            setImageInfoName(undefined);
-            setPreviewingVideo(undefined);
-            setShowMetadataPanel(false);
-            setShowRawMetadata(false);
-        }
-    }, [setImageInfoName, setPreviewingVideo, setShowMetadataPanel, setShowRawMetadata]);
-
-    const previewableCurrentIndex = useMemo(() => {
-        const index = previewableImages.findIndex(img => img.name === imageInfoName);
-        return index < 0 ? undefined : index;
-    }, [previewableImages, imageInfoName]);
+                    </>
+                )}
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Download
+                            style={iconStyle}
+                            onClick={async () => {
+                                if (!currentImage) return;
+                                try {
+                                    const r = await fetch(`${BASE_PATH}${currentImage.url}`, { mode: 'cors' });
+                                    if (!r.ok) throw new Error('Failed');
+                                    saveAs(await r.blob(), currentImage.name);
+                                } catch { toast.error('Failed to download file'); }
+                            }}
+                        />
+                    </TooltipTrigger>
+                    <TooltipContent>Download</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Trash2
+                            style={{ ...iconStyle, color: '#ff4d4f' }}
+                            onClick={() => {
+                                lightboxDeleteImageRef.current = currentImage;
+                                setShowLightboxDeleteConfirm(true);
+                            }}
+                        />
+                    </TooltipTrigger>
+                    <TooltipContent>Delete</TooltipContent>
+                </Tooltip>
+            </div>,
+            'close' as const,
+        ];
+    }, [currentImage, showMetadataPanel, showRawMetadata, setShowMetadataPanel, setShowRawMetadata, copySuccess]);
 
     return (
         <div id="imagesBox" style={{ width: '100%', height: '100%', position: 'relative' }} ref={containerRef}>
@@ -288,6 +301,23 @@ const GalleryImageGrid = () => {
                 <div className="absolute inset-0 bg-zinc-900/50 z-[100] flex items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
+            )}
+
+            {/* Lightbox */}
+            <Lightbox
+                open={lightboxOpen}
+                index={lightboxIndex}
+                slides={slides}
+                close={handleLightboxClose}
+                on={{ view: handleLightboxView }}
+                render={{ slide: renderSlide }}
+                toolbar={{ buttons: toolbarButtons }}
+                styles={{ root: { '--yarl__color_backdrop': 'rgba(0,0,0,0.88)' } as Parameters<typeof Lightbox>[0]['styles'] extends { root?: infer R } ? R : never }}
+            />
+
+            {/* MetadataPanel: fixed overlay shown when lightbox is open */}
+            {lightboxOpen && currentImage && (
+                <MetadataPanel image={currentImage} />
             )}
 
             {/* Lightbox delete confirm */}
@@ -316,46 +346,34 @@ const GalleryImageGrid = () => {
                 </AlertDialogContent>
             </AlertDialog>
 
-            <Image.PreviewGroup
-                items={imagesUrlsLists}
-                preview={{
-                    current: previewableCurrentIndex,
-                    imageRender: previewImageRender,
-                    toolbarRender: previewToolbarRender,
-                    onChange: previewOnChange,
-                    afterOpenChange: previewAfterOpenChange,
-                    destroyOnClose: true,
-                }}
-            >
-                {imagesDetailsList.length === 0 ? (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                        No images found
-                    </div>
-                ) : (
-                    <AutoSizer>
-                        {({ width, height }) => {
-                            if (autoSizer.width !== width || autoSizer.height !== height) {
-                                setTimeout(() => setAutoSizer({ width, height }), 0);
-                            }
-                            return (
-                                <VariableSizeGrid
-                                    ref={gridRef}
-                                    columnCount={gridSize.columnCount}
-                                    rowCount={gridSize.rowCount}
-                                    columnWidth={() => ImageCardWidth + 16}
-                                    rowHeight={getRowHeight}
-                                    width={width}
-                                    height={height}
-                                    className="grid-element"
-                                    style={{ display: 'flex', alignContent: 'center', justifyContent: 'center' }}
-                                >
-                                    {Cell}
-                                </VariableSizeGrid>
-                            );
-                        }}
-                    </AutoSizer>
-                )}
-            </Image.PreviewGroup>
+            {imagesDetailsList.length === 0 ? (
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                    No images found
+                </div>
+            ) : (
+                <AutoSizer>
+                    {({ width, height }) => {
+                        if (autoSizer.width !== width || autoSizer.height !== height) {
+                            setTimeout(() => setAutoSizer({ width, height }), 0);
+                        }
+                        return (
+                            <VariableSizeGrid
+                                ref={gridRef}
+                                columnCount={gridSize.columnCount}
+                                rowCount={gridSize.rowCount}
+                                columnWidth={() => ImageCardWidth + 16}
+                                rowHeight={getRowHeight}
+                                width={width}
+                                height={height}
+                                className="grid-element"
+                                style={{ display: 'flex', alignContent: 'center', justifyContent: 'center' }}
+                            >
+                                {Cell}
+                            </VariableSizeGrid>
+                        );
+                    }}
+                </AutoSizer>
+            )}
         </div>
     );
 };

@@ -275,9 +275,9 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
     return (
         <div
             style={{
-                position: 'absolute', top: 0, right: 0, width: 480, height: '100%',
+                position: 'fixed', top: 0, right: 0, width: 480, height: '100%',
                 background: 'rgba(30, 30, 30, 0.95)', borderLeft: '1px solid #444',
-                padding: '48px 16px 16px 16px', zIndex: 10,
+                padding: '48px 16px 16px 16px', zIndex: 3200,
                 display: 'flex', flexDirection: 'column', gap: 12,
                 visibility: showMetadataPanel ? 'visible' : 'hidden',
                 opacity: showMetadataPanel ? 1 : 0,
