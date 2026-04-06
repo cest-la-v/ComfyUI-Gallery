@@ -230,32 +230,21 @@ const GalleryImageGrid = () => {
     }, [imageRotation, imageFlipH, imageFlipV]);
 
 
-    const renderControls = useCallback(() => {
+    const renderLightboxToolbar = () => {
         if (!lightboxOpen || !currentImage) return null;
         if (currentImage.type === 'media' || currentImage.type === 'audio') return null;
 
         const btnCls = "lb-btn";
         const activeCls = "lb-btn lb-btn-active";
 
-        // Use onPointerDown instead of onClick for all toolbar buttons.
-        // Reason: some ComfyUI extensions add a document-level capture-phase pointerdown
-        // listener that calls preventDefault(), which suppresses the subsequent click event.
-        // onPointerDown fires on the pointerdown event itself and is NOT suppressed by
-        // preventDefault() called earlier in the capture phase.
-        const btn = (e: React.PointerEvent) => e.button !== 0;
-
         return (
             <div
-                style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}
-                onPointerDown={e => e.stopPropagation()}
-                onPointerUp={e => e.stopPropagation()}
-                onClick={e => e.stopPropagation()}
+                style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 3150 }}
             >
                 <div className="flex items-center gap-1 rounded-lg px-2 py-1" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button className={showMetadataPanel && !showRawMetadata ? activeCls : btnCls} onPointerDown={e => {
-                                if (btn(e)) return; e.stopPropagation();
+                            <button className={showMetadataPanel && !showRawMetadata ? activeCls : btnCls} onClick={() => {
                                 if (showMetadataPanel && !showRawMetadata) setShowMetadataPanel(false);
                                 else { setShowMetadataPanel(true); setShowRawMetadata(false); }
                             }}>
@@ -266,8 +255,7 @@ const GalleryImageGrid = () => {
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button className={showMetadataPanel && showRawMetadata ? activeCls : btnCls} onPointerDown={e => {
-                                if (btn(e)) return; e.stopPropagation();
+                            <button className={showMetadataPanel && showRawMetadata ? activeCls : btnCls} onClick={() => {
                                 if (showMetadataPanel && showRawMetadata) setShowMetadataPanel(false);
                                 else { setShowMetadataPanel(true); setShowRawMetadata(true); }
                             }}>
@@ -279,10 +267,7 @@ const GalleryImageGrid = () => {
                     <div className="lb-divider" />
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button className={btnCls} onPointerDown={e => {
-                                if (btn(e)) return; e.stopPropagation();
-                                setImageRotation(r => ((r - 90 + 360) % 360) as 0 | 90 | 180 | 270);
-                            }}>
+                            <button className={btnCls} onClick={() => setImageRotation(r => ((r - 90 + 360) % 360) as 0 | 90 | 180 | 270)}>
                                 <RotateCcw size={18} />
                             </button>
                         </TooltipTrigger>
@@ -290,10 +275,7 @@ const GalleryImageGrid = () => {
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button className={btnCls} onPointerDown={e => {
-                                if (btn(e)) return; e.stopPropagation();
-                                setImageRotation(r => ((r + 90) % 360) as 0 | 90 | 180 | 270);
-                            }}>
+                            <button className={btnCls} onClick={() => setImageRotation(r => ((r + 90) % 360) as 0 | 90 | 180 | 270)}>
                                 <RotateCw size={18} />
                             </button>
                         </TooltipTrigger>
@@ -301,10 +283,7 @@ const GalleryImageGrid = () => {
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button className={imageFlipH ? activeCls : btnCls} onPointerDown={e => {
-                                if (btn(e)) return; e.stopPropagation();
-                                setImageFlipH(v => !v);
-                            }}>
+                            <button className={imageFlipH ? activeCls : btnCls} onClick={() => setImageFlipH(v => !v)}>
                                 <FlipHorizontal size={18} />
                             </button>
                         </TooltipTrigger>
@@ -312,10 +291,7 @@ const GalleryImageGrid = () => {
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button className={imageFlipV ? activeCls : btnCls} onPointerDown={e => {
-                                if (btn(e)) return; e.stopPropagation();
-                                setImageFlipV(v => !v);
-                            }}>
+                            <button className={imageFlipV ? activeCls : btnCls} onClick={() => setImageFlipV(v => !v)}>
                                 <FlipVertical size={18} />
                             </button>
                         </TooltipTrigger>
@@ -324,8 +300,7 @@ const GalleryImageGrid = () => {
                     <div className="lb-divider" />
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button className={copySuccess ? `lb-btn lb-btn-active lb-btn-success` : btnCls} onPointerDown={e => {
-                                if (btn(e)) return; e.stopPropagation();
+                            <button className={copySuccess ? `lb-btn lb-btn-active lb-btn-success` : btnCls} onClick={() => {
                                 const img = new window.Image();
                                 img.crossOrigin = 'anonymous';
                                 img.src = `${BASE_PATH}${currentImage.url}`;
@@ -355,8 +330,7 @@ const GalleryImageGrid = () => {
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button className={btnCls} onPointerDown={async e => {
-                                if (btn(e)) return; e.stopPropagation();
+                            <button className={btnCls} onClick={async () => {
                                 try {
                                     const r = await fetch(`${BASE_PATH}${currentImage.url}`, { mode: 'cors' });
                                     if (!r.ok) throw new Error('Failed');
@@ -371,8 +345,7 @@ const GalleryImageGrid = () => {
                     <div className="lb-divider" />
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button className={`${btnCls} text-red-400 hover:text-red-300`} onPointerDown={e => {
-                                if (btn(e)) return; e.stopPropagation();
+                            <button className={`${btnCls} text-red-400 hover:text-red-300`} onClick={() => {
                                 lightboxDeleteImageRef.current = currentImage;
                                 setShowLightboxDeleteConfirm(true);
                             }}>
@@ -384,7 +357,7 @@ const GalleryImageGrid = () => {
                 </div>
             </div>
         );
-    }, [lightboxOpen, currentImage, showMetadataPanel, showRawMetadata, setShowMetadataPanel, setShowRawMetadata, copySuccess, imageFlipH, imageFlipV]);
+    };
 
     return (
         <div id="imagesBox" style={{ width: '100%', height: '100%', position: 'relative' }} ref={containerRef}>
@@ -401,7 +374,7 @@ const GalleryImageGrid = () => {
                 slides={slides}
                 close={handleLightboxClose}
                 on={{ view: handleLightboxView }}
-                render={{ slide: renderSlide, controls: renderControls, slideContainer: renderSlideContainer }}
+                render={{ slide: renderSlide, slideContainer: renderSlideContainer }}
                 plugins={[Zoom]}
                 styles={{ root: { '--yarl__portal_zindex': '3100', '--yarl__color_backdrop': 'rgba(0,0,0,0.88)' } as Parameters<typeof Lightbox>[0]['styles'] extends { root?: infer R } ? R : never }}
             />
@@ -410,6 +383,13 @@ const GalleryImageGrid = () => {
                 translate-x/y transform stacking context */}
             {lightboxOpen && currentImage && createPortal(
                 <MetadataPanel image={currentImage} />,
+                document.body
+            )}
+
+            {/* Lightbox toolbar: portaled to body so it lives in OUR React tree,
+                not inside yarl's internal React root where event delegation breaks */}
+            {lightboxOpen && currentImage && createPortal(
+                renderLightboxToolbar(),
                 document.body
             )}
 
