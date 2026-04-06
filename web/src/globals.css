@@ -1,7 +1,7 @@
 /* Tailwind v4 + shadcn/ui CSS variables.
    Preflight (global reset) intentionally excluded — it would break ComfyUI's existing styles.
-   Re-enable when scoping to a gallery-root wrapper in a later migration phase.
-   Dark mode via .dark class on <html>, toggled by GalleryContext. */
+   Dark mode via .dark class on #comfy-gallery-root, toggled by GalleryContext. */
+@config "../tailwind.config.js";
 @import "tailwindcss/theme" layer(theme);
 @import "tailwindcss/utilities" layer(utilities);
 @import "tw-animate-css";
@@ -46,7 +46,7 @@
     z-index: 3100;
 }
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(#comfy-gallery-root.dark, #comfy-gallery-root.dark *));
 
 @theme inline {
     --radius-sm: calc(var(--radius) - 4px);
@@ -73,7 +73,7 @@
     --color-ring: var(--ring);
 }
 
-:root {
+#comfy-gallery-root {
     --radius: 0.5rem;
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
@@ -95,7 +95,7 @@
     --ring: oklch(0.546 0.245 262.881);
 }
 
-.dark {
+#comfy-gallery-root.dark {
     /* Map to ComfyUI's own CSS vars (PrimeVue Aura surface palette + semantic vars)
        so the gallery automatically tracks whatever theme ComfyUI has active.
        Fallbacks are the original shadcn dark values. */

@@ -6,6 +6,7 @@ import { ComfyAppApi, OPEN_BUTTON_ID, isComfyMode } from './ComfyAppApi.ts';
 import { useLocalStorageState } from 'ahooks';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { PortalProvider } from './PortalContext.tsx';
 
 // In production, Bun.build() outputs Tailwind CSS as a separate file.
 // Inject it via <link> using import.meta.url (works in ES module scripts).
@@ -156,11 +157,21 @@ ComfyAppApi.registerExtension({
                 return;
             }
 
+            // Guard against duplicate roots on HMR / re-init
+            const existing = document.getElementById('comfy-gallery-root');
+            if (existing) existing.remove();
+
             const box = document.createElement("div");
+            box.id = 'comfy-gallery-root';
+            const portals = document.createElement("div");
+            portals.id = 'comfy-gallery-portals';
+            box.appendChild(portals);
             targetElement.appendChild(box);
 
             createRoot(box).render(
-                <Main />,
+                <PortalProvider value={portals}>
+                    <Main />
+                </PortalProvider>,
             );
 
             ComfyAppApi.startMonitoring(settings.relativePath);

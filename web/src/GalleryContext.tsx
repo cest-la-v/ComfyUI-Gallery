@@ -223,7 +223,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
 
     // Sync dark mode setting → Tailwind's .dark class on <html>
     useEffect(() => {
-        document.documentElement.classList.toggle('dark', !!settingsState?.darkMode);
+        document.getElementById('comfy-gallery-root')?.classList.toggle('dark', !!settingsState?.darkMode);
     }, [settingsState?.darkMode]);
 
     // Memoized list of all images in the current folder

@@ -13,6 +13,7 @@ import type { FileDetails } from './types';
 import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
 import { Info, FileText, Copy, Download, Trash2, Check, Loader2, Music, RotateCcw, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
 import { saveAs } from 'file-saver';
+import { usePortal } from './PortalContext';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import {
     AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
@@ -42,6 +43,7 @@ const GalleryImageGrid = () => {
         imagesDetailsList,
         loading,
     } = useGalleryContext();
+    const portalTarget = usePortal();
     const containerRef = useRef<HTMLDivElement>(null);
     const gridRef = useRef<VariableSizeGrid>(null);
     const [copySuccess, setCopySuccess] = useState(false);
@@ -379,18 +381,18 @@ const GalleryImageGrid = () => {
                 styles={{ root: { '--yarl__portal_zindex': '3100', '--yarl__color_backdrop': 'rgba(0,0,0,0.88)' } as Parameters<typeof Lightbox>[0]['styles'] extends { root?: infer R } ? R : never }}
             />
 
-            {/* MetadataPanel: portaled to document.body to escape DialogContent's
+            {/* MetadataPanel: portaled to #comfy-gallery-portals to escape DialogContent's
                 translate-x/y transform stacking context */}
             {lightboxOpen && currentImage && createPortal(
                 <MetadataPanel image={currentImage} />,
-                document.body
+                portalTarget ?? document.body
             )}
 
-            {/* Lightbox toolbar: portaled to body so it lives in OUR React tree,
+            {/* Lightbox toolbar: portaled so it lives in OUR React tree,
                 not inside yarl's internal React root where event delegation breaks */}
             {lightboxOpen && currentImage && createPortal(
                 renderLightboxToolbar(),
-                document.body
+                portalTarget ?? document.body
             )}
 
             {/* Lightbox delete confirm */}

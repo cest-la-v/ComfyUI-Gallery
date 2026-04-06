@@ -1,8 +1,8 @@
 import * as React from "react"
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { Select as SelectPrimitive } from "radix-ui"
-
 import { cn } from "@/lib/utils"
+import { usePortal } from "@/PortalContext"
 
 function Select({
   ...props
@@ -55,8 +55,9 @@ function SelectContent({
   align = "center",
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  const portalTarget = usePortal();
   return (
-    <SelectPrimitive.Portal>
+    <SelectPrimitive.Portal container={portalTarget}>
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
