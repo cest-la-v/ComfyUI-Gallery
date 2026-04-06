@@ -6,8 +6,9 @@ import { ComfyAppApi } from './ComfyAppApi';
 import { cn } from '@/lib/utils';
 
 // Flat folder row — handles drag-drop target and ctrl+click image selection
-const FolderRow = memo(({ folderKey, selected, onSelect }: {
+const FolderRow = memo(({ folderKey, label, selected, onSelect }: {
     folderKey: string;
+    label: string;
     selected: boolean;
     onSelect: (key: string) => void;
 }) => {
@@ -58,7 +59,7 @@ const FolderRow = memo(({ folderKey, selected, onSelect }: {
         >
             <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <span className={cn("px-1 py-0.5 rounded transition-colors truncate", allSelected && "bg-blue-500/15 ring-1 ring-blue-500")}>
-                {folderKey}
+                {label}
             </span>
         </div>
     );
@@ -68,11 +69,23 @@ FolderRow.displayName = 'FolderRow';
 const GallerySidebar = () => {
     const { data, loading, currentFolder, setCurrentFolder, siderCollapsed } = useGalleryContext();
 
-    const folderPaths = useMemo(() => {
-        if (!data?.folders) return [];
-        return Object.keys(data.folders).sort();
+    const { folderPaths, rootPrefix } = useMemo(() => {
+        if (!data?.folders) return { folderPaths: [], rootPrefix: '' };
+        const paths = Object.keys(data.folders).sort();
+        // All keys share the same root basename (e.g. "examples", "output").
+        // Strip it so the sidebar shows relative names only.
+        const root = paths[0]?.split('/')[0] ?? '';
+        return { folderPaths: paths, rootPrefix: root };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data && JSON.stringify(Object.keys(data.folders ?? {}))]);
+
+    /** Strip the common root prefix for display; root itself → "(root)" */
+    const displayLabel = useCallback((key: string) => {
+        const stripped = rootPrefix && key.startsWith(rootPrefix)
+            ? key.slice(rootPrefix.length + 1)  // remove "examples/"
+            : key;
+        return stripped || '(root)';
+    }, [rootPrefix]);
 
     const handleSelect = useCallback((key: string) => {
         // Clicking the already-selected folder deselects back to "All"
@@ -104,6 +117,7 @@ const GallerySidebar = () => {
                     <FolderRow
                         key={path}
                         folderKey={path}
+                        label={displayLabel(path)}
                         selected={currentFolder === path}
                         onSelect={handleSelect}
                     />
