@@ -1,9 +1,14 @@
 /* Tailwind v4 + shadcn/ui CSS variables.
    Preflight (global reset) intentionally excluded — it would break ComfyUI's existing styles.
-   Dark mode via .dark class on #comfy-gallery-root, toggled by GalleryContext. */
+   Dark mode via .dark class on #comfy-gallery-root, toggled by GalleryContext.
+
+   Utilities are imported WITHOUT layer() so they are unlayered author CSS.
+   ComfyUI's CSS is also unlayered — cascade winner is determined by specificity.
+   Our utilities are wrapped with #comfy-gallery-root (via tailwind.config.js important option),
+   giving them (1,1,0) specificity which beats ComfyUI's element selectors (0,0,1). */
 @config "../tailwind.config.js";
 @import "tailwindcss/theme" layer(theme);
-@import "tailwindcss/utilities" layer(utilities);
+@import "tailwindcss/utilities";
 @import "tw-animate-css";
 @import "yet-another-react-lightbox/styles.css";
 
