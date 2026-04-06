@@ -227,13 +227,6 @@ const GallerySettingsModal = () => {
                     {/* Advanced */}
                     <div className="flex flex-col gap-2">
                         <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Advanced</span>
-                        <SettingRow label="Button Box Query" description="CSS selector for injecting the React root">
-                            <Input
-                                className="h-8 w-52 text-xs font-mono"
-                                value={staged.buttonBoxQuery}
-                                onChange={e => setStaged({ buttonBoxQuery: e.target.value })}
-                            />
-                        </SettingRow>
                         <SettingRow label="Terminal Logs">
                             <LabeledSwitch
                                 checked={!staged.disableLogs}
