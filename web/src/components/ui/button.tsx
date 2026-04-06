@@ -8,12 +8,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary !text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-destructive !text-white hover:bg-destructive/90",
-        outline: "border border-input bg-background !text-foreground hover:bg-accent hover:!text-accent-foreground",
-        secondary: "bg-secondary !text-secondary-foreground hover:bg-secondary/80",
-        ghost: "!text-foreground hover:bg-accent hover:!text-accent-foreground",
-        link: "!text-primary underline-offset-4 hover:underline",
+        // ComfyUI embeds this gallery directly in its DOM (no iframe), so its unlayered CSS
+        // beats our @layer utilities classes for normal declarations. Using ! (Tailwind's
+        // !important modifier) ensures our button styles win regardless of ComfyUI's rules.
+        default: "!bg-primary !text-primary-foreground hover:!bg-primary/90",
+        destructive: "!bg-destructive !text-white hover:!bg-destructive/90",
+        outline: "!border !border-input !bg-background !text-foreground hover:!bg-accent hover:!text-accent-foreground",
+        secondary: "!bg-secondary !text-secondary-foreground hover:!bg-secondary/80",
+        ghost: "!bg-transparent !border-0 !text-foreground hover:!bg-accent hover:!text-accent-foreground",
+        link: "!bg-transparent !border-0 !text-primary underline-offset-4 hover:underline",
       },
       size: {
         default: "h-9 px-4 py-2",

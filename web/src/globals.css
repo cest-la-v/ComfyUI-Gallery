@@ -139,23 +139,18 @@
     background: var(--primary-background-hover) !important;
 }
 
-/* HIGH-LEVEL FIX: All <Button> variants now use Tailwind's ! modifier (!text-*) which
-   generates color: ... !important, beating ComfyUI's unlayered/scoped button rules.
-   This scoped rule covers the remaining native <button> elements (lb-btn, SegmentedControl,
-   MetadataPanel toggles, GroupView, etc.) in one shot.
-   The .comfy-gallery-icon-btn class is kept for hover background but color is now
-   handled globally here. */
-[data-gallery-root] button {
-    color: inherit !important;
-}
-/* Per-button explicit colors (lb-btn, primary toggles) override inherit via their own classes */
+/* ComfyUI-Gallery is embedded directly in ComfyUI's DOM with no iframe isolation.
+   ComfyUI's unlayered CSS beats our @layer utilities for normal declarations. The
+   ! modifier (Tailwind's !important) is used on all visual-affecting classes in
+   components. The rules below are belt-and-suspenders for the header icon buttons
+   which also need background/border resets. */
 
-/* Gallery root — set the base foreground color so native buttons inherit correctly */
-[data-gallery-root] {
-    color: var(--foreground);
+/* Header icon buttons: reset background + border + force foreground color */
+.comfy-gallery-icon-btn {
+    color: var(--foreground) !important;
+    background: transparent !important;
+    border: none !important;
 }
-
-/* Retained for hover background on the 3 header icon buttons */
 .comfy-gallery-icon-btn:hover {
     background: var(--accent) !important;
     color: var(--accent-foreground) !important;
