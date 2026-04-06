@@ -114,7 +114,7 @@ export interface GalleryContextType {
 const GalleryContext = createContext<GalleryContextType | undefined>(undefined);
 
 export function GalleryProvider({ children }: { children: React.ReactNode }) {
-    const [currentFolder, setCurrentFolder] = useState("output");
+    const [currentFolder, setCurrentFolder] = useState("");
     const [searchFileName, setSearchFileName] = useState("");
     const [viewMode, setViewMode] = useState<ViewMode>('all');
     const [activeFilter, setActiveFilter] = useState<ActiveFilter | null>(null);
@@ -228,10 +228,14 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
 
     // Memoized list of all images in the current folder
     const imagesDetailsList = useMemo(() => {
-        // When a group filter is active, search across all folders (results span subfolders)
+        // '' = show all folders flattened (root / default view)
+        // group filter = flatMap across all folders
+        // specific folder = that folder only
         const allItems: FileDetails[] = filteredRelPaths !== null
             ? Object.values(data?.folders ?? {}).flatMap(folder => Object.values(folder as Record<string, FileDetails>))
-            : Object.values(data?.folders?.[currentFolder] ?? []);
+            : currentFolder === ''
+                ? Object.values(data?.folders ?? {}).flatMap(folder => Object.values(folder as Record<string, FileDetails>))
+                : Object.values(data?.folders?.[currentFolder] ?? []);
 
         let list = allItems;
 

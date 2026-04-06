@@ -156,7 +156,10 @@ const GallerySidebar = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loading, data && JSON.stringify(data.folders)]);
 
-    const handleSelect = useCallback((key: string) => setCurrentFolder(key), [setCurrentFolder]);
+    const handleSelect = useCallback((key: string) => {
+        // Clicking the already-selected folder deselects back to "All"
+        setCurrentFolder(prev => prev === key ? '' : key);
+    }, [setCurrentFolder]);
 
     if (siderCollapsed) return null;
 
@@ -168,6 +171,18 @@ const GallerySidebar = () => {
                 </div>
             )}
             <div className="relative h-full overflow-y-auto p-1">
+                {/* "All" root row — shows all images flattened */}
+                <div
+                    className={cn(
+                        "flex items-center gap-0.5 py-0.5 pr-2 pl-1 cursor-pointer rounded-sm text-sm select-none",
+                        currentFolder === '' ? "bg-primary/20" : "hover:bg-accent/40"
+                    )}
+                    onClick={() => setCurrentFolder('')}
+                >
+                    <span className="h-5 w-5 shrink-0" />
+                    <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground mr-1" />
+                    <span className="text-sm px-1.5 py-0.5">All</span>
+                </div>
                 {treeData.map(node => (
                     <CustomTreeNode
                         key={node.key}
