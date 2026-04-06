@@ -184,14 +184,18 @@ const GallerySettingsModal = () => {
                             />
                         </SettingRow>
                         <SettingRow
-                            label="Floating Button"
+                            label="Open Button"
                             description={isComfyMode
-                                ? "Show a draggable floating button in addition to the action bar button"
-                                : "Show a floating draggable button instead of a fixed inline button"}
+                                ? '"Action Bar" uses the native ComfyUI toolbar button; "Floating" adds a draggable button over the canvas'
+                                : '"Floating" shows a draggable button; "Embedded" shows a fixed inline button'}
                         >
-                            <LabeledSwitch
-                                checked={staged.floatingButton}
-                                onCheckedChange={v => setStaged({ floatingButton: v })}
+                            <SegmentedControl
+                                value={staged.floatingButton ? 'floating' : 'actionbar'}
+                                options={isComfyMode
+                                    ? [{ label: 'Action Bar', value: 'actionbar' }, { label: 'Floating', value: 'floating' }]
+                                    : [{ label: 'Embedded', value: 'actionbar' }, { label: 'Floating', value: 'floating' }]
+                                }
+                                onChange={v => setStaged({ floatingButton: v === 'floating' })}
                             />
                         </SettingRow>
                     </div>
