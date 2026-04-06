@@ -118,15 +118,14 @@ function CustomTreeNode({
                 )}
                 onClick={() => onSelect(node.key)}
             >
-                <button
+                <span
                     className="flex items-center justify-center h-5 w-5 shrink-0"
                     onClick={e => { e.stopPropagation(); if (hasChildren) setExpanded(x => !x); }}
-                    tabIndex={-1}
                 >
                     {hasChildren && (
                         <ChevronRight className={cn("h-3.5 w-3.5 transition-transform text-muted-foreground", expanded && "rotate-90")} />
                     )}
-                </button>
+                </span>
                 <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground mr-1" />
                 <FolderTitle nodeData={node} />
             </div>

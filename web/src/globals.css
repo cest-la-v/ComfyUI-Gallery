@@ -96,24 +96,27 @@
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.546 0.245 262.881);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.546 0.245 262.881);
+    /* Map to ComfyUI's own CSS vars (PrimeVue Aura surface palette + semantic vars)
+       so the gallery automatically tracks whatever theme ComfyUI has active.
+       Fallbacks are the original shadcn dark values. */
+    --background:         var(--color-surface-900, oklch(0.145 0 0));
+    --foreground:         var(--color-surface-0,   oklch(0.985 0 0));
+    --card:               var(--color-surface-800, oklch(0.205 0 0));
+    --card-foreground:    var(--color-surface-0,   oklch(0.985 0 0));
+    --popover:            var(--color-surface-800, oklch(0.205 0 0));
+    --popover-foreground: var(--color-surface-0,   oklch(0.985 0 0));
+    --primary:            var(--primary-background,       oklch(0.546 0.245 262.881));
+    --primary-foreground: var(--base-foreground,          oklch(0.985 0 0));
+    --secondary:          var(--color-surface-700, oklch(0.269 0 0));
+    --secondary-foreground: var(--color-surface-100, oklch(0.985 0 0));
+    --muted:              var(--color-surface-800, oklch(0.269 0 0));
+    --muted-foreground:   var(--color-surface-400, oklch(0.708 0 0));
+    --accent:             var(--color-surface-700, oklch(0.269 0 0));
+    --accent-foreground:  var(--color-surface-50,  oklch(0.985 0 0));
+    --destructive:        oklch(0.704 0.191 22.216);
+    --border:             var(--color-surface-700, oklch(1 0 0 / 10%));
+    --input:              var(--color-surface-700, oklch(1 0 0 / 15%));
+    --ring:               var(--primary-background, oklch(0.546 0.245 262.881));
 }
 
 /* ComfyUI primary-blue button style — matches the "Run" button.
