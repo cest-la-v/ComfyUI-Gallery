@@ -13,36 +13,38 @@
 @import "yet-another-react-lightbox/styles.css";
 
 /* Lightbox toolbar button styles — defined here because Tailwind's static scanner
-   misses classes stored in JS string variables (btnCls / activeCls pattern). */
-.lb-btn {
+   misses classes stored in JS string variables (btnCls / activeCls pattern).
+   Scoped to #comfy-gallery-root for specificity (1,1,0) to beat the baseline
+   element reset below. */
+#comfy-gallery-root .lb-btn {
     padding: 0.5rem;
     border-radius: 0.25rem;
     cursor: pointer;
     transition: color 150ms, background-color 150ms;
     color: rgb(255 255 255 / 0.85);
-    background: transparent;
-    border: none;
+    background-color: transparent;
+    border-width: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 }
-.lb-btn:hover {
+#comfy-gallery-root .lb-btn:hover {
     background-color: rgb(255 255 255 / 0.1);
     color: white;
 }
-.lb-btn-active {
+#comfy-gallery-root .lb-btn-active {
     padding: 0.5rem;
     border-radius: 0.25rem;
     cursor: pointer;
     transition: color 150ms, background-color 150ms;
     background-color: rgb(255 255 255 / 0.1);
     color: #1890ff;
-    border: none;
+    border-width: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 }
-.lb-btn-success {
+#comfy-gallery-root .lb-btn-success {
     color: #4ade80; /* green-400 */
 }
 
@@ -124,6 +126,53 @@
     --ring:               var(--primary-background, oklch(0.546 0.245 262.881));
 }
 
+/* ─── Gallery baseline element reset ──────────────────────────────────────────
+   ComfyUI injects unlayered global CSS for bare HTML elements (button, input,
+   etc.) that overrides gallery component styles when no Tailwind class
+   explicitly covers that property on the element.
+
+   These ID-scoped rules have specificity (1,0,1) — higher than ComfyUI's
+   element rules (0,0,1) — giving every interactive element inside the gallery
+   a neutral baseline. Tailwind utility classes (1,1,0) still override freely.
+
+   We use individual longhands (not shorthands like `border: none`) so that
+   Tailwind longhands such as `border-width: 1px` can override just the width
+   while leaving border-style intact.
+   ────────────────────────────────────────────────────────────────────────── */
+#comfy-gallery-root button {
+    background-color: transparent;
+    border-width: 0;
+    border-style: solid;
+    border-color: transparent;
+    box-shadow: none;
+    color: inherit;
+    padding: 0;
+    font-size: inherit;
+    font-family: inherit;
+    cursor: pointer;
+}
+#comfy-gallery-root input,
+#comfy-gallery-root textarea {
+    background-color: transparent;
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--input);
+    box-shadow: none;
+    outline: none;
+    color: var(--foreground);
+    font-size: inherit;
+    font-family: inherit;
+}
+#comfy-gallery-root select {
+    background-color: transparent;
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--border);
+    color: var(--foreground);
+    font-size: inherit;
+    font-family: inherit;
+}
+
 /* ComfyUI primary-blue button style — matches the "Run" button.
    Applied to the native actionBarButton and the floating open button.
    Uses ComfyUI's own CSS variables so it tracks theme changes automatically. */
@@ -144,13 +193,9 @@
     background: var(--primary-background-hover) !important;
 }
 
-/* ComfyUI-Gallery is embedded directly in ComfyUI's DOM with no iframe isolation.
-   ComfyUI's unlayered CSS beats our @layer utilities for normal declarations. The
-   ! modifier (Tailwind's !important) is used on all visual-affecting classes in
-   components. The rules below are belt-and-suspenders for the header icon buttons
-   which also need background/border resets. */
-
-/* Header icon buttons: reset background + border + force foreground color */
+/* Header icon buttons: reset background + border + force foreground color.
+   Unlayered with !important to override any ComfyUI specificity on these
+   class-targeted rules (they sit outside the #comfy-gallery-root selector). */
 .comfy-gallery-icon-btn {
     color: var(--foreground) !important;
     background: transparent !important;
