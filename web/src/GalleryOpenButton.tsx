@@ -74,12 +74,25 @@ const GalleryOpenButton = () => {
     // In ComfyUI mode, hide/show the native action bar button based on floatingButton setting.
     // The action bar button is registered at startup and cannot be un-registered,
     // so we toggle its visibility via DOM when "Floating" mode is active.
+    // A MutationObserver is used because ComfyUI inserts the button asynchronously
+    // after extension registration — a plain querySelector on mount returns null.
     useEffect(() => {
         if (!isComfyMode) return;
-        const actionBarBtn = document.querySelector<HTMLElement>('.comfy-gallery-action-bar-btn');
-        if (actionBarBtn) {
-            actionBarBtn.style.display = settings.floatingButton ? 'none' : '';
-        }
+
+        const applyVisibility = (): boolean => {
+            const btn = document.querySelector<HTMLElement>('.comfy-gallery-action-bar-btn');
+            if (!btn) return false;
+            btn.style.display = settings.floatingButton ? 'none' : '';
+            return true;
+        };
+
+        if (applyVisibility()) return;
+
+        const observer = new MutationObserver(() => {
+            if (applyVisibility()) observer.disconnect();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        return () => observer.disconnect();
     }, [settings.floatingButton]);
 
     // In ComfyUI mode, the native actionBarButton is the visible entry point.
