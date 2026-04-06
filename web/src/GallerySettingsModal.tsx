@@ -78,8 +78,8 @@ function SegmentedControl<T extends string>({ value, options, onChange }: {
                     className={cn(
                         "px-3 py-1 transition-colors",
                         value === opt.value
-                            ? "bg-primary text-primary-foreground font-medium"
-                            : "bg-transparent text-foreground hover:bg-accent"
+                            ? "bg-primary !text-primary-foreground font-medium"
+                            : "bg-transparent !text-foreground hover:bg-accent"
                     )}
                 >
                     {opt.label}
@@ -134,7 +134,7 @@ const GallerySettingsModal = () => {
 
     return (
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg" data-gallery-root>
                 <DialogHeader>
                     <DialogTitle>Settings</DialogTitle>
                 </DialogHeader>

@@ -47,6 +47,7 @@ const GalleryModal = () => {
                     showCloseButton={false}
                     className="p-0 gap-0 w-[95vw] max-w-none h-[92vh] flex flex-col overflow-hidden rounded-lg"
                     style={{ zIndex: BASE_Z_INDEX + 1 }}
+                    data-gallery-root
                 >
                     {/* Header bar */}
                     <div className="px-3 py-2 border-b shrink-0">

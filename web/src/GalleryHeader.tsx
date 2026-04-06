@@ -361,7 +361,7 @@ const GalleryHeader = () => {
                         <Button
                             size="icon"
                             variant="ghost"
-                            className="comfy-gallery-icon-btn"
+                            className="comfy-gallery-icon-btn" // hover bg still applied here
                             onClick={() => setSettings({ ...settings, darkMode: !settings.darkMode })}
                         >
                             {settings.darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
