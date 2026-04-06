@@ -69,7 +69,7 @@ function SegmentedControl<T extends string>({ value, options, onChange }: {
     onChange: (v: T) => void;
 }) {
     return (
-        <div className="flex rounded-md border border-input overflow-hidden text-xs">
+        <div className="flex rounded-md !border !border-input overflow-hidden text-xs">
             {options.map(opt => (
                 <button
                     key={opt.value}
