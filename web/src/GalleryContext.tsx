@@ -116,7 +116,7 @@ const GalleryContext = createContext<GalleryContextType | undefined>(undefined);
 export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const [currentFolder, setCurrentFolder] = useState("");
     const [searchFileName, setSearchFileName] = useState("");
-    const [viewMode, setViewMode] = useState<ViewMode>('all');
+    const [viewMode, setViewMode] = useState<ViewMode>('date');
     const [activeFilter, setActiveFilter] = useState<ActiveFilter | null>(null);
     const [filteredRelPaths, setFilteredRelPaths] = useState<string[] | null>(null);
     const [showSettings, setShowSettings] = useState(false);
