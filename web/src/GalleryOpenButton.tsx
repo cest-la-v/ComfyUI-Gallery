@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react';
 import { useGalleryContext } from './GalleryContext';
 import { useLocalStorageState, useDebounceFn } from 'ahooks';
 import { useRef, useEffect } from 'react';
+import { isComfyMode, OPEN_BUTTON_ID } from './ComfyAppApi';
 
 const GalleryOpenButton = () => {
     const { setOpen, loading, settings } = useGalleryContext();
@@ -70,10 +71,22 @@ const GalleryOpenButton = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, [position, setPosition, savePosition]);
 
+    // In ComfyUI mode, the native actionBarButton is the visible entry point.
+    // Only render the hidden trigger button (used by actionBarButton onClick and node widget).
+    if (isComfyMode && !settings.floatingButton) {
+        return (
+            <button
+                id={OPEN_BUTTON_ID}
+                style={{ display: 'none' }}
+                onClick={() => { if (!loading) setOpen(true); }}
+            />
+        );
+    }
+
     if (settings.hideOpenButton) {
         return (<>
             <Button
-                id="comfy-ui-gallery-open-button"
+                id={OPEN_BUTTON_ID}
                 onClick={() => {
                     if (!loading) setOpen(true);
                 }}
@@ -139,7 +152,7 @@ const GalleryOpenButton = () => {
                     title="Drag to move"
                 />
                 <Button
-                    id="comfy-ui-gallery-open-button"
+                    id={OPEN_BUTTON_ID}
                     className="min-w-[120px] gap-2"
                     disabled={loading}
                     onClick={() => { if (!loading) setOpen(true); }}
@@ -152,7 +165,7 @@ const GalleryOpenButton = () => {
     }
     return (<>
         <Button
-            id="comfy-ui-gallery-open-button"
+            id={OPEN_BUTTON_ID}
             className="gap-2"
             disabled={loading}
             onClick={() => { if (!loading) setOpen(true); }}

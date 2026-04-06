@@ -2,7 +2,7 @@ import './globals.css';
 import { createRoot } from 'react-dom/client'
 import Gallery from './Gallery.tsx'
 import { DEFAULT_SETTINGS, STORAGE_KEY, type SettingsState } from './GalleryContext.tsx';
-import { ComfyAppApi, OPEN_BUTTON_ID } from './ComfyAppApi.ts';
+import { ComfyAppApi, OPEN_BUTTON_ID, isComfyMode } from './ComfyAppApi.ts';
 import { useLocalStorageState } from 'ahooks';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -110,8 +110,24 @@ function waitForElement(selectorOrSelectors: string | string[], delay = 1500, ti
     });
 }
 
+// Read settings synchronously for actionBarButtons registration (before init() runs)
+let _earlySettings = DEFAULT_SETTINGS;
+try {
+    const raw = localStorage.getItem('comfy-ui-gallery-settings');
+    if (raw) _earlySettings = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+} catch { }
+
 ComfyAppApi.registerExtension({
     name: "Gallery",
+    // Register a native ComfyUI action bar button (only in ComfyUI mode)
+    actionBarButtons: isComfyMode ? [{
+        icon: 'icon-[lucide--images]',
+        label: _earlySettings.buttonLabel || 'Gallery',
+        tooltip: 'Open Gallery',
+        onClick: () => {
+            document.getElementById(OPEN_BUTTON_ID)?.click();
+        }
+    }] : undefined,
     async init() {
         (async () => {
 

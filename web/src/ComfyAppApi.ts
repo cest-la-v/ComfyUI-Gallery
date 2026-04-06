@@ -8,6 +8,7 @@ type GalleryEventCallback = (event: any) => void;
 export const BASE_PATH = getComfyApp() ? window.location.origin : "http://localhost:8188";
 export const OPEN_BUTTON_ID = "comfy-ui-gallery-open-button";
 export const BASE_Z_INDEX = 3000;
+export const isComfyMode = !!getComfyApp();
 
 function getComfyApp() {
     try {
