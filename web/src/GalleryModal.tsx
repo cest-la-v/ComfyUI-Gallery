@@ -4,7 +4,7 @@ import GallerySidebar from './GallerySidebar';
 import GalleryImageGrid from './GalleryImageGrid';
 import GallerySettingsModal from './GallerySettingsModal';
 import GroupView from './GroupView';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { BASE_Z_INDEX } from './ComfyAppApi';
 import { cn } from '@/lib/utils';
 
@@ -45,10 +45,12 @@ const GalleryModal = () => {
             <Dialog open={open} onOpenChange={setOpen} modal={false}>
                 <DialogContent
                     showCloseButton={false}
+                    aria-describedby={undefined}
                     className="p-0 gap-0 w-[95vw] max-w-none h-[92vh] flex flex-col overflow-hidden rounded-lg"
                     style={{ zIndex: BASE_Z_INDEX + 1 }}
                     data-gallery-root
                 >
+                    <DialogTitle className="sr-only">Gallery</DialogTitle>
                     {/* Header bar */}
                     <div className="px-3 py-2 border-b shrink-0">
                         <GalleryHeader />
