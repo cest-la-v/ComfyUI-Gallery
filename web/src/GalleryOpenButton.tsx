@@ -71,6 +71,17 @@ const GalleryOpenButton = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, [position, setPosition, savePosition]);
 
+    // In ComfyUI mode, hide/show the native action bar button based on floatingButton setting.
+    // The action bar button is registered at startup and cannot be un-registered,
+    // so we toggle its visibility via DOM when "Floating" mode is active.
+    useEffect(() => {
+        if (!isComfyMode) return;
+        const actionBarBtn = document.querySelector<HTMLElement>('.comfy-gallery-action-bar-btn');
+        if (actionBarBtn) {
+            actionBarBtn.style.display = settings.floatingButton ? 'none' : '';
+        }
+    }, [settings.floatingButton]);
+
     // In ComfyUI mode, the native actionBarButton is the visible entry point.
     // Only render the hidden trigger button (used by actionBarButton onClick and node widget).
     if (isComfyMode && !settings.floatingButton) {
