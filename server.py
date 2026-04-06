@@ -48,7 +48,7 @@ from .metadata_parser._extractor import buildMetadata
 def _get_output_directory() -> str:
     """Return the gallery output directory regardless of runtime context."""
     if not _IS_STANDALONE and _folder_paths is not None:
-        return __get_output_directory()
+        return _folder_paths.get_output_directory()
     env_dir = os.environ.get("GALLERY_OUTPUT_DIR", "")
     if env_dir:
         return env_dir
