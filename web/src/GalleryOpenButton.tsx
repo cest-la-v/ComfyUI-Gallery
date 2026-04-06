@@ -98,7 +98,7 @@ const GalleryOpenButton = () => {
     };
 
     if (settings.floatingButton) {
-        // Floating, movable button
+        // Floating, draggable button — drag from the button itself
         return (
             <div
                 ref={btnRef}
@@ -107,7 +107,6 @@ const GalleryOpenButton = () => {
                     left: position?.x ?? 32,
                     top: position?.y ?? 32,
                     zIndex: 1000,
-                    cursor: 'grab',
                     userSelect: 'none',
                 }}
                 onMouseDown={e => {
@@ -120,10 +119,9 @@ const GalleryOpenButton = () => {
                         const dy = moveEvent.clientY - startY;
                         let newX = origX + dx;
                         let newY = origY + dy;
-                        // Clamp to viewport using window.innerWidth/innerHeight
                         const btnRect = btnRef.current?.getBoundingClientRect();
-                        const btnWidth = btnRect?.width || 160;
-                        const btnHeight = btnRect?.height || 48;
+                        const btnWidth = btnRect?.width || 120;
+                        const btnHeight = btnRect?.height || 36;
                         const maxX = window.innerWidth - btnWidth - 8;
                         const maxY = window.innerHeight - btnHeight - 8;
                         newX = Math.max(8, Math.min(newX, maxX));
@@ -140,20 +138,10 @@ const GalleryOpenButton = () => {
                     window.addEventListener('mouseup', onUp);
                 }}
             >
-                <div
-                    style={{
-                        width: 32,
-                        height: 8,
-                        background: '#888',
-                        borderRadius: 4,
-                        margin: '0 auto 4px auto',
-                        cursor: 'grab',
-                    }}
-                    title="Drag to move"
-                />
                 <Button
                     id={OPEN_BUTTON_ID}
-                    className="comfy-gallery-primary-btn min-w-[120px] gap-2"
+                    className="comfy-gallery-primary-btn gap-1.5"
+                    style={{ cursor: 'grab' }}
                     disabled={loading}
                     onClick={() => { if (!loading) setOpen(true); }}
                 >
