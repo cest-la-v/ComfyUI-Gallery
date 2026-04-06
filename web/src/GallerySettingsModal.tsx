@@ -12,9 +12,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { buttonVariants } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { useGalleryContext, type SettingsState } from './GalleryContext';
 import { useSetState } from 'ahooks';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useDebounceFn } from 'ahooks';
+import { ComfyAppApi, isComfyMode } from './ComfyAppApi';
+import { cn } from '@/lib/utils';
 
 interface DbStatus {
     schema_version: number;
@@ -23,11 +27,75 @@ interface DbStatus {
     db_path: string;
 }
 
+interface ResolvedPath {
+    resolved: string;
+    exists: boolean;
+}
+
+/** A single settings row: fixed label left, control right. */
+function SettingRow({ label, description, children }: {
+    label: string;
+    description?: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="flex items-center justify-between gap-4 py-0.5">
+            <div className="flex flex-col">
+                <span className="text-sm font-medium leading-tight">{label}</span>
+                {description && <span className="text-xs text-muted-foreground leading-tight mt-0.5">{description}</span>}
+            </div>
+            <div className="shrink-0">{children}</div>
+        </div>
+    );
+}
+
+/** Switch with a static On/Off label alongside. */
+function LabeledSwitch({ checked, onCheckedChange }: {
+    checked: boolean;
+    onCheckedChange: (v: boolean) => void;
+}) {
+    return (
+        <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground w-6 text-right">{checked ? 'On' : 'Off'}</span>
+            <Switch checked={checked} onCheckedChange={onCheckedChange} />
+        </div>
+    );
+}
+
+/** Two-option segmented control (replaces confusing switch for binary named options). */
+function SegmentedControl<T extends string>({ value, options, onChange }: {
+    value: T;
+    options: { value: T; label: string }[];
+    onChange: (v: T) => void;
+}) {
+    return (
+        <div className="flex rounded-md border border-input overflow-hidden text-xs">
+            {options.map(opt => (
+                <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => onChange(opt.value)}
+                    className={cn(
+                        "px-3 py-1 transition-colors",
+                        value === opt.value
+                            ? "bg-primary text-primary-foreground font-medium"
+                            : "bg-transparent text-foreground hover:bg-accent"
+                    )}
+                >
+                    {opt.label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
 const GallerySettingsModal = () => {
     const { showSettings, setShowSettings, settings, setSettings } = useGalleryContext();
     const [staged, setStaged] = useSetState<SettingsState>(settings);
     const [extInput, setExtInput] = useState("");
     const [dbStatus, setDbStatus] = useState<DbStatus | null>(null);
+    const [resolvedPath, setResolvedPath] = useState<ResolvedPath | null>(null);
+    const [resolving, setResolving] = useState(false);
 
     // When modal opens, reset staged to current settings and fetch DB status
     useEffect(() => {
@@ -38,17 +106,31 @@ const GallerySettingsModal = () => {
         }
     }, [showSettings, settings, setStaged]);
 
-    // Save staged settings to context and close
+    // Live path resolution — debounced 400ms
+    const doResolve = useCallback(async (path: string) => {
+        setResolving(true);
+        const result = await ComfyAppApi.resolvePath(path);
+        setResolvedPath(result);
+        setResolving(false);
+    }, []);
+
+    const { run: debouncedResolve } = useDebounceFn(doResolve, { wait: 400 });
+
+    // Resolve whenever staged path changes or modal opens
+    useEffect(() => {
+        if (showSettings) {
+            debouncedResolve(staged.relativePath);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [staged.relativePath, showSettings]);
+
     const handleSave = () => {
         const exts = extInput.split(',').map(s => s.trim().replace(/^\./, '')).filter(s => s);
         const newSettings = { ...staged, scanExtensions: exts } as SettingsState;
         setSettings(newSettings);
         setShowSettings(false);
     };
-    // Cancel: just close modal (staged will reset on next open)
-    const handleCancel = () => {
-        setShowSettings(false);
-    };
+    const handleCancel = () => setShowSettings(false);
 
     return (
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
@@ -57,61 +139,126 @@ const GallerySettingsModal = () => {
                     <DialogTitle>Settings</DialogTitle>
                 </DialogHeader>
 
-                <div className="flex flex-col gap-4 py-2">
+                <div className="flex flex-col gap-3 py-2">
+
+                    {/* Source path */}
                     <div>
-                        <label className="text-sm font-medium">Relative Path:</label>
+                        <label className="text-sm font-medium">Source Path</label>
                         <Input
                             className="mt-1"
                             value={staged.relativePath}
                             onChange={e => setStaged({ relativePath: e.target.value })}
+                            placeholder="./ or /absolute/path"
                         />
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium">Button Box Query:</label>
-                        <Input
-                            className="mt-1"
-                            value={staged.buttonBoxQuery}
-                            onChange={e => setStaged({ buttonBoxQuery: e.target.value })}
-                        />
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium">Button Label:</label>
-                        <Input
-                            className="mt-1"
-                            value={staged.buttonLabel}
-                            onChange={e => setStaged({ buttonLabel: e.target.value })}
-                        />
-                    </div>
-
-                    {([
-                        { key: 'floatingButton',      on: 'Floating Button',        off: 'Normal Button' },
-                        { key: 'autoPlayVideos',      on: 'Auto Play Videos',       off: "Don't Auto Play Videos" },
-                        { key: 'hideOpenButton',      on: 'Hide Open Button',       off: 'Show Open Button' },
-                        { key: 'darkMode',            on: 'Dark Mode',              off: 'Light Mode' },
-                        { key: 'galleryShortcut',     on: 'Enable Ctrl+G Shortcut', off: 'Disable Ctrl+G Shortcut' },
-                        { key: 'expandAllFolders',    on: 'Expand All Folders',     off: 'Collapse All Folders' },
-                        { key: 'disableLogs',         on: 'Disable Terminal Logs',  off: 'Enable Terminal Logs' },
-                        { key: 'usePollingObserver',  on: 'Use Polling Observer',   off: 'Use Native Observer' },
-                    ] as const).map(({ key, on, off }) => (
-                        <div key={key} className="flex items-center justify-between">
-                            <span className="text-sm select-none">
-                                {(staged as unknown as Record<string, boolean>)[key] ? on : off}
-                            </span>
-                            <Switch
-                                checked={(staged as unknown as Record<string, boolean>)[key]}
-                                onCheckedChange={checked => setStaged({ [key]: checked } as unknown as Pick<SettingsState, keyof SettingsState>)}
-                            />
+                        {/* Live resolved path display */}
+                        <div className="mt-1 min-h-[1.25rem] flex items-center gap-1.5">
+                            {resolving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                            {!resolving && resolvedPath && (
+                                <>
+                                    {resolvedPath.exists
+                                        ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                                        : <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                                    }
+                                    <span className={cn(
+                                        "text-xs font-mono truncate",
+                                        resolvedPath.exists ? "text-muted-foreground" : "text-destructive"
+                                    )}>
+                                        {resolvedPath.resolved}
+                                        {!resolvedPath.exists && " (not found)"}
+                                    </span>
+                                </>
+                            )}
                         </div>
-                    ))}
-
-                    <div>
-                        <label className="text-sm font-medium">Scan File Extensions:</label>
-                        <p className="text-xs text-muted-foreground mb-1">Comma separated (e.g. png, jpg, mp4, wav)</p>
-                        <Input value={extInput} onChange={e => setExtInput(e.target.value)} />
                     </div>
 
-                    <Separator className="my-1" />
+                    <Separator />
 
+                    {/* Button settings */}
+                    <div className="flex flex-col gap-2">
+                        <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Entry Button</span>
+                        <SettingRow label="Button Label">
+                            <Input
+                                className="h-8 w-40 text-sm"
+                                value={staged.buttonLabel}
+                                onChange={e => setStaged({ buttonLabel: e.target.value })}
+                            />
+                        </SettingRow>
+                        <SettingRow
+                            label="Floating Button"
+                            description={isComfyMode
+                                ? "Show a draggable floating button in addition to the action bar button"
+                                : "Show a floating draggable button instead of a fixed inline button"}
+                        >
+                            <LabeledSwitch
+                                checked={staged.floatingButton}
+                                onCheckedChange={v => setStaged({ floatingButton: v })}
+                            />
+                        </SettingRow>
+                    </div>
+
+                    <Separator />
+
+                    {/* Behaviour settings */}
+                    <div className="flex flex-col gap-2">
+                        <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Behaviour</span>
+                        <SettingRow label="Auto-play Videos">
+                            <LabeledSwitch
+                                checked={staged.autoPlayVideos}
+                                onCheckedChange={v => setStaged({ autoPlayVideos: v })}
+                            />
+                        </SettingRow>
+                        <SettingRow label="Ctrl+G Shortcut" description="Open gallery with keyboard shortcut">
+                            <LabeledSwitch
+                                checked={staged.galleryShortcut}
+                                onCheckedChange={v => setStaged({ galleryShortcut: v })}
+                            />
+                        </SettingRow>
+                        <SettingRow label="Expand All Folders" description="Expand all sidebar folders on load">
+                            <LabeledSwitch
+                                checked={staged.expandAllFolders}
+                                onCheckedChange={v => setStaged({ expandAllFolders: v })}
+                            />
+                        </SettingRow>
+                    </div>
+
+                    <Separator />
+
+                    {/* Advanced */}
+                    <div className="flex flex-col gap-2">
+                        <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Advanced</span>
+                        <SettingRow label="Button Box Query" description="CSS selector for injecting the React root">
+                            <Input
+                                className="h-8 w-52 text-xs font-mono"
+                                value={staged.buttonBoxQuery}
+                                onChange={e => setStaged({ buttonBoxQuery: e.target.value })}
+                            />
+                        </SettingRow>
+                        <SettingRow label="Terminal Logs">
+                            <LabeledSwitch
+                                checked={!staged.disableLogs}
+                                onCheckedChange={v => setStaged({ disableLogs: !v })}
+                            />
+                        </SettingRow>
+                        <SettingRow label="File Watcher" description="Polling works on network drives; native is more efficient">
+                            <SegmentedControl
+                                value={staged.usePollingObserver ? 'polling' : 'native'}
+                                options={[
+                                    { value: 'native', label: 'Native' },
+                                    { value: 'polling', label: 'Polling' },
+                                ]}
+                                onChange={v => setStaged({ usePollingObserver: v === 'polling' })}
+                            />
+                        </SettingRow>
+                        <div>
+                            <label className="text-sm font-medium">Scan File Extensions</label>
+                            <p className="text-xs text-muted-foreground mb-1">Comma separated (e.g. png, jpg, mp4, wav)</p>
+                            <Input value={extInput} onChange={e => setExtInput(e.target.value)} />
+                        </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Danger zone */}
                     <div>
                         <label className="text-sm font-medium text-destructive">Danger Zone</label>
                         {dbStatus && (

@@ -125,6 +125,13 @@ export const ComfyAppApi = {
         } catch(e) { console.error(e); }
         return {};
     },
+    resolvePath: async (path: string): Promise<{ resolved: string; exists: boolean } | null> => {
+        try {
+            const res = await app.api.fetchApi(`/Gallery/resolve_path?path=${encodeURIComponent(path)}`, { cache: 'no-store' });
+            if (res.ok) return await res.json();
+        } catch(e) { console.error(e); }
+        return null;
+    },
     saveSettings: async (settings: any) => {
         try {
             await app.api.fetchApi("/Gallery/settings", {

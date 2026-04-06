@@ -83,20 +83,6 @@ const GalleryOpenButton = () => {
         );
     }
 
-    if (settings.hideOpenButton) {
-        return (<>
-            <Button
-                id={OPEN_BUTTON_ID}
-                onClick={() => {
-                    if (!loading) setOpen(true);
-                }}
-                style={{
-                    display: "none"
-                }}
-            ></Button>
-        </>);
-    };
-
     if (settings.floatingButton) {
         // Floating, draggable button — drag via the handle bar above the button
         return (

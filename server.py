@@ -214,6 +214,36 @@ async def save_settings(request):
     except Exception as e:
         return web.Response(status=500, text=str(e))
 
+
+def _resolve_path(raw: str) -> str:
+    """Resolve a raw path string to an absolute path using the same logic as monitor/start."""
+    base = _get_output_directory()
+    if not raw or raw.strip() in ("", "null"):
+        return base
+    if os.path.isabs(raw):
+        return os.path.normpath(raw)
+    if raw in ("./", ".", ""):
+        return base
+    return os.path.normpath(os.path.join(base, raw))
+
+
+@PromptServer.instance.routes.get("/Gallery/resolve_path")
+async def resolve_path(request):
+    """Return the resolved absolute path and whether it exists on disk.
+
+    Query params:
+      path=<raw>  — the path string as typed by the user (relative or absolute)
+
+    Response: { "resolved": "/abs/path", "exists": true|false }
+    No side effects.
+    """
+    raw = request.rel_url.query.get("path", "./")
+    resolved = _resolve_path(raw)
+    return web.json_response(
+        {"resolved": resolved, "exists": os.path.isdir(resolved)},
+        headers=_NO_CACHE,
+    )
+
 @PromptServer.instance.routes.get("/Gallery/images")
 async def get_gallery_images(request):
     """Endpoint to get gallery images, accepts relative_path."""
@@ -224,14 +254,7 @@ async def get_gallery_images(request):
     else:
         relative_path = raw_rel
 
-    # Fix: Only join if relative_path is not absolute or '.'
-    base_output_dir = _get_output_directory()
-    if os.path.isabs(relative_path):
-        full_monitor_path = os.path.normpath(relative_path)
-    elif relative_path in ("./", ".", ""):  # treat as root
-        full_monitor_path = base_output_dir
-    else:
-        full_monitor_path = os.path.normpath(os.path.join(base_output_dir, relative_path))
+    full_monitor_path = _resolve_path(relative_path)
 
     # Use a thread-safe queue to communicate between threads.
     result_queue = queue.Queue()
@@ -402,14 +425,8 @@ async def start_gallery_monitor(request):
         scan_extensions = data.get("scan_extensions", DEFAULT_EXTENSIONS)
         disable_logs = gallery_config.disable_logs
         use_polling_observer = gallery_config.use_polling_observer
-        # Build full monitor path: absolute paths are used as-is, relative ones are joined to output dir
-        base_output_dir = _get_output_directory()
-        if relative_path and os.path.isabs(relative_path):
-            full_monitor_path = os.path.normpath(relative_path)
-        elif relative_path in ("./", ".", ""):
-            full_monitor_path = base_output_dir
-        else:
-            full_monitor_path = os.path.normpath(os.path.join(base_output_dir, relative_path))
+        # Build full monitor path using shared helper
+        full_monitor_path = _resolve_path(relative_path)
         gallery_log("disable_logs", disable_logs)
         gallery_log("use_polling_observer", use_polling_observer)
         if monitor and monitor.thread and monitor.thread.is_alive():

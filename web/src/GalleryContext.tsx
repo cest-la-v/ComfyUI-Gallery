@@ -29,10 +29,9 @@ export interface SettingsState {
     buttonLabel: string;
     floatingButton: boolean;
     autoPlayVideos: boolean;
-    hideOpenButton: boolean;
-    darkMode: boolean; 
+    darkMode: boolean;
     galleryShortcut: boolean;
-    expandAllFolders: boolean; 
+    expandAllFolders: boolean;
     disableLogs: boolean;
     usePollingObserver: boolean;
     scanExtensions: string[];
@@ -46,14 +45,13 @@ export const DEFAULT_SETTINGS: SettingsState = {
     buttonLabel: 'Open Gallery',
     floatingButton: true,
     autoPlayVideos: true,
-    hideOpenButton: false,
-    darkMode: true, 
-    galleryShortcut: true, 
-    expandAllFolders: true, 
+    darkMode: true,
+    galleryShortcut: true,
+    expandAllFolders: true,
     disableLogs: false,
     usePollingObserver: false,
     scanExtensions: ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'gif', 'webm', 'mov', 'wav', 'mp3', 'm4a', 'flac'],
-    _settingsVersion: 2,
+    _settingsVersion: 3,
 };
 export const STORAGE_KEY = 'comfy-ui-gallery-settings';
 
@@ -213,11 +211,12 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         return () => clearInterval(interval);
     }, [open]);
 
-    // One-time migration: settings stored before the shadcn migration (v1) had darkMode:false.
-    // Force darkMode:true for any stored settings that lack _settingsVersion >= 2.
+    // One-time migrations:
+    // v1→v2: darkMode was false by default, force true.
+    // v2→v3: hideOpenButton removed — no conversion needed, unknown fields are ignored.
     useEffect(() => {
-        if (settingsState && (settingsState._settingsVersion ?? 1) < 2) {
-            setSettings({ ...settingsState, darkMode: true, _settingsVersion: 2 });
+        if (settingsState && (settingsState._settingsVersion ?? 1) < 3) {
+            setSettings({ ...settingsState, darkMode: true, _settingsVersion: 3 });
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
