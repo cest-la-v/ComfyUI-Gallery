@@ -134,7 +134,7 @@ const GallerySettingsModal = () => {
 
     return (
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg" aria-describedby={undefined}>
                 <DialogHeader>
                     <DialogTitle>Settings</DialogTitle>
                 </DialogHeader>
