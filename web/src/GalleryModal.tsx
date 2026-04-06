@@ -48,7 +48,7 @@ const GalleryModal = () => {
                     aria-describedby={undefined}
                     className="p-0 gap-0 w-[95vw] max-w-none h-[92vh] flex flex-col overflow-hidden rounded-lg"
                     style={{ zIndex: BASE_Z_INDEX + 1 }}
-                    onInteractOutside={(e) => e.preventDefault()}
+                    onInteractOutside={(e) => { if (showSettings) e.preventDefault(); }}
                     data-gallery-root
                 >
                     <DialogTitle className="sr-only">Gallery</DialogTitle>
