@@ -123,7 +123,7 @@ ComfyAppApi.registerExtension({
     actionBarButtons: isComfyMode ? [{
         icon: 'icon-[lucide--images]',
         label: _earlySettings.buttonLabel || 'Gallery',
-        tooltip: 'Open Gallery',
+        class: 'comfy-gallery-primary-btn',
         onClick: () => {
             document.getElementById(OPEN_BUTTON_ID)?.click();
         }

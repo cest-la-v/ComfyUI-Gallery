@@ -116,6 +116,19 @@
     --ring: oklch(0.546 0.245 262.881);
 }
 
+/* ComfyUI primary-blue button style — matches the "Run" button.
+   Applied to the native actionBarButton and the floating open button.
+   Uses ComfyUI's own CSS variables so it tracks theme changes automatically. */
+.comfy-gallery-primary-btn {
+    background: var(--primary-background) !important;
+    color: var(--base-foreground) !important;
+    border-radius: 0.5rem !important;
+    font-weight: 300 !important;
+}
+.comfy-gallery-primary-btn:hover {
+    background: var(--primary-background-hover) !important;
+}
+
 /* Lightbox toolbar divider */
 .lb-divider {
     width: 1px;

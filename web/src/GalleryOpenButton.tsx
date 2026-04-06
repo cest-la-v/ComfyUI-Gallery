@@ -153,7 +153,7 @@ const GalleryOpenButton = () => {
                 />
                 <Button
                     id={OPEN_BUTTON_ID}
-                    className="min-w-[120px] gap-2"
+                    className="comfy-gallery-primary-btn min-w-[120px] gap-2"
                     disabled={loading}
                     onClick={() => { if (!loading) setOpen(true); }}
                 >
