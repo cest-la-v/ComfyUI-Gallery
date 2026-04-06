@@ -1,5 +1,6 @@
 import './globals.css';
 import { createRoot } from 'react-dom/client'
+import { useState } from 'react';
 import Gallery from './Gallery.tsx'
 import { DEFAULT_SETTINGS, STORAGE_KEY, type SettingsState } from './GalleryContext.tsx';
 import { ComfyAppApi, OPEN_BUTTON_ID, isComfyMode } from './ComfyAppApi.ts';
@@ -163,16 +164,9 @@ ComfyAppApi.registerExtension({
 
             const box = document.createElement("div");
             box.id = 'comfy-gallery-root';
-            const portals = document.createElement("div");
-            portals.id = 'comfy-gallery-portals';
-            box.appendChild(portals);
             targetElement.appendChild(box);
 
-            createRoot(box).render(
-                <PortalProvider value={portals}>
-                    <Main />
-                </PortalProvider>,
-            );
+            createRoot(box).render(<Main />);
 
             ComfyAppApi.startMonitoring(settings.relativePath);
         })();
@@ -206,15 +200,21 @@ function Main() {
         defaultValue: DEFAULT_SETTINGS,
         listenStorageChange: true,
     });
+    // Render #comfy-gallery-portals as a React-owned node so React doesn't
+    // remove it during reconciliation. Pass it to all Radix portals via context.
+    const [portalsEl, setPortalsEl] = useState<HTMLElement | null>(null);
 
-    return (<>
-        <TooltipProvider delayDuration={300}>
-            <Gallery />
-        </TooltipProvider>
-        <Toaster
-            theme={settingsState.darkMode ? 'dark' : 'light'}
-            position="bottom-right"
-            richColors
-        />
-    </>);
+    return (
+        <PortalProvider value={portalsEl}>
+            <TooltipProvider delayDuration={300}>
+                <Gallery />
+            </TooltipProvider>
+            <Toaster
+                theme={settingsState.darkMode ? 'dark' : 'light'}
+                position="bottom-right"
+                richColors
+            />
+            <div id="comfy-gallery-portals" ref={setPortalsEl} />
+        </PortalProvider>
+    );
 }
