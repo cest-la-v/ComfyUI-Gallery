@@ -98,7 +98,7 @@ const GalleryOpenButton = () => {
     };
 
     if (settings.floatingButton) {
-        // Floating, draggable button — drag from the button itself
+        // Floating, draggable button — drag via the handle bar above the button
         return (
             <div
                 ref={btnRef}
@@ -109,39 +109,49 @@ const GalleryOpenButton = () => {
                     zIndex: 1000,
                     userSelect: 'none',
                 }}
-                onMouseDown={e => {
-                    const startX = e.clientX;
-                    const startY = e.clientY;
-                    const origX = position?.x ?? 32;
-                    const origY = position?.y ?? 32;
-                    const onMove = (moveEvent: MouseEvent) => {
-                        const dx = moveEvent.clientX - startX;
-                        const dy = moveEvent.clientY - startY;
-                        let newX = origX + dx;
-                        let newY = origY + dy;
-                        const btnRect = btnRef.current?.getBoundingClientRect();
-                        const btnWidth = btnRect?.width || 120;
-                        const btnHeight = btnRect?.height || 36;
-                        const maxX = window.innerWidth - btnWidth - 8;
-                        const maxY = window.innerHeight - btnHeight - 8;
-                        newX = Math.max(8, Math.min(newX, maxX));
-                        newY = Math.max(8, Math.min(newY, maxY));
-                        const newPos = { x: newX, y: newY };
-                        setPosition(newPos);
-                        savePosition(newPos);
-                    };
-                    const onUp = () => {
-                        window.removeEventListener('mousemove', onMove);
-                        window.removeEventListener('mouseup', onUp);
-                    };
-                    window.addEventListener('mousemove', onMove);
-                    window.addEventListener('mouseup', onUp);
-                }}
             >
+                <div
+                    style={{
+                        width: 32,
+                        height: 8,
+                        background: '#888',
+                        borderRadius: 4,
+                        margin: '0 auto 4px auto',
+                        cursor: 'grab',
+                    }}
+                    title="Drag to move"
+                    onMouseDown={e => {
+                        const startX = e.clientX;
+                        const startY = e.clientY;
+                        const origX = position?.x ?? 32;
+                        const origY = position?.y ?? 32;
+                        const onMove = (moveEvent: MouseEvent) => {
+                            const dx = moveEvent.clientX - startX;
+                            const dy = moveEvent.clientY - startY;
+                            let newX = origX + dx;
+                            let newY = origY + dy;
+                            const btnRect = btnRef.current?.getBoundingClientRect();
+                            const btnWidth = btnRect?.width || 120;
+                            const btnHeight = btnRect?.height || 40;
+                            const maxX = window.innerWidth - btnWidth - 8;
+                            const maxY = window.innerHeight - btnHeight - 8;
+                            newX = Math.max(8, Math.min(newX, maxX));
+                            newY = Math.max(8, Math.min(newY, maxY));
+                            const newPos = { x: newX, y: newY };
+                            setPosition(newPos);
+                            savePosition(newPos);
+                        };
+                        const onUp = () => {
+                            window.removeEventListener('mousemove', onMove);
+                            window.removeEventListener('mouseup', onUp);
+                        };
+                        window.addEventListener('mousemove', onMove);
+                        window.addEventListener('mouseup', onUp);
+                    }}
+                />
                 <Button
                     id={OPEN_BUTTON_ID}
                     className="comfy-gallery-primary-btn gap-1.5"
-                    style={{ cursor: 'grab' }}
                     disabled={loading}
                     onClick={() => { if (!loading) setOpen(true); }}
                 >
