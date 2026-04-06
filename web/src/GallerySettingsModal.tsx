@@ -145,33 +145,51 @@ const GallerySettingsModal = () => {
 
                 <div className="flex flex-col gap-3 py-2">
 
-                    {/* Source path */}
-                    <div>
-                        <label className="text-sm font-medium">Source Path</label>
-                        <Input
-                            className="mt-1"
-                            value={staged.relativePath}
-                            onChange={e => setStaged({ relativePath: e.target.value })}
-                            placeholder="./ or /absolute/path"
-                        />
-                        {/* Live resolved path display */}
-                        <div className="mt-1 min-h-[1.25rem] flex items-center gap-1.5">
-                            {resolving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                            {!resolving && resolvedPath && (
-                                <>
-                                    {resolvedPath.exists
-                                        ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                                        : <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
-                                    }
-                                    <span className={cn(
-                                        "text-xs font-mono truncate",
-                                        resolvedPath.exists ? "text-muted-foreground" : "text-destructive"
-                                    )}>
-                                        {resolvedPath.resolved}
-                                        {!resolvedPath.exists && " (not found)"}
-                                    </span>
-                                </>
-                            )}
+                    {/* Source group: where/how/what to watch */}
+                    <div className="flex flex-col gap-2">
+                        <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Source</span>
+                        <div>
+                            <label className="text-sm font-medium">Source Path</label>
+                            <Input
+                                className="mt-1"
+                                value={staged.relativePath}
+                                onChange={e => setStaged({ relativePath: e.target.value })}
+                                placeholder="./ or /absolute/path"
+                            />
+                            {/* Live resolved path display */}
+                            <div className="mt-1 min-h-[1.25rem] flex items-center gap-1.5">
+                                {resolving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                                {!resolving && resolvedPath && (
+                                    <>
+                                        {resolvedPath.exists
+                                            ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                                            : <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                                        }
+                                        <span className={cn(
+                                            "text-xs font-mono truncate",
+                                            resolvedPath.exists ? "text-muted-foreground" : "text-destructive"
+                                        )}>
+                                            {resolvedPath.resolved}
+                                            {!resolvedPath.exists && " (not found)"}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                        <SettingRow label="File Watcher" description="Polling works on network drives; native is more efficient">
+                            <SegmentedControl
+                                value={staged.usePollingObserver ? 'polling' : 'native'}
+                                options={[
+                                    { value: 'native', label: 'Native' },
+                                    { value: 'polling', label: 'Polling' },
+                                ]}
+                                onChange={v => setStaged({ usePollingObserver: v === 'polling' })}
+                            />
+                        </SettingRow>
+                        <div>
+                            <label className="text-sm font-medium">Scan File Extensions</label>
+                            <p className="text-xs text-muted-foreground mb-1">Comma separated (e.g. png, jpg, mp4, wav)</p>
+                            <Input value={extInput} onChange={e => setExtInput(e.target.value)} />
                         </div>
                     </div>
 
@@ -237,21 +255,6 @@ const GallerySettingsModal = () => {
                                 onCheckedChange={v => setStaged({ disableLogs: !v })}
                             />
                         </SettingRow>
-                        <SettingRow label="File Watcher" description="Polling works on network drives; native is more efficient">
-                            <SegmentedControl
-                                value={staged.usePollingObserver ? 'polling' : 'native'}
-                                options={[
-                                    { value: 'native', label: 'Native' },
-                                    { value: 'polling', label: 'Polling' },
-                                ]}
-                                onChange={v => setStaged({ usePollingObserver: v === 'polling' })}
-                            />
-                        </SettingRow>
-                        <div>
-                            <label className="text-sm font-medium">Scan File Extensions</label>
-                            <p className="text-xs text-muted-foreground mb-1">Comma separated (e.g. png, jpg, mp4, wav)</p>
-                            <Input value={extInput} onChange={e => setExtInput(e.target.value)} />
-                        </div>
                     </div>
 
                     <Separator />
