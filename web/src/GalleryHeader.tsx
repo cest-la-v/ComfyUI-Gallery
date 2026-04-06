@@ -361,6 +361,7 @@ const GalleryHeader = () => {
                         <Button
                             size="icon"
                             variant="ghost"
+                            className="comfy-gallery-icon-btn"
                             onClick={() => setSettings({ ...settings, darkMode: !settings.darkMode })}
                         >
                             {settings.darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -371,7 +372,7 @@ const GalleryHeader = () => {
 
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button size="icon" variant="ghost" onClick={() => setShowSettings(true)}>
+                        <Button size="icon" variant="ghost" className="comfy-gallery-icon-btn" onClick={() => setShowSettings(true)}>
                             <Settings className="h-4 w-4" />
                         </Button>
                     </TooltipTrigger>
@@ -390,7 +391,7 @@ const GalleryHeader = () => {
                                 variant="ghost"
                                 onClick={() => { setOpen(false); }}
                                 className={cn(
-                                    "transition-all duration-200",
+                                    "comfy-gallery-icon-btn transition-all duration-200",
                                     targetDate ? "text-destructive h-9 px-3 w-auto" : "h-9 w-9"
                                 )}
                             >

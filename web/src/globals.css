@@ -139,7 +139,19 @@
     background: var(--primary-background-hover) !important;
 }
 
-/* Lightbox toolbar divider */
+/* Gallery header icon buttons — !important needed because ComfyUI CSS has higher-specificity
+   rules (e.g. scoped button selectors) that can override class-level text color. */
+.comfy-gallery-icon-btn {
+    color: var(--foreground) !important;
+    background: transparent !important;
+    border: none !important;
+}
+.comfy-gallery-icon-btn:hover {
+    background: var(--accent) !important;
+    color: var(--accent-foreground) !important;
+}
+
+
 .lb-divider {
     width: 1px;
     height: 1.25rem;
