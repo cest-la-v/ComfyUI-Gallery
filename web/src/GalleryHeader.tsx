@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
-    ChevronsLeft, ChevronsRight, X, Settings, Sun, Moon, Loader2,
+    X, Settings, Sun, Moon, Loader2, Folder,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -157,7 +157,8 @@ const GalleryHeader = () => {
         setOpen,
         selectedImages, setSelectedImages,
         mutate,
-        siderCollapsed, setSiderCollapsed,
+        currentFolder, setCurrentFolder,
+        data,
         settings, setSettings,
     } = useGalleryContext();
 
@@ -246,18 +247,39 @@ const GalleryHeader = () => {
         else toast.success(`Deleted ${deleted} image(s).`);
     }, [selectedImages, mutate, setSelectedImages]);
 
+    // Build folder options from data for the toolbar dropdown
+    const folderOptions = useMemo(() => {
+        if (!data?.folders) return [];
+        const paths = Object.keys(data.folders).sort();
+        const root = paths[0]?.split('/')[0] ?? '';
+        const totalCount = paths.reduce((acc, p) => acc + Object.keys(data.folders![p] ?? {}).length, 0);
+        const options = [{ value: '', label: `All (${totalCount})` }];
+        for (const p of paths) {
+            const stripped = root && p.startsWith(root) ? p.slice(root.length + 1) : p;
+            const count = Object.keys(data.folders[p] ?? {}).length;
+            options.push({ value: p, label: `${stripped || '(root)'} (${count})` });
+        }
+        return options;
+    }, [data]);
+
     return (
         <div className="flex items-center justify-between w-full gap-2">
 
-            {/* Left zone: sidebar toggle + bulk actions + active filter tag */}
+            {/* Left zone: folder selector + bulk actions + active filter tag */}
             <div className="flex items-center gap-2 shrink-0">
-                <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={() => setSiderCollapsed((prev: boolean) => !prev)}
-                >
-                    {siderCollapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
-                </Button>
+                <Select value={currentFolder} onValueChange={v => setCurrentFolder(v)}>
+                    <SelectTrigger className="h-9 min-w-[140px] max-w-[220px] shrink-0">
+                        <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-[3200]">
+                        {folderOptions.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
 
                 {selectedImages && selectedImages.length > 0 && (
                     <>

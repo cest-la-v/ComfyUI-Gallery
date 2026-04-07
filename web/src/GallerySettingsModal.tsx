@@ -236,12 +236,6 @@ const GallerySettingsModal = () => {
                                 onCheckedChange={v => setStaged({ galleryShortcut: v })}
                             />
                         </SettingRow>
-                        <SettingRow label="Expand All Folders" description="Expand all sidebar folders on load">
-                            <LabeledSwitch
-                                checked={staged.expandAllFolders}
-                                onCheckedChange={v => setStaged({ expandAllFolders: v })}
-                            />
-                        </SettingRow>
                     </div>
 
                     <Separator />

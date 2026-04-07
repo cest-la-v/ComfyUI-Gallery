@@ -30,7 +30,6 @@ export interface SettingsState {
     autoPlayVideos: boolean;
     darkMode: boolean;
     galleryShortcut: boolean;
-    expandAllFolders: boolean;
     disableLogs: boolean;
     usePollingObserver: boolean;
     scanExtensions: string[];
@@ -45,7 +44,6 @@ export const DEFAULT_SETTINGS: SettingsState = {
     autoPlayVideos: true,
     darkMode: true,
     galleryShortcut: true,
-    expandAllFolders: true,
     disableLogs: false,
     usePollingObserver: false,
     scanExtensions: ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'gif', 'webm', 'mov', 'wav', 'mp3', 'm4a', 'flac'],
@@ -101,8 +99,6 @@ export interface GalleryContextType {
     setSettings: (v: SettingsState) => void;
     selectedImages: string[];
     setSelectedImages: React.Dispatch<React.SetStateAction<string[]>>;
-    siderCollapsed: boolean;
-    setSiderCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
     showMetadataPanel: boolean;
     setShowMetadataPanel: React.Dispatch<React.SetStateAction<boolean>>;
     filteredRelPaths: string[] | null;
@@ -124,7 +120,6 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const [open, setOpen] = useState(false);
     const [previewingVideo, setPreviewingVideo] = useState<string | undefined>(undefined);
     const [selectedImages, setSelectedImages] = useState<string[]>([]);
-    const [siderCollapsed, setSiderCollapsed] = useState(true);
     const [showMetadataPanel, setShowMetadataPanel] = useState(false);
     const size= useSize(document.querySelector('body'));
     const imagesBoxSize = useSize(document.querySelector('#imagesBox'));
@@ -432,8 +427,6 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         setSettings: saveSettings,
         selectedImages,
         setSelectedImages,
-        siderCollapsed,
-        setSiderCollapsed,
         showMetadataPanel,
         setShowMetadataPanel,
     }), [
@@ -464,8 +457,6 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         saveSettings,
         selectedImages,
         setSelectedImages,
-        siderCollapsed,
-        setSiderCollapsed,
         showMetadataPanel,
         setShowMetadataPanel,
     ]);

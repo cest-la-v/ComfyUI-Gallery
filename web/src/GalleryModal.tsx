@@ -1,16 +1,14 @@
 import { useGalleryContext } from './GalleryContext';
 import GalleryHeader from './GalleryHeader';
-import GallerySidebar from './GallerySidebar';
 import GalleryImageGrid from './GalleryImageGrid';
 import GallerySettingsModal from './GallerySettingsModal';
 import GroupView from './GroupView';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { BASE_Z_INDEX } from './ComfyAppApi';
-import { cn } from '@/lib/utils';
 
 const GalleryModal = () => {
     const {
-        open, setOpen, showSettings, siderCollapsed,
+        open, setOpen, showSettings,
         viewMode, setViewMode, setActiveFilter, setFilteredRelPaths,
     } = useGalleryContext();
 
@@ -66,22 +64,7 @@ const GalleryModal = () => {
                                 activeTab={viewMode === 'prompt' ? 'prompt' : 'model'}
                             />
                         ) : (
-                            <>
-                                {/* Sidebar */}
-                                <div
-                                    className={cn(
-                                        "overflow-auto shrink-0 transition-all duration-200",
-                                        siderCollapsed ? "w-0" : "w-[20%]"
-                                    )}
-                                    style={{ scrollbarWidth: 'thin', scrollbarGutter: 'stable' }}
-                                >
-                                    <GallerySidebar />
-                                </div>
-                                {/* Main image grid */}
-                                <div className="flex-1 min-w-0 overflow-hidden">
-                                    <GalleryImageGrid />
-                                </div>
-                            </>
+                            <GalleryImageGrid />
                         )}
                     </div>
                 </DialogContent>
