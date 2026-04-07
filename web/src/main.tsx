@@ -53,6 +53,8 @@ ComfyAppApi.registerExtension({
             // Guard against duplicate roots on HMR / re-init
             const existing = document.getElementById('comfy-gallery-root');
             if (existing) existing.remove();
+            const existingYarl = document.getElementById('comfy-gallery-yarl-root');
+            if (existingYarl) existingYarl.remove();
 
             // Mount the gallery root at document.body — not inside the ComfyUI
             // toolbar. The open buttons (action bar native button, floating button)
@@ -63,15 +65,20 @@ ComfyAppApi.registerExtension({
             box.id = 'comfy-gallery-root';
             document.body.appendChild(box);
 
-            // Dedicated mount point for yarl's Lightbox portal.
-            // yarl's Portal module marks all siblings of its portal node as `inert`
-            // (standard modal accessibility pattern). Without this, yarl would mark
-            // #comfy-gallery-root as inert — making our portaled toolbar and
-            // MetadataPanel unresponsive. Giving yarl a private container inside
-            // #comfy-gallery-root means the sibling-inert loop finds no siblings.
+            // Dedicated mount point for yarl's Lightbox portal, appended as a
+            // SIBLING of box (not a child). React 18 clears its container's children
+            // during reconciliation, so any element appended inside box before render
+            // would be removed. As a sibling, React never touches it.
+            //
+            // Why this matters: yarl's Portal module sets inert + aria-hidden on all
+            // siblings of its portal node (standard modal a11y pattern). Without this,
+            // yarl portals to document.body and marks #comfy-gallery-root as inert,
+            // making all portaled toolbar/MetadataPanel elements non-interactive.
+            // With this, yarl portals into #comfy-gallery-yarl-root which has no
+            // siblings, so nothing is inerted.
             const yarlRoot = document.createElement("div");
             yarlRoot.id = 'comfy-gallery-yarl-root';
-            box.appendChild(yarlRoot);
+            document.body.appendChild(yarlRoot);
 
             createRoot(box).render(<Main />);
 
