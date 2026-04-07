@@ -1,6 +1,6 @@
 import { useGalleryContext } from './GalleryContext';
 import GalleryHeader from './GalleryHeader';
-import GalleryImageGrid from './GalleryImageGrid';
+import GalleryLightbox from './GalleryLightbox';
 import GallerySettingsModal from './GallerySettingsModal';
 import GroupView from './GroupView';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -65,7 +65,7 @@ const GalleryModal = () => {
                                 activeTab={viewMode === 'prompt' ? 'prompt' : 'model'}
                             />
                         ) : (
-                            <GalleryImageGrid />
+                            <GalleryLightbox />
                         )}
                     </div>
                 </DialogContent>

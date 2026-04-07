@@ -1,17 +1,15 @@
-import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
+import React, { useMemo, useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Lightbox from 'yet-another-react-lightbox';
 import type { Slide } from 'yet-another-react-lightbox';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import { toast } from 'sonner';
-import { AutoSizer } from 'react-virtualized';
-import { VariableSizeGrid } from 'react-window';
-import ImageCard, { ImageCardHeight, ImageCardWidth } from './ImageCard';
+import GalleryGrid from './GalleryGrid';
 import { useGalleryContext } from './GalleryContext';
 import { MetadataPanel } from './MetadataPanel';
 import type { FileDetails } from './types';
 import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
-import { Info, FileText, Copy, Download, Trash2, Check, Loader2, Music, RotateCcw, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
+import { Info, FileText, Copy, Download, Trash2, Check, Music, RotateCcw, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { usePortal } from './PortalContext';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -25,32 +23,23 @@ import { buttonVariants } from '@/components/ui/button';
 // which would incorrectly activate the Zoom plugin on non-image slides.
 type GallerySlide = Slide & { fileDetails: FileDetails; type?: string };
 
-const GalleryImageGrid = () => {
+const GalleryLightbox = () => {
     const {
-        data,
-        currentFolder,
-        gridSize,
-        setGridSize,
-        autoSizer,
-        setAutoSizer,
-        imageInfoName,
-        setImageInfoName,
-        setPreviewingVideo,
+        imagesDetailsList,
         showRawMetadata,
         setShowRawMetadata,
         showMetadataPanel,
         setShowMetadataPanel,
-        imagesDetailsList,
-        loading,
+        setImageInfoName,
+        setPreviewingVideo,
     } = useGalleryContext();
     const portalTarget = usePortal();
-    const containerRef = useRef<HTMLDivElement>(null);
-    const gridRef = useRef<VariableSizeGrid>(null);
-    const [copySuccess, setCopySuccess] = useState(false);
+
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     const [showLightboxDeleteConfirm, setShowLightboxDeleteConfirm] = useState(false);
     const lightboxDeleteImageRef = useRef<FileDetails | undefined>(undefined);
+    const [copySuccess, setCopySuccess] = useState(false);
     const [imageRotation, setImageRotation] = useState<0 | 90 | 180 | 270>(0);
     const [imageFlipH, setImageFlipH] = useState(false);
     const [imageFlipV, setImageFlipV] = useState(false);
@@ -73,91 +62,10 @@ const GalleryImageGrid = () => {
 
     const currentImage: FileDetails | undefined = previewableImages[lightboxIndex];
 
-    const getRowHeight = useCallback((rowIndex: number) => {
-        const firstItem = imagesDetailsList[rowIndex * gridSize.columnCount];
-        return firstItem?.type === 'divider' ? 56 : ImageCardHeight + 16;
-    }, [imagesDetailsList, gridSize.columnCount]);
-
-    useEffect(() => {
-        gridRef.current?.resetAfterRowIndex(0);
-    }, [imagesDetailsList, gridSize.columnCount]);
-
-    const handleInfoClick = useCallback((imageName: string) => {
-        const item = data?.folders?.[currentFolder]?.[imageName];
-        if (item && (item.type === 'media' || item.type === 'audio')) setPreviewingVideo(item.name);
-        else setPreviewingVideo(undefined);
-        setImageInfoName(imageName);
-    }, [setImageInfoName, data, currentFolder, setPreviewingVideo]);
-
     const openLightbox = useCallback((url: string) => {
         const idx = previewableImages.findIndex(img => img.url === url);
         if (idx >= 0) { setLightboxIndex(idx); setLightboxOpen(true); }
     }, [previewableImages]);
-
-    const Cell = useCallback(({ columnIndex, rowIndex, style }: { columnIndex: number; rowIndex: number; style: React.CSSProperties }) => {
-        const index = rowIndex * gridSize.columnCount + columnIndex;
-        const image = imagesDetailsList[index];
-        if (!image) return null;
-
-        if (image.type === 'divider') {
-            if (columnIndex !== 0) return null;
-            return (
-                <div
-                    style={{
-                        ...style,
-                        width: `calc(${gridSize.columnCount} * ${ImageCardWidth + 16}px)`,
-                        background: 'transparent',
-                        display: 'flex',
-                        alignItems: 'flex-end',
-                        paddingLeft: 16,
-                        paddingBottom: 8,
-                        paddingTop: 16,
-                        position: 'absolute',
-                        zIndex: 2,
-                        gap: 8,
-                    }}
-                >
-                    <span style={{ fontWeight: 700, fontSize: 14, color: '#aaa', letterSpacing: '0.01em' }}>
-                        {image.name}
-                    </span>
-                    {image.count != null && (
-                        <span style={{ fontSize: 11, lineHeight: '18px', padding: '0 6px', borderRadius: 10, background: 'rgba(255,255,255,0.08)', color: '#888' }}>
-                            {image.count}
-                        </span>
-                    )}
-                </div>
-            );
-        }
-
-        if (image.type === 'empty-space') {
-            return <div style={{ ...style, background: 'transparent' }} />;
-        }
-
-        return (
-            <div style={{ ...style, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <ImageCard
-                    image={{ ...image, dragFolder: currentFolder }}
-                    key={image.name}
-                    onInfoClick={() => handleInfoClick(image.name)}
-                    onOpenLightbox={() => openLightbox(image.url)}
-                />
-            </div>
-        );
-    }, [gridSize.columnCount, imagesDetailsList, handleInfoClick, openLightbox, currentFolder]);
-
-    useEffect(() => {
-        const { width, height } = autoSizer;
-        const columnCount = Math.max(1, Math.floor(width / (ImageCardWidth + 16)));
-        const rowCount = Math.ceil(imagesDetailsList.length / columnCount);
-        setGridSize({ width, height, columnCount, rowCount });
-    }, [autoSizer.width, autoSizer.height, imagesDetailsList.length, autoSizer, setGridSize]);
-
-    useEffect(() => {
-        const grid = document.querySelector('.grid-element');
-        if (grid) {
-            Array.from(grid.children).forEach(child => { (child as HTMLElement).style.position = 'relative'; });
-        }
-    }, [gridSize, imageInfoName, currentFolder, data]);
 
     const handleLightboxView = useCallback(({ index }: { index: number }) => {
         const img = previewableImages[index];
@@ -231,8 +139,7 @@ const GalleryImageGrid = () => {
         );
     }, [imageRotation, imageFlipH, imageFlipV]);
 
-
-    const renderLightboxToolbar = () => {
+    const renderToolbar = () => {
         if (!lightboxOpen || !currentImage) return null;
         if (currentImage.type === 'media' || currentImage.type === 'audio') return null;
 
@@ -362,14 +269,7 @@ const GalleryImageGrid = () => {
     };
 
     return (
-        <div id="imagesBox" style={{ width: '100%', height: '100%', position: 'relative' }} ref={containerRef}>
-            {loading && (
-                <div className="absolute inset-0 bg-zinc-900/50 z-[100] flex items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-            )}
-
-            {/* Lightbox */}
+        <div id="imagesBox" style={{ width: '100%', height: '100%', position: 'relative' }}>
             <Lightbox
                 open={lightboxOpen}
                 index={lightboxIndex}
@@ -381,21 +281,16 @@ const GalleryImageGrid = () => {
                 styles={{ root: { '--yarl__portal_zindex': '3100', '--yarl__color_backdrop': 'rgba(0,0,0,0.88)' } as Parameters<typeof Lightbox>[0]['styles'] extends { root?: infer R } ? R : never }}
             />
 
-            {/* MetadataPanel: portaled to #comfy-gallery-portals to escape DialogContent's
-                translate-x/y transform stacking context */}
+            {/* Toolbar: portaled to escape DialogContent's stacking context */}
+            {createPortal(renderToolbar(), portalTarget ?? document.body)}
+
+            {/* MetadataPanel: portaled for same reason */}
             {lightboxOpen && currentImage && createPortal(
                 <MetadataPanel image={currentImage} />,
                 portalTarget ?? document.body
             )}
 
-            {/* Lightbox toolbar: portaled so it lives in OUR React tree,
-                not inside yarl's internal React root where event delegation breaks */}
-            {lightboxOpen && currentImage && createPortal(
-                renderLightboxToolbar(),
-                portalTarget ?? document.body
-            )}
-
-            {/* Lightbox delete confirm */}
+            {/* Delete confirm */}
             <AlertDialog open={showLightboxDeleteConfirm} onOpenChange={setShowLightboxDeleteConfirm}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -422,36 +317,9 @@ const GalleryImageGrid = () => {
                 </AlertDialogContent>
             </AlertDialog>
 
-            {imagesDetailsList.length === 0 ? (
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                    No images found
-                </div>
-            ) : (
-                <AutoSizer>
-                    {({ width, height }) => {
-                        if (autoSizer.width !== width || autoSizer.height !== height) {
-                            setTimeout(() => setAutoSizer({ width, height }), 0);
-                        }
-                        return (
-                            <VariableSizeGrid
-                                ref={gridRef}
-                                columnCount={gridSize.columnCount}
-                                rowCount={gridSize.rowCount}
-                                columnWidth={() => ImageCardWidth + 16}
-                                rowHeight={getRowHeight}
-                                width={width}
-                                height={height}
-                                className="grid-element"
-                                style={{ display: 'flex', alignContent: 'center', justifyContent: 'center' }}
-                            >
-                                {Cell}
-                            </VariableSizeGrid>
-                        );
-                    }}
-                </AutoSizer>
-            )}
+            <GalleryGrid onOpenLightbox={openLightbox} />
         </div>
     );
 };
 
-export default GalleryImageGrid;
+export default GalleryLightbox;
