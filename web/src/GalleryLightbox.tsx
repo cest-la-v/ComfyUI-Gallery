@@ -268,6 +268,8 @@ const GalleryLightbox = () => {
         );
     };
 
+    const yarlRoot = useMemo(() => document.getElementById('comfy-gallery-yarl-root'), []);
+
     return (
         <div id="imagesBox" style={{ width: '100%', height: '100%', position: 'relative' }}>
             <Lightbox
@@ -278,6 +280,7 @@ const GalleryLightbox = () => {
                 on={{ view: handleLightboxView }}
                 render={{ slide: renderSlide, slideContainer: renderSlideContainer }}
                 plugins={[Zoom]}
+                portal={{ root: yarlRoot }}
                 styles={{ root: { '--yarl__portal_zindex': '3100', '--yarl__color_backdrop': 'rgba(0,0,0,0.88)' } as Parameters<typeof Lightbox>[0]['styles'] extends { root?: infer R } ? R : never }}
             />
 

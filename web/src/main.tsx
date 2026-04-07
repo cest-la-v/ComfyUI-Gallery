@@ -63,6 +63,16 @@ ComfyAppApi.registerExtension({
             box.id = 'comfy-gallery-root';
             document.body.appendChild(box);
 
+            // Dedicated mount point for yarl's Lightbox portal.
+            // yarl's Portal module marks all siblings of its portal node as `inert`
+            // (standard modal accessibility pattern). Without this, yarl would mark
+            // #comfy-gallery-root as inert — making our portaled toolbar and
+            // MetadataPanel unresponsive. Giving yarl a private container inside
+            // #comfy-gallery-root means the sibling-inert loop finds no siblings.
+            const yarlRoot = document.createElement("div");
+            yarlRoot.id = 'comfy-gallery-yarl-root';
+            box.appendChild(yarlRoot);
+
             createRoot(box).render(<Main />);
 
             ComfyAppApi.startMonitoring(settings.relativePath);
