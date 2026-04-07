@@ -248,12 +248,14 @@ const GalleryHeader = () => {
     }, [selectedImages, mutate, setSelectedImages]);
 
     // Build folder options from data for the toolbar dropdown
+    const ALL_FOLDERS = '__all__';
+
     const folderOptions = useMemo(() => {
-        if (!data?.folders) return [];
+        if (!data?.folders) return [{ value: ALL_FOLDERS, label: 'All' }];
         const paths = Object.keys(data.folders).sort();
         const root = paths[0]?.split('/')[0] ?? '';
         const totalCount = paths.reduce((acc, p) => acc + Object.keys(data.folders![p] ?? {}).length, 0);
-        const options = [{ value: '', label: `All (${totalCount})` }];
+        const options = [{ value: ALL_FOLDERS, label: `All (${totalCount})` }];
         for (const p of paths) {
             const stripped = root && p.startsWith(root) ? p.slice(root.length + 1) : p;
             const count = Object.keys(data.folders[p] ?? {}).length;
@@ -267,7 +269,10 @@ const GalleryHeader = () => {
 
             {/* Left zone: folder selector + bulk actions + active filter tag */}
             <div className="flex items-center gap-2 shrink-0">
-                <Select value={currentFolder} onValueChange={v => setCurrentFolder(v)}>
+                <Select
+                    value={currentFolder === '' ? ALL_FOLDERS : currentFolder}
+                    onValueChange={v => setCurrentFolder(v === ALL_FOLDERS ? '' : v)}
+                >
                     <SelectTrigger className="h-9 min-w-[140px] max-w-[220px] shrink-0">
                         <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <SelectValue />
