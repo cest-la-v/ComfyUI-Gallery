@@ -6,7 +6,7 @@ import { useRef, useEffect } from 'react';
 import { isComfyMode, OPEN_BUTTON_ID } from './ComfyAppApi';
 
 const GalleryOpenButton = () => {
-    const { setOpen, loading, settings } = useGalleryContext();
+    const { setOpen, open, loading, settings } = useGalleryContext();
     const [position, setPosition] = useLocalStorageState<{ x: number; y: number }>('gallery-floating-btn-pos', {
         defaultValue: { x: 32, y: 32 },
     });
@@ -102,12 +102,16 @@ const GalleryOpenButton = () => {
             <button
                 id={OPEN_BUTTON_ID}
                 style={{ display: 'none' }}
-                onClick={() => { if (!loading) setOpen(true); }}
+                onClick={() => { if (!loading) setOpen(o => !o); }}
             />
         );
     }
 
     if (settings.floatingButton) {
+        // Hide while the gallery is open — the overlay would cover it anyway,
+        // and the X button / backdrop click already handle closing.
+        if (open) return null;
+
         // Floating, draggable button — drag via the handle bar above the button
         return (
             <div
