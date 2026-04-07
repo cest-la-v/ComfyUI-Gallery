@@ -1,5 +1,5 @@
 import './globals.css';
-import { createRoot } from 'react-dom/client'
+import { createRoot, type Root } from 'react-dom/client'
 import { useState } from 'react';
 import Gallery from './Gallery.tsx'
 import { DEFAULT_SETTINGS, STORAGE_KEY, type SettingsState } from './GalleryContext.tsx';
@@ -8,6 +8,42 @@ import { useLocalStorageState } from 'ahooks';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { PortalProvider } from './PortalContext.tsx';
+
+/*
+ * DOM TOPOLOGY
+ * ─────────────────────────────────────────────────────────────────────────────
+ * document.body
+ *   ├─ #comfy-gallery-root        React root (createRoot target)
+ *   │   └─ React tree
+ *   │       └─ #comfy-gallery-portals  Radix portal target (via PortalContext)
+ *   │           ├─ Dialogs, AlertDialogs
+ *   │           ├─ Selects, Tooltips
+ *   │           └─ Lightbox toolbar + MetadataPanel (createPortal)
+ *   └─ #comfy-gallery-yarl-root   yet-another-react-lightbox portal target
+ *       └─ yarl Lightbox
+ *
+ * INVARIANTS — must not be violated:
+ *
+ * 1. Never append non-React DOM inside #comfy-gallery-root.
+ *    React 18 clears its container's children during reconciliation.
+ *    All companion elements are siblings of the React container.
+ *
+ * 2. Each third-party modal library gets its own portal root here.
+ *    yarl's Portal.handleEnter() marks all siblings as inert (a11y).
+ *    If yarl targets document.body, it inerts #comfy-gallery-root → everything
+ *    inside becomes non-interactive. Its own root (#comfy-gallery-yarl-root)
+ *    has no siblings, so nothing gets inerted.
+ *
+ * 3. All Radix portals (dialogs, selects, tooltips) target #comfy-gallery-portals.
+ *    This keeps them inside the React subtree → CSS scoping & dark mode work.
+ *
+ * 4. Z-index values come from --cg-z-* CSS custom properties (globals.css :root).
+ *    Never hardcode z-index numbers in components.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+// Module-level root reference so HMR cleanup can call unmount() before removing DOM.
+let _galleryRoot: Root | null = null;
 
 // In production, Bun.build() outputs Tailwind CSS as a separate file.
 // Inject it via <link> using import.meta.url (works in ES module scripts).
@@ -50,37 +86,30 @@ ComfyAppApi.registerExtension({
                 if (raw) settings = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
             } catch { }
 
-            // Guard against duplicate roots on HMR / re-init
+            // Guard against duplicate roots on HMR / re-init.
+            // Unmount React first so GalleryContext cleans up its listeners and
+            // polling interval before the DOM nodes are removed.
+            if (_galleryRoot) {
+                _galleryRoot.unmount();
+                _galleryRoot = null;
+            }
             const existing = document.getElementById('comfy-gallery-root');
             if (existing) existing.remove();
             const existingYarl = document.getElementById('comfy-gallery-yarl-root');
             if (existingYarl) existingYarl.remove();
 
-            // Mount the gallery root at document.body — not inside the ComfyUI
-            // toolbar. The open buttons (action bar native button, floating button)
-            // are separate concerns: the native button is registered above via
-            // actionBarButtons; the floating button renders position:fixed inside
-            // the gallery root and doesn't need a toolbar injection point.
+            // Mount the gallery root at document.body (see DOM TOPOLOGY comment above).
             const box = document.createElement("div");
             box.id = 'comfy-gallery-root';
             document.body.appendChild(box);
 
-            // Dedicated mount point for yarl's Lightbox portal, appended as a
-            // SIBLING of box (not a child). React 18 clears its container's children
-            // during reconciliation, so any element appended inside box before render
-            // would be removed. As a sibling, React never touches it.
-            //
-            // Why this matters: yarl's Portal module sets inert + aria-hidden on all
-            // siblings of its portal node (standard modal a11y pattern). Without this,
-            // yarl portals to document.body and marks #comfy-gallery-root as inert,
-            // making all portaled toolbar/MetadataPanel elements non-interactive.
-            // With this, yarl portals into #comfy-gallery-yarl-root which has no
-            // siblings, so nothing is inerted.
+            // yarl portal root — sibling of box, never a child (React would remove it).
             const yarlRoot = document.createElement("div");
             yarlRoot.id = 'comfy-gallery-yarl-root';
             document.body.appendChild(yarlRoot);
 
-            createRoot(box).render(<Main />);
+            _galleryRoot = createRoot(box);
+            _galleryRoot.render(<Main />);
 
             ComfyAppApi.startMonitoring(settings.relativePath);
         })();

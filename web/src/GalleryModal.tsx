@@ -4,7 +4,7 @@ import GalleryLightbox from './GalleryLightbox';
 import GallerySettingsModal from './GallerySettingsModal';
 import GroupView from './GroupView';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { BASE_Z_INDEX } from './ComfyAppApi';
+import { useModalDismiss } from './hooks/useModalDismiss';
 
 const GalleryModal = () => {
     const {
@@ -38,6 +38,8 @@ const GalleryModal = () => {
         }
     };
 
+    const dismiss = useModalDismiss(() => setOpen(false), { disabled: showSettings });
+
     return (
         <>
             <Dialog open={open} onOpenChange={setOpen} modal={false}>
@@ -45,9 +47,10 @@ const GalleryModal = () => {
                     showCloseButton={false}
                     aria-describedby={undefined}
                     className="p-0 gap-0 w-[95vw] max-w-none h-[92vh] flex flex-col overflow-hidden rounded-lg"
-                    style={{ zIndex: BASE_Z_INDEX + 1 }}
-                    onInteractOutside={(e) => e.preventDefault()}
-                    onOverlayClick={() => { if (!showSettings) setOpen(false); }}
+                    style={{ zIndex: 'var(--cg-z-content)' }}
+                    onInteractOutside={dismiss.onInteractOutside}
+                    onEscapeKeyDown={dismiss.onEscapeKeyDown}
+                    onOverlayClick={dismiss.onOverlayClick}
                     data-gallery-root
                 >
                     <DialogTitle className="sr-only">Gallery</DialogTitle>

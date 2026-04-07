@@ -48,9 +48,29 @@
     color: #4ade80; /* green-400 */
 }
 
-/* Ensure yarl lightbox portal sits above the gallery modal (z-[3001]) */
+/*
+ * Z-INDEX LAYER SYSTEM
+ * All gallery stacking values live here. Reference via var(--cg-z-*)
+ * everywhere: CSS files, Tailwind z-[var(--cg-z-*)], inline style={{ zIndex: 'var(--cg-z-*)' }}.
+ * Defined on :root so both #comfy-gallery-root AND #comfy-gallery-yarl-root
+ * (which are siblings, not parent/child) can inherit the same values.
+ */
+:root {
+    --cg-z-floating-btn:  1000; /* GalleryOpenButton draggable button */
+    --cg-z-overlay:       3000; /* DialogOverlay backdrop */
+    --cg-z-content:       3001; /* DialogContent, header dropdowns */
+    --cg-z-settings-ov:   3002; /* Settings DialogOverlay */
+    --cg-z-settings:      3003; /* Settings DialogContent */
+    --cg-z-tooltip:       3010; /* Tooltip */
+    --cg-z-lightbox:      3100; /* yarl Lightbox portal */
+    --cg-z-lb-toolbar:    3150; /* Lightbox toolbar + MetadataPanel (portaled, fixed) */
+    --cg-z-popup:         3200; /* Select content, AlertDialog overlay */
+    --cg-z-alert:         3201; /* AlertDialog content */
+}
+
+/* Ensure yarl lightbox portal sits above the gallery modal */
 .yarl__portal {
-    z-index: 3100;
+    z-index: var(--cg-z-lightbox);
 }
 
 @custom-variant dark (&:is(#comfy-gallery-root.dark, #comfy-gallery-root.dark *));

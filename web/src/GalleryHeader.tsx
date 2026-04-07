@@ -107,7 +107,7 @@ function SearchAutocomplete({
                 )}
             </div>
             {open && visibleOptions.length > 0 && (
-                <div className="absolute top-full mt-1 w-full rounded-md border bg-popover shadow-md z-[3001] max-h-48 overflow-y-auto">
+                <div className="absolute top-full mt-1 w-full rounded-md border bg-popover shadow-md z-[var(--cg-z-content)] max-h-48 overflow-y-auto">
                     {visibleOptions.map((opt, i) => (
                         <div
                             key={String(opt.value ?? i)}
@@ -277,7 +277,7 @@ const GalleryHeader = () => {
                         <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="z-[3200]">
+                    <SelectContent className="z-[var(--cg-z-popup)]">
                         {folderOptions.map(opt => (
                             <SelectItem key={opt.value} value={opt.value}>
                                 {opt.label}
@@ -375,7 +375,7 @@ const GalleryHeader = () => {
                     <SelectTrigger className="h-9 min-w-[130px] shrink-0">
                         <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="z-[3200]">
+                    <SelectContent className="z-[var(--cg-z-popup)]">
                         <SelectItem value="Newest">Date: Newest</SelectItem>
                         <SelectItem value="Oldest">Date: Oldest</SelectItem>
                         <SelectItem value="Name ↑">Name: A → Z</SelectItem>

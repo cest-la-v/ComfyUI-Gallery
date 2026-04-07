@@ -120,7 +120,7 @@ const GalleryOpenButton = () => {
                     position: 'fixed',
                     left: position?.x ?? 32,
                     top: position?.y ?? 32,
-                    zIndex: 1000,
+                    zIndex: 'var(--cg-z-floating-btn)',
                     userSelect: 'none',
                 }}
             >

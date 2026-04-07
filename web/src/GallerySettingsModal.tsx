@@ -19,6 +19,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useDebounceFn } from 'ahooks';
 import { ComfyAppApi, isComfyMode } from './ComfyAppApi';
 import { cn } from '@/lib/utils';
+import { useModalDismiss } from './hooks/useModalDismiss';
 
 interface DbStatus {
     schema_version: number;
@@ -131,13 +132,17 @@ const GallerySettingsModal = () => {
         setShowSettings(false);
     };
     const handleCancel = () => setShowSettings(false);
+    const dismiss = useModalDismiss(() => setShowSettings(false));
 
     return (
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
             <DialogContent
-                className="max-w-lg z-[3003]"
-                overlayClassName="z-[3002]"
+                className="max-w-lg z-[var(--cg-z-settings)]"
+                overlayClassName="z-[var(--cg-z-settings-ov)]"
                 aria-describedby={undefined}
+                onInteractOutside={dismiss.onInteractOutside}
+                onEscapeKeyDown={dismiss.onEscapeKeyDown}
+                onOverlayClick={dismiss.onOverlayClick}
             >
                 <DialogHeader>
                     <DialogTitle>Settings</DialogTitle>

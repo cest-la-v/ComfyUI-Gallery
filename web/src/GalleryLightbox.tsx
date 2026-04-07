@@ -148,7 +148,7 @@ const GalleryLightbox = () => {
 
         return (
             <div
-                style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 3150 }}
+                style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 'var(--cg-z-lb-toolbar)' as const }}
             >
                 <div className="flex items-center gap-1 rounded-lg px-2 py-1" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}>
                     <Tooltip>
@@ -281,16 +281,18 @@ const GalleryLightbox = () => {
                 render={{ slide: renderSlide, slideContainer: renderSlideContainer }}
                 plugins={[Zoom]}
                 portal={{ root: yarlRoot }}
-                styles={{ root: { '--yarl__portal_zindex': '3100', '--yarl__color_backdrop': 'rgba(0,0,0,0.88)' } as Parameters<typeof Lightbox>[0]['styles'] extends { root?: infer R } ? R : never }}
+                styles={{ root: { '--yarl__color_backdrop': 'rgba(0,0,0,0.88)' } as Parameters<typeof Lightbox>[0]['styles'] extends { root?: infer R } ? R : never }}
             />
 
-            {/* Toolbar: portaled to escape DialogContent's stacking context */}
-            {createPortal(renderToolbar(), portalTarget ?? document.body)}
+            {/* Toolbar: portaled to escape DialogContent's stacking context.
+                Guard: only render when portalTarget is ready — falling back to
+                document.body would re-introduce the yarl inert bug. */}
+            {portalTarget && createPortal(renderToolbar(), portalTarget)}
 
             {/* MetadataPanel: portaled for same reason */}
-            {lightboxOpen && currentImage && createPortal(
+            {lightboxOpen && currentImage && portalTarget && createPortal(
                 <MetadataPanel image={currentImage} />,
-                portalTarget ?? document.body
+                portalTarget
             )}
 
             {/* Delete confirm */}
