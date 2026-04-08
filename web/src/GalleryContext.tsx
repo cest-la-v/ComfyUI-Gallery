@@ -51,7 +51,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
 };
 export const STORAGE_KEY = 'comfy-ui-gallery-settings';
 
-export type ViewMode = 'all' | 'date' | 'resolution' | 'model' | 'prompt';
+export type ViewMode = 'all' | 'date' | 'model' | 'prompt';
 
 export interface ActiveFilter {
     by: 'model' | 'prompt';
@@ -277,18 +277,11 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
                 list = list.sort((a, b) => b.name.localeCompare(a.name));
                 break;
         }
-        // Step 2: Group dividers (date/resolution modes only)
-        if (viewMode !== 'date' && viewMode !== 'resolution') return list;
+        // Step 2: Group dividers (date mode only)
+        if (viewMode !== 'date') return list;
 
         const getGroupKey = (item: FileDetails): string => {
-            switch (viewMode) {
-                case 'date':
-                    return item.timestamp ? new Date(item.timestamp * 1000).toISOString().slice(0, 10) : 'Unknown';
-                case 'resolution':
-                    return (item.width && item.height) ? `${item.width}x${item.height}` : 'Unknown';
-                default:
-                    return 'Unknown';
-            }
+            return item.timestamp ? new Date(item.timestamp * 1000).toISOString().slice(0, 10) : 'Unknown';
         };
 
         const grouped: Record<string, FileDetails[]> = {};
@@ -301,10 +294,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         const sortedGroups = Object.entries(grouped).sort(([a], [b]) => {
             if (a === 'Unknown' || a === 'N/A') return 1;
             if (b === 'Unknown' || b === 'N/A') return -1;
-            if (viewMode === 'date') {
-                return sortMethod === 'Oldest' ? a.localeCompare(b) : b.localeCompare(a);
-            }
-            return a.localeCompare(b);
+            return sortMethod === 'Oldest' ? a.localeCompare(b) : b.localeCompare(a);
         });
 
         const result: FileDetails[] = [];

@@ -24,7 +24,6 @@ import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
 
 const VIEW_MODE_OPTIONS: { label: string; value: ViewMode }[] = [
     { label: 'By Date', value: 'date' },
-    { label: 'By Resolution', value: 'resolution' },
     { label: 'By Model', value: 'model' },
     { label: 'By Prompt', value: 'prompt' },
 ];
