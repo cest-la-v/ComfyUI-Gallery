@@ -1,5 +1,6 @@
 import { useGalleryContext } from './GalleryContext';
 import GalleryHeader from './GalleryHeader';
+import GalleryGrid from './GalleryGrid';
 import GalleryLightbox from './GalleryLightbox';
 import GallerySettingsModal from './GallerySettingsModal';
 import GroupView from './GroupView';
@@ -68,7 +69,10 @@ const GalleryModal = () => {
                                 activeTab={viewMode === 'prompt' ? 'prompt' : 'model'}
                             />
                         ) : (
-                            <GalleryLightbox />
+                            <div className="relative flex-1 min-h-0 min-w-0 overflow-hidden">
+                                <GalleryGrid />
+                                <GalleryLightbox />
+                            </div>
                         )}
                     </div>
                 </DialogContent>

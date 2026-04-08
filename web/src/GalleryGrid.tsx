@@ -5,11 +5,7 @@ import ImageCard, { ImageCardHeight, ImageCardWidth } from './ImageCard';
 import { useGalleryContext } from './GalleryContext';
 import { Loader2 } from 'lucide-react';
 
-interface GalleryGridProps {
-    onOpenLightbox: (url: string) => void;
-}
-
-const GalleryGrid = ({ onOpenLightbox }: GalleryGridProps) => {
+const GalleryGrid = () => {
     const {
         data,
         currentFolder,
@@ -22,6 +18,7 @@ const GalleryGrid = ({ onOpenLightbox }: GalleryGridProps) => {
         setPreviewingVideo,
         imagesDetailsList,
         loading,
+        openLightbox,
     } = useGalleryContext();
 
     const gridRef = useRef<VariableSizeGrid>(null);
@@ -87,11 +84,11 @@ const GalleryGrid = ({ onOpenLightbox }: GalleryGridProps) => {
                     image={{ ...image, dragFolder: currentFolder }}
                     key={image.name}
                     onInfoClick={() => handleInfoClick(image.name)}
-                    onOpenLightbox={() => onOpenLightbox(image.url)}
+                    onOpenLightbox={() => openLightbox(image.url)}
                 />
             </div>
         );
-    }, [gridSize.columnCount, imagesDetailsList, handleInfoClick, onOpenLightbox, currentFolder]);
+    }, [gridSize.columnCount, imagesDetailsList, handleInfoClick, openLightbox, currentFolder]);
 
     useEffect(() => {
         const { width, height } = autoSizer;

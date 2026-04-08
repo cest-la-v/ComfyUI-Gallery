@@ -94,7 +94,7 @@ function paramsToDisplayMap(params: ImageParams | null): Record<string, string> 
     return out;
 }
 
-export function MetadataPanel({ image }: { image: FileDetails }) {
+export function MetadataPanel({ image, onDeleteRequest }: { image: FileDetails; onDeleteRequest?: () => void }) {
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
     const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
     const [parsedParams, setParsedParams] = useState<ImageParams | null>(null);
@@ -104,7 +104,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const rawFetchedForRef = useRef<string | null>(null);
 
-    const { setImageInfoName, imageInfoName, showRawMetadata, setShowRawMetadata, settings, imagesDetailsList, showMetadataPanel } = useGalleryContext();
+    const { setImageInfoName, showRawMetadata, setShowRawMetadata, settings } = useGalleryContext();
 
     const relPath = image.url.startsWith('/static_gallery/')
         ? image.url.slice('/static_gallery/'.length)
@@ -150,11 +150,6 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
     }, [showRawMetadata, relPath]);
 
     const displayMap = useMemo(() => paramsToDisplayMap(parsedParams), [parsedParams]);
-
-    const previewableImages = useMemo(
-        () => imagesDetailsList.filter(img => img.type === 'image' || img.type === 'media' || img.type === 'audio'),
-        [imagesDetailsList]
-    );
 
     const renderPromptValue = useCallback((key: string, value: string) => {
         if (value.length <= 300) {
@@ -232,12 +227,10 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
     }, [displayMap, copiedKey, renderPromptValue, parsedParams?.formats]);
 
     const handleDelete = useCallback(async () => {
-        const currentIdx = previewableImages.findIndex(img => img.name === imageInfoName);
-        const next = previewableImages[currentIdx + 1] ?? previewableImages[currentIdx - 1];
         const success = await ComfyAppApi.deleteImage(image.url);
-        if (success) { setImageInfoName(next?.name); toast.success('Image deleted'); }
+        if (success) { setImageInfoName(undefined); toast.success('Image deleted'); }
         else toast.error('Failed to delete image');
-    }, [image.url, imageInfoName, previewableImages, setImageInfoName]);
+    }, [image.url, setImageInfoName]);
 
     const handleDownload = useCallback(async () => {
         try {
@@ -275,13 +268,11 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
     return (
         <div
             style={{
-                position: 'fixed', top: 0, right: 0, width: 480, height: '100%',
-                background: 'rgba(30, 30, 30, 0.95)', borderLeft: '1px solid #444',
-                padding: '48px 16px 16px 16px', zIndex: 'var(--cg-z-lb-toolbar)',
+                height: '100%',
+                background: 'rgba(30, 30, 30, 0.95)',
+                padding: '16px',
                 display: 'flex', flexDirection: 'column', gap: 12,
-                visibility: showMetadataPanel ? 'visible' : 'hidden',
-                opacity: showMetadataPanel ? 1 : 0,
-                pointerEvents: showMetadataPanel ? 'auto' : 'none',
+                overflow: 'hidden',
             }}
             onClick={(e) => e.stopPropagation()}
         >
@@ -324,7 +315,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                     </TooltipTrigger>
                     <TooltipContent>Download file</TooltipContent>
                 </Tooltip>
-                <Button size="sm" variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
+                <Button size="sm" variant="destructive" onClick={() => onDeleteRequest ? onDeleteRequest() : setShowDeleteConfirm(true)}>
                     <Trash2 className="h-3.5 w-3.5" />Delete
                 </Button>
                 <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>

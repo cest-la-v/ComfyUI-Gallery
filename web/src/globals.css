@@ -14,9 +14,9 @@
 
 /* Lightbox toolbar button styles — defined here because Tailwind's static scanner
    misses classes stored in JS string variables (btnCls / activeCls pattern).
-   Scoped to #comfy-gallery-root for specificity (1,1,0) to beat the baseline
-   element reset below. */
-#comfy-gallery-root .lb-btn {
+   Scoped to both gallery roots for specificity (1,1,0) so they work inside the
+   yarl plugin tree (#comfy-gallery-yarl-root) as well. */
+:is(#comfy-gallery-root, #comfy-gallery-yarl-root) .lb-btn {
     padding: 0.5rem;
     border-radius: 0.25rem;
     cursor: pointer;
@@ -28,11 +28,11 @@
     align-items: center;
     justify-content: center;
 }
-#comfy-gallery-root .lb-btn:hover {
+:is(#comfy-gallery-root, #comfy-gallery-yarl-root) .lb-btn:hover {
     background-color: rgb(255 255 255 / 0.1);
     color: white;
 }
-#comfy-gallery-root .lb-btn-active {
+:is(#comfy-gallery-root, #comfy-gallery-yarl-root) .lb-btn-active {
     padding: 0.5rem;
     border-radius: 0.25rem;
     cursor: pointer;
@@ -44,7 +44,7 @@
     align-items: center;
     justify-content: center;
 }
-#comfy-gallery-root .lb-btn-success {
+:is(#comfy-gallery-root, #comfy-gallery-yarl-root) .lb-btn-success {
     color: #4ade80; /* green-400 */
 }
 
@@ -63,7 +63,6 @@
     --cg-z-settings:      3003; /* Settings DialogContent */
     --cg-z-tooltip:       3010; /* Tooltip */
     --cg-z-lightbox:      3100; /* yarl Lightbox portal */
-    --cg-z-lb-toolbar:    3150; /* Lightbox toolbar + MetadataPanel (portaled, fixed) */
     --cg-z-popup:         3200; /* Select content, AlertDialog overlay */
     --cg-z-alert:         3201; /* AlertDialog content */
 }
@@ -73,7 +72,9 @@
     z-index: var(--cg-z-lightbox);
 }
 
-@custom-variant dark (&:is(#comfy-gallery-root.dark, #comfy-gallery-root.dark *));
+/* Dark mode applies to both gallery roots.
+   #comfy-gallery-yarl-root gets .dark toggled in sync with #comfy-gallery-root. */
+@custom-variant dark (&:is(#comfy-gallery-root.dark, #comfy-gallery-root.dark *, #comfy-gallery-yarl-root.dark, #comfy-gallery-yarl-root.dark *));
 
 @theme inline {
     --radius-sm: calc(var(--radius) - 4px);
@@ -100,7 +101,9 @@
     --color-ring: var(--ring);
 }
 
-#comfy-gallery-root {
+/* CSS variables are defined on both gallery roots so plugin content inside
+   #comfy-gallery-yarl-root (sibling at document.body) inherits the same theme tokens. */
+:is(#comfy-gallery-root, #comfy-gallery-yarl-root) {
     --radius: 0.5rem;
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
@@ -122,7 +125,7 @@
     --ring: oklch(0.546 0.245 262.881);
 }
 
-#comfy-gallery-root.dark {
+:is(#comfy-gallery-root, #comfy-gallery-yarl-root).dark {
     /* Map to ComfyUI's own CSS vars (PrimeVue Aura surface palette + semantic vars)
        so the gallery automatically tracks whatever theme ComfyUI has active.
        Fallbacks are the original shadcn dark values. */
@@ -151,15 +154,10 @@
    etc.) that overrides gallery component styles when no Tailwind class
    explicitly covers that property on the element.
 
-   These ID-scoped rules have specificity (1,0,1) — higher than ComfyUI's
-   element rules (0,0,1) — giving every interactive element inside the gallery
-   a neutral baseline. Tailwind utility classes (1,1,0) still override freely.
-
-   We use individual longhands (not shorthands like `border: none`) so that
-   Tailwind longhands such as `border-width: 1px` can override just the width
-   while leaving border-style intact.
+   Scoped to both gallery roots (including yarl's portal root) so the plugin
+   content inside #comfy-gallery-yarl-root is also protected.
    ────────────────────────────────────────────────────────────────────────── */
-#comfy-gallery-root button {
+:is(#comfy-gallery-root, #comfy-gallery-yarl-root) button {
     background-color: transparent;
     border-width: 0;
     border-style: solid;
@@ -171,8 +169,8 @@
     font-family: inherit;
     cursor: pointer;
 }
-#comfy-gallery-root input,
-#comfy-gallery-root textarea {
+:is(#comfy-gallery-root, #comfy-gallery-yarl-root) input,
+:is(#comfy-gallery-root, #comfy-gallery-yarl-root) textarea {
     background-color: transparent;
     border-width: 1px;
     border-style: solid;
@@ -183,7 +181,7 @@
     font-size: inherit;
     font-family: inherit;
 }
-#comfy-gallery-root select {
+:is(#comfy-gallery-root, #comfy-gallery-yarl-root) select {
     background-color: transparent;
     border-width: 1px;
     border-style: solid;

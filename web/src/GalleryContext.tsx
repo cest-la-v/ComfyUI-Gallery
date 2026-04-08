@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useSize, useRequest, useAsyncEffect, useEventListener, useLocalStorageState, useClickAway } from 'ahooks';
 import type { FileDetails, FilesTree } from './types';
@@ -80,8 +80,21 @@ export interface GalleryContextType {
     setOpen: Dispatch<SetStateAction<boolean>>;
     previewingVideo: string | undefined;
     setPreviewingVideo: Dispatch<SetStateAction<string | undefined>>;
+    lightboxOpen: boolean;
+    setLightboxOpen: Dispatch<SetStateAction<boolean>>;
+    lightboxIndex: number;
+    setLightboxIndex: Dispatch<SetStateAction<number>>;
+    openLightbox: (url: string) => void;
+    closeLightbox: () => void;
+    pendingDeleteImage: FileDetails | null;
+    setPendingDeleteImage: Dispatch<SetStateAction<FileDetails | null>>;
+    imageRotation: 0 | 90 | 180 | 270;
+    setImageRotation: Dispatch<SetStateAction<0 | 90 | 180 | 270>>;
+    imageFlipH: boolean;
+    setImageFlipH: Dispatch<SetStateAction<boolean>>;
+    imageFlipV: boolean;
+    setImageFlipV: Dispatch<SetStateAction<boolean>>;
     size: ReturnType<typeof useSize>;
-    imagesBoxSize: ReturnType<typeof useSize>;
     data: FilesTree | undefined;
     error: any;
     loading: boolean;
@@ -119,10 +132,15 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const [imageInfoName, setImageInfoName] = useState<string | undefined>(undefined);
     const [open, setOpen] = useState(false);
     const [previewingVideo, setPreviewingVideo] = useState<string | undefined>(undefined);
+    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
+    const [pendingDeleteImage, setPendingDeleteImage] = useState<FileDetails | null>(null);
+    const [imageRotation, setImageRotation] = useState<0 | 90 | 180 | 270>(0);
+    const [imageFlipH, setImageFlipH] = useState(false);
+    const [imageFlipV, setImageFlipV] = useState(false);
     const [selectedImages, setSelectedImages] = useState<string[]>([]);
     const [showMetadataPanel, setShowMetadataPanel] = useState(false);
     const size= useSize(document.querySelector('body'));
-    const imagesBoxSize = useSize(document.querySelector('#imagesBox'));
     const { data, error, loading, runAsync, mutate, refresh, refreshAsync } = useRequest(getImages, { manual: true });
     const [gridSize, setGridSize] = useState({ width: 1000, height: 600, columnCount: 1, rowCount: 1 });
     const [autoSizer, setAutoSizer] = useState({ width: 1000, height: 600 });
@@ -214,9 +232,11 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Sync dark mode setting → Tailwind's .dark class on <html>
+    // Sync dark mode setting → .dark class on both gallery roots
     useEffect(() => {
-        document.getElementById('comfy-gallery-root')?.classList.toggle('dark', !!settingsState?.darkMode);
+        const dark = !!settingsState?.darkMode;
+        document.getElementById('comfy-gallery-root')?.classList.toggle('dark', dark);
+        document.getElementById('comfy-gallery-yarl-root')?.classList.toggle('dark', dark);
     }, [settingsState?.darkMode]);
 
     // Memoized list of all images in the current folder
@@ -403,6 +423,24 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         }
     });
 
+    const openLightbox = useCallback((url: string) => {
+        const previewable = imagesDetailsList.filter(img => img.type === 'image' || img.type === 'media' || img.type === 'audio');
+        const idx = previewable.findIndex(img => img.url === url);
+        if (idx >= 0) { setLightboxIndex(idx); setLightboxOpen(true); }
+    }, [imagesDetailsList]);
+
+    const closeLightbox = useCallback(() => {
+        setLightboxOpen(false);
+        setImageInfoName(undefined);
+        setPreviewingVideo(undefined);
+        setShowMetadataPanel(false);
+        setShowRawMetadata(false);
+        setImageRotation(0);
+        setImageFlipH(false);
+        setImageFlipV(false);
+        setPendingDeleteImage(null);
+    }, [setImageInfoName, setPreviewingVideo, setShowMetadataPanel, setShowRawMetadata]);
+
     const value = useMemo(() => ({
         currentFolder, setCurrentFolder,
         searchFileName, setSearchFileName,
@@ -415,7 +453,14 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         imageInfoName, setImageInfoName,
         open, setOpen,
         previewingVideo, setPreviewingVideo,
-        size, imagesBoxSize,
+        lightboxOpen, setLightboxOpen,
+        lightboxIndex, setLightboxIndex,
+        openLightbox, closeLightbox,
+        pendingDeleteImage, setPendingDeleteImage,
+        imageRotation, setImageRotation,
+        imageFlipH, setImageFlipH,
+        imageFlipV, setImageFlipV,
+        size,
         data, error, loading, runAsync, mutate,
         gridSize, setGridSize,
         autoSizer, setAutoSizer,
@@ -441,8 +486,15 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         imageInfoName, 
         open, 
         previewingVideo, 
+        lightboxOpen,
+        lightboxIndex,
+        openLightbox,
+        closeLightbox,
+        pendingDeleteImage,
+        imageRotation,
+        imageFlipH,
+        imageFlipV,
         size, 
-        imagesBoxSize, 
         data, 
         error, 
         loading, 
