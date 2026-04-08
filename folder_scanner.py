@@ -126,9 +126,9 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
                         height = cached.get("height")
                     else:
                         try:
-                            img, _, metadata = buildMetadata(entry.path)
-                            width = img.width
-                            height = img.height
+                            _, _, metadata = buildMetadata(entry.path)
+                            width = metadata["fileinfo"]["width"]
+                            height = metadata["fileinfo"]["height"]
                         except Exception as e:
                             gallery_log(f"Error building metadata for {entry.path}: {e}")
                         # Queue for batch DB upsert

@@ -28,6 +28,9 @@ def get_size(file_path):
         return f"{file_size_bytes / (1024 * 1024):.2f} MB"
 
 
+SKIP_TAGS = {37500}  # MakerNote — manufacturer-specific binary blob, not human-readable
+
+
 def decode_user_comment(raw: bytes) -> str | None:
     """Decode an EXIF UserComment binary blob per the EXIF 2.3 spec.
 
@@ -69,102 +72,107 @@ def buildMetadata(image_path):
         raise FileNotFoundError(f"File not found: {image_path}")
 
     img = Image.open(image_path)
-    metadata = {}
-    prompt = {}
+    try:
+        metadata = {}
+        prompt = {}
 
-    metadata["fileinfo"] = {
-        "filename": Path(image_path).as_posix(),
-        "resolution": f"{img.width}x{img.height}",
-        "date": str(datetime.fromtimestamp(os.path.getmtime(image_path))),
-        "size": str(get_size(image_path)),
-    }
+        metadata["fileinfo"] = {
+            "filename": Path(image_path).as_posix(),
+            "resolution": f"{img.width}x{img.height}",
+            "width": img.width,
+            "height": img.height,
+            "date": str(datetime.fromtimestamp(os.path.getmtime(image_path))),
+            "size": str(get_size(image_path)),
+        }
 
-    # only for png files
-    if isinstance(img, PngImageFile):
-        metadataFromImg = img.info
+        # only for png files
+        if isinstance(img, PngImageFile):
+            metadataFromImg = img.info
 
-        # for all metadataFromImg convert to string (but not for workflow and prompt!)
-        for k, v in metadataFromImg.items():
-            # from ComfyUI
-            if k == "workflow":
-                if isinstance(v, str): # Check if v is a string before attempting json.loads
-                    try:
-                        metadata["workflow"] = json.loads(v)
-                    except json.JSONDecodeError as e:
-                        gallery_log(f"Warning: Error parsing metadataFromImg 'workflow' as JSON, keeping as string: {e}")
-                        metadata["workflow"] = v # Keep as string if parsing fails
+            for k, v in metadataFromImg.items():
+                # from ComfyUI
+                if k == "workflow":
+                    if isinstance(v, str):
+                        try:
+                            metadata["workflow"] = json.loads(v)
+                        except json.JSONDecodeError as e:
+                            gallery_log(f"Warning: Error parsing metadataFromImg 'workflow' as JSON, keeping as string: {e}")
+                            metadata["workflow"] = v
+                    else:
+                        metadata["workflow"] = v
+
+                # from ComfyUI
+                elif k == "prompt":
+                    if isinstance(v, str):
+                        try:
+                            metadata["prompt"] = json.loads(v)
+                            prompt = metadata["prompt"]
+                        except json.JSONDecodeError as e:
+                            gallery_log(f"Warning: Error parsing metadataFromImg 'prompt' as JSON, keeping as string: {e}")
+                            metadata["prompt"] = v
+                    else:
+                        metadata["prompt"] = v
+
                 else:
-                    metadata["workflow"] = v # If not a string, keep as is (might already be parsed)
-
-            # from ComfyUI
-            elif k == "prompt":
-                if isinstance(v, str): # Check if v is a string before attempting json.loads
-                    try:
-                        metadata["prompt"] = json.loads(v)
-                        prompt = metadata["prompt"] # extract prompt to use on metadata
-                    except json.JSONDecodeError as e:
-                        gallery_log(f"Warning: Error parsing metadataFromImg 'prompt' as JSON, keeping as string: {e}")
-                        metadata["prompt"] = v # Keep as string if parsing fails
-                else:
-                    metadata["prompt"] = v # If not a string, keep as is (might already be parsed)
-
-            else:
-                if isinstance(v, str):
-                    try:
-                        metadata[str(k)] = json.loads(v)
-                    except json.JSONDecodeError:
+                    if isinstance(v, str):
+                        try:
+                            metadata[str(k)] = json.loads(v)
+                        except json.JSONDecodeError:
+                            metadata[str(k)] = v
+                    else:
                         metadata[str(k)] = v
-                else:
-                    metadata[str(k)] = v
 
-    if isinstance(img, JpegImageFile):
-        exif = img.getexif()
+        if isinstance(img, JpegImageFile):
+            exif = img.getexif()
 
-        for k, v in exif.items():
-            tag = TAGS.get(k, k)
-            if v is not None:
-                try:
-                    metadata[str(tag)] = str(v)
-                except Exception as e:
-                    gallery_log(f"Warning: Error converting EXIF tag {tag} to string: {e}")
-                    metadata[str(tag)] = "Error decoding value" # Handle encoding errors
-
-        for ifd_id in IFD:
-            try:
-                if ifd_id == IFD.GPSInfo:
-                    resolve = GPSTAGS
-                else:
-                    resolve = TAGS
-
-                ifd = exif.get_ifd(ifd_id)
-                ifd_name = str(ifd_id.name)
-                metadata[ifd_name] = {}
-
-                for k, v in ifd.items():
-                    tag = resolve.get(k, k)
-                    # UserComment (tag 37510) is a binary blob with an 8-byte charset prefix.
-                    # Decode it properly instead of calling str() on the raw bytes.
-                    if k == 37510 and isinstance(v, bytes):
-                        decoded = decode_user_comment(v)
-                        if decoded is not None:
-                            metadata[ifd_name][str(tag)] = decoded
-                            # Promote to top-level parameters if it looks like A1111 format
-                            # and no parameters key was already set (PNG chunk takes priority).
-                            if 'Steps:' in decoded and ('Sampler:' in decoded or 'Model:' in decoded):
-                                metadata.setdefault('parameters', decoded)
-                        continue
+            for k, v in exif.items():
+                tag = TAGS.get(k, k)
+                if v is not None:
                     try:
-                        metadata[ifd_name][str(tag)] = str(v)
+                        metadata[str(tag)] = str(v)
                     except Exception as e:
-                        gallery_log(f"Warning: Error converting EXIF IFD tag {tag} to string: {e}")
-                        metadata[ifd_name][str(tag)] = "Error decoding value" # Handle encoding errors
+                        gallery_log(f"Warning: Error converting EXIF tag {tag} to string: {e}")
+                        metadata[str(tag)] = "Error decoding value"
 
+            for ifd_id in IFD:
+                try:
+                    if ifd_id == IFD.GPSInfo:
+                        resolve = GPSTAGS
+                    else:
+                        resolve = TAGS
 
-            except KeyError:
-                pass
+                    ifd = exif.get_ifd(ifd_id)
+                    ifd_name = str(ifd_id.name)
+                    metadata[ifd_name] = {}
 
+                    for k, v in ifd.items():
+                        if k in SKIP_TAGS:
+                            continue
+                        tag = resolve.get(k, k)
+                        # UserComment (tag 37510) is a binary blob with an 8-byte charset prefix.
+                        # Decode it properly instead of calling str() on the raw bytes.
+                        if k == 37510 and isinstance(v, bytes):
+                            decoded = decode_user_comment(v)
+                            if decoded is not None:
+                                metadata[ifd_name][str(tag)] = decoded
+                                # Promote to top-level parameters if it looks like A1111 format
+                                # and no parameters key was already set (PNG chunk takes priority).
+                                if 'Steps:' in decoded and ('Sampler:' in decoded or 'Model:' in decoded):
+                                    metadata.setdefault('parameters', decoded)
+                            continue
+                        try:
+                            metadata[ifd_name][str(tag)] = str(v)
+                        except Exception as e:
+                            gallery_log(f"Warning: Error converting EXIF IFD tag {tag} to string: {e}")
+                            metadata[ifd_name][str(tag)] = "Error decoding value"
 
-    return img, prompt, metadata
+                except KeyError:
+                    pass
+
+    finally:
+        img.close()
+
+    return None, prompt, metadata
 
 
 def buildPreviewText(metadata):
