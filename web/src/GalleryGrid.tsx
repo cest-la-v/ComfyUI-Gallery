@@ -76,7 +76,7 @@ const GalleryGrid = () => {
             if (columnIndex !== 0) return null;
             const divMode = image.divider_mode ?? 'date';
             const isPrompt = divMode === 'prompt';
-            const hasThumbs = !isPrompt && divMode !== 'date' && image.sample_paths && image.sample_paths.length > 0;
+            const hasThumbs = isPrompt && image.sample_paths && image.sample_paths.length > 0;
             const centered = divMode === 'date' || divMode === 'model';
             return (
                 <div
