@@ -149,8 +149,6 @@ const GalleryHeader = () => {
         setSearchFileName,
         sortMethod, setSortMethod,
         viewMode, setViewMode,
-        activeFilter, setActiveFilter,
-        setFilteredRelPaths,
         imagesAutoCompleteNames,
         autoCompleteOptions, setAutoCompleteOptions,
         setOpen,
@@ -198,8 +196,6 @@ const GalleryHeader = () => {
             );
         }
     }, [debouncedSearch, imagesAutoCompleteNames, setAutoCompleteOptions, setSearchFileName]);
-
-    const clearFilter = () => { setActiveFilter(null); setFilteredRelPaths(null); };
 
     const handleBulkDownload = useCallback(async () => {
         setDownloading(true);
@@ -340,18 +336,7 @@ const GalleryHeader = () => {
                         </AlertDialog>
                     </>
                 )}
-
-                {activeFilter && (
-                    <div className="inline-flex items-center gap-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-[13px] px-2 py-0.5 shrink-0">
-                        <span>{activeFilter.by === 'model' ? 'Model' : 'Prompt'}: {activeFilter.label}</span>
-                        <button onClick={clearFilter} className="hover:opacity-70 transition-opacity ml-0.5">
-                            <X className="h-3 w-3" />
-                        </button>
-                    </div>
-                )}
             </div>
-
-            {/* Right zone: search · view · sort · dark · settings · close */}
             <div className="flex items-center gap-1 flex-1 justify-end min-w-0">
                 <SearchAutocomplete
                     value={search}
@@ -362,7 +347,7 @@ const GalleryHeader = () => {
 
                 <ViewModeSelector
                     value={viewMode}
-                    onChange={v => { setViewMode(v); if (v !== 'model' && v !== 'prompt') clearFilter(); }}
+                    onChange={v => setViewMode(v)}
                 />
 
                 {/* Sort select */}

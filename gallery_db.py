@@ -329,6 +329,27 @@ class GalleryDB:
         }
         return result
 
+    def get_params_batch(self, rel_paths: list[str]) -> dict[str, dict]:
+        """Return {rel_path: {model, positive_prompt, prompt_only_fp}} for the given paths."""
+        if not rel_paths:
+            return {}
+        placeholders = ",".join("?" * len(rel_paths))
+        rows = self._conn().execute(
+            f"""SELECT f.rel_path, ip.model, ip.positive_prompt, ip.prompt_only_fp
+                FROM files f
+                JOIN image_params ip ON ip.file_id = f.id
+                WHERE f.rel_path IN ({placeholders})""",
+            rel_paths,
+        ).fetchall()
+        return {
+            row["rel_path"]: {
+                "model": row["model"],
+                "positive_prompt": row["positive_prompt"],
+                "prompt_only_fp": row["prompt_only_fp"],
+            }
+            for row in rows
+        }
+
     def get_files_by_model(self, model: str) -> list[str]:
         """Return rel_paths for all files with the given model name."""
         rows = self._conn().execute(

@@ -285,6 +285,25 @@ async def get_gallery_images(request):
                     traceback.print_exc()
                     return web.Response(status=500, text=str(folders_with_metadata))
 
+                # Enrich each file entry with model/prompt metadata from the DB.
+                if _gallery_db:
+                    all_rel_paths = [
+                        item["rel_path"]
+                        for folder_items in folders_with_metadata.values()
+                        for item in folder_items.values()
+                        if isinstance(item, dict) and item.get("rel_path")
+                    ]
+                    params_map = _gallery_db.get_params_batch(all_rel_paths)
+                    for folder_items in folders_with_metadata.values():
+                        for item in folder_items.values():
+                            if not isinstance(item, dict):
+                                continue
+                            p = params_map.get(item.get("rel_path", ""))
+                            if p:
+                                item["model"] = p.get("model")
+                                item["positive_prompt"] = p.get("positive_prompt")
+                                item["prompt_only_fp"] = p.get("prompt_only_fp")
+
                 sanitized_folders = sanitize_json_data(folders_with_metadata)
                 json_string = json.dumps({"folders": sanitized_folders})
                 return web.Response(text=json_string, content_type="application/json", headers=_NO_CACHE)

@@ -4,10 +4,36 @@ import { VariableSizeGrid } from 'react-window';
 import ImageCard, { ImageCardHeight, ImageCardWidth } from './ImageCard';
 import { useGalleryContext } from './GalleryContext';
 import { Loader2 } from 'lucide-react';
+import { BASE_PATH } from './ComfyAppApi';
+import { Badge } from '@/components/ui/badge';
+
+const THUMB_SIZE = 64;
+const FALLBACK_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+const DIVIDER_HEIGHT: Record<string, number> = {
+    date: 56,
+    model: 96,
+    prompt: 128,
+};
+
+function ThumbnailStrip({ samplePaths }: { samplePaths: string[] }) {
+    return (
+        <div className="flex gap-1 mt-2 overflow-hidden">
+            {samplePaths.slice(0, 4).map((rel, i) => (
+                <img
+                    key={i}
+                    src={`${BASE_PATH}/static_gallery/${rel}`}
+                    className="object-cover rounded shrink-0"
+                    style={{ width: THUMB_SIZE, height: THUMB_SIZE, minWidth: THUMB_SIZE }}
+                    onError={e => { (e.target as HTMLImageElement).src = FALLBACK_SRC; }}
+                />
+            ))}
+        </div>
+    );
+}
 
 const GalleryGrid = () => {
     const {
-        data,
         currentFolder,
         gridSize,
         setGridSize,
@@ -25,19 +51,21 @@ const GalleryGrid = () => {
 
     const getRowHeight = useCallback((rowIndex: number) => {
         const firstItem = imagesDetailsList[rowIndex * gridSize.columnCount];
-        return firstItem?.type === 'divider' ? 56 : ImageCardHeight + 16;
+        if (firstItem?.type === 'divider') {
+            return DIVIDER_HEIGHT[firstItem.divider_mode ?? 'date'] ?? 56;
+        }
+        return ImageCardHeight + 16;
     }, [imagesDetailsList, gridSize.columnCount]);
 
     useEffect(() => {
         gridRef.current?.resetAfterRowIndex(0);
     }, [imagesDetailsList, gridSize.columnCount]);
 
-    const handleInfoClick = useCallback((imageName: string) => {
-        const item = data?.folders?.[currentFolder]?.[imageName];
-        if (item && (item.type === 'media' || item.type === 'audio')) setPreviewingVideo(item.name);
+    const handleInfoClick = useCallback((item: typeof imagesDetailsList[number]) => {
+        if (item.type === 'media' || item.type === 'audio') setPreviewingVideo(item.name);
         else setPreviewingVideo(undefined);
-        setImageInfoName(imageName);
-    }, [setImageInfoName, data, currentFolder, setPreviewingVideo]);
+        setImageInfoName(item.name);
+    }, [setImageInfoName, setPreviewingVideo]);
 
     const Cell = useCallback(({ columnIndex, rowIndex, style }: { columnIndex: number; rowIndex: number; style: React.CSSProperties }) => {
         const index = rowIndex * gridSize.columnCount + columnIndex;
@@ -46,6 +74,8 @@ const GalleryGrid = () => {
 
         if (image.type === 'divider') {
             if (columnIndex !== 0) return null;
+            const divMode = image.divider_mode ?? 'date';
+            const hasThumbs = divMode !== 'date' && image.sample_paths && image.sample_paths.length > 0;
             return (
                 <div
                     style={{
@@ -53,23 +83,31 @@ const GalleryGrid = () => {
                         width: `calc(${gridSize.columnCount} * ${ImageCardWidth + 16}px)`,
                         background: 'transparent',
                         display: 'flex',
-                        alignItems: 'flex-end',
+                        flexDirection: hasThumbs ? 'column' : 'row',
+                        alignItems: hasThumbs ? 'flex-start' : 'flex-end',
                         paddingLeft: 16,
                         paddingBottom: 8,
                         paddingTop: 16,
                         position: 'absolute',
                         zIndex: 2,
-                        gap: 8,
+                        gap: hasThumbs ? 0 : 8,
                     }}
                 >
-                    <span style={{ fontWeight: 700, fontSize: 14, color: '#aaa', letterSpacing: '0.01em' }}>
-                        {image.name}
-                    </span>
-                    {image.count != null && (
-                        <span style={{ fontSize: 11, lineHeight: '18px', padding: '0 6px', borderRadius: 10, background: 'rgba(255,255,255,0.08)', color: '#888' }}>
-                            {image.count}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span style={{ fontWeight: 700, fontSize: 14, color: '#aaa', letterSpacing: '0.01em' }}
+                              className={divMode === 'prompt' ? 'line-clamp-2' : ''}>
+                            {image.name}
                         </span>
-                    )}
+                        {image.count != null && (
+                            <span style={{ fontSize: 11, lineHeight: '18px', padding: '0 6px', borderRadius: 10, background: 'rgba(255,255,255,0.08)', color: '#888' }}>
+                                {image.count}
+                            </span>
+                        )}
+                        {divMode === 'prompt' && image.divider_models && image.divider_models.map(m => (
+                            <Badge key={m} variant="secondary" className="text-[10px] px-1.5 py-0 h-4">{m}</Badge>
+                        ))}
+                    </div>
+                    {hasThumbs && <ThumbnailStrip samplePaths={image.sample_paths!} />}
                 </div>
             );
         }
@@ -83,7 +121,7 @@ const GalleryGrid = () => {
                 <ImageCard
                     image={{ ...image, dragFolder: currentFolder }}
                     key={image.name}
-                    onInfoClick={() => handleInfoClick(image.name)}
+                    onInfoClick={() => handleInfoClick(image)}
                     onOpenLightbox={() => openLightbox(image.url)}
                 />
             </div>
@@ -102,7 +140,7 @@ const GalleryGrid = () => {
         if (grid) {
             Array.from(grid.children).forEach(child => { (child as HTMLElement).style.position = 'relative'; });
         }
-    }, [gridSize, imageInfoName, currentFolder, data]);
+    }, [gridSize, imageInfoName, currentFolder]);
 
     return (
         <>

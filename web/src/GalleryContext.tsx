@@ -51,13 +51,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
 };
 export const STORAGE_KEY = 'comfy-ui-gallery-settings';
 
-export type ViewMode = 'all' | 'date' | 'model' | 'prompt';
-
-export interface ActiveFilter {
-    by: 'model' | 'prompt';
-    value: string;
-    label: string;
-}
+export type ViewMode = 'date' | 'model' | 'prompt';
 
 export interface GalleryContextType {
     currentFolder: string;
@@ -66,8 +60,6 @@ export interface GalleryContextType {
     setSearchFileName: Dispatch<SetStateAction<string>>;
     viewMode: ViewMode;
     setViewMode: Dispatch<SetStateAction<ViewMode>>;
-    activeFilter: ActiveFilter | null;
-    setActiveFilter: Dispatch<SetStateAction<ActiveFilter | null>>;
     showSettings: boolean;
     setShowSettings: Dispatch<SetStateAction<boolean>>;
     showRawMetadata: boolean;
@@ -114,18 +106,111 @@ export interface GalleryContextType {
     setSelectedImages: React.Dispatch<React.SetStateAction<string[]>>;
     showMetadataPanel: boolean;
     setShowMetadataPanel: React.Dispatch<React.SetStateAction<boolean>>;
-    filteredRelPaths: string[] | null;
-    setFilteredRelPaths: React.Dispatch<React.SetStateAction<string[] | null>>;
 }
 
 const GalleryContext = createContext<GalleryContextType | undefined>(undefined);
+
+function injectDividers(
+    sortedList: FileDetails[],
+    mode: ViewMode,
+    colCount: number,
+): FileDetails[] {
+    type GroupEntry = { key: string; label: string; items: FileDetails[]; models?: string[] };
+
+    let groups: GroupEntry[];
+
+    if (mode === 'date') {
+        const grouped: Record<string, FileDetails[]> = {};
+        sortedList.forEach(item => {
+            const key = item.timestamp
+                ? new Date(item.timestamp * 1000).toISOString().slice(0, 10)
+                : 'Unknown';
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(item);
+        });
+        // Preserve sort order from the sorted list (first-seen key order), Unknown last
+        const seen: string[] = [];
+        sortedList.forEach(item => {
+            const key = item.timestamp
+                ? new Date(item.timestamp * 1000).toISOString().slice(0, 10)
+                : 'Unknown';
+            if (!seen.includes(key)) seen.push(key);
+        });
+        const unknownIdx = seen.indexOf('Unknown');
+        if (unknownIdx > 0) { seen.splice(unknownIdx, 1); seen.push('Unknown'); }
+        groups = seen.map(key => ({ key, label: key, items: grouped[key] ?? [] }));
+
+    } else if (mode === 'model') {
+        const grouped: Record<string, FileDetails[]> = {};
+        sortedList.forEach(item => {
+            const key = item.model ?? 'Unknown';
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(item);
+        });
+        const keys = Object.keys(grouped).sort((a, b) => {
+            if (a === 'Unknown') return 1;
+            if (b === 'Unknown') return -1;
+            return a.localeCompare(b);
+        });
+        groups = keys.map(key => ({ key, label: key, items: grouped[key] }));
+
+    } else {
+        // prompt mode
+        const grouped: Record<string, FileDetails[]> = {};
+        const noMetaBucket: FileDetails[] = [];
+        sortedList.forEach(item => {
+            const fp = item.prompt_only_fp ?? '';
+            if (!fp) { noMetaBucket.push(item); return; }
+            if (!grouped[fp]) grouped[fp] = [];
+            grouped[fp].push(item);
+        });
+        // Sort by count desc
+        const keys = Object.keys(grouped).sort((a, b) => grouped[b].length - grouped[a].length);
+        groups = keys.map(key => {
+            const items = grouped[key];
+            const models = [...new Set(items.map(i => i.model).filter(Boolean) as string[])];
+            return { key, label: items[0]?.positive_prompt ?? '(no prompt)', items, models };
+        });
+        if (noMetaBucket.length > 0) {
+            groups.push({ key: '(no metadata)', label: '(no metadata)', items: noMetaBucket });
+        }
+    }
+
+    const result: FileDetails[] = [];
+    groups.forEach(({ key, label, items, models }) => {
+        const samplePaths = items
+            .filter(i => i.type === 'image' || i.type === 'media')
+            .slice(0, 4)
+            .map(i => i.rel_path!)
+            .filter(Boolean);
+
+        const divider: FileDetails = {
+            name: label,
+            url: '',
+            timestamp: 0,
+            date: '',
+            type: 'divider',
+            count: items.length,
+            divider_mode: mode,
+            sample_paths: samplePaths,
+            ...(models ? { divider_models: models } : {}),
+        };
+        for (let i = 0; i < colCount; i++) result.push(divider);
+        result.push(...items);
+        const remainder = items.length % colCount;
+        if (remainder !== 0 && colCount > 1) {
+            for (let i = 0; i < colCount - remainder; i++) {
+                result.push({ name: key, url: '', timestamp: 0, date: '', type: 'empty-space' });
+            }
+        }
+    });
+    return result;
+}
 
 export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const [currentFolder, setCurrentFolder] = useState("");
     const [searchFileName, setSearchFileName] = useState("");
     const [viewMode, setViewMode] = useState<ViewMode>('date');
-    const [activeFilter, setActiveFilter] = useState<ActiveFilter | null>(null);
-    const [filteredRelPaths, setFilteredRelPaths] = useState<string[] | null>(null);
     const [showSettings, setShowSettings] = useState(false);
     const [showRawMetadata, setShowRawMetadata] = useState(false);
     const [sortMethod, setSortMethod] = useState<'Newest' | 'Oldest' | 'Name ↑' | 'Name ↓'>("Newest");
@@ -241,28 +326,18 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
 
     // Memoized list of all images in the current folder
     const imagesDetailsList = useMemo(() => {
-        // '' = show all folders flattened (root / default view)
-        // group filter = flatMap across all folders
-        // specific folder = that folder only
-        const allItems: FileDetails[] = filteredRelPaths !== null
+        const allItems: FileDetails[] = currentFolder === ''
             ? Object.values(data?.folders ?? {}).flatMap(folder => Object.values(folder as Record<string, FileDetails>))
-            : currentFolder === ''
-                ? Object.values(data?.folders ?? {}).flatMap(folder => Object.values(folder as Record<string, FileDetails>))
-                : Object.values(data?.folders?.[currentFolder] ?? []);
+            : Object.values(data?.folders?.[currentFolder] ?? []);
 
         let list = allItems;
-
-        // Apply active filter (drill-down from group card)
-        if (filteredRelPaths !== null) {
-            const pathSet = new Set(filteredRelPaths);
-            list = list.filter(item => item.rel_path && pathSet.has(item.rel_path));
-        }
 
         if (searchFileName && searchFileName.trim() !== "") {
             const searchTerm = searchFileName.toLowerCase();
             list = list.filter(imageInfo => imageInfo.name.toLowerCase().includes(searchTerm));
         }
-        // Step 1: Sort
+
+        // Sort
         switch (sortMethod) {
             case 'Newest':
                 list = list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
@@ -277,42 +352,9 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
                 list = list.sort((a, b) => b.name.localeCompare(a.name));
                 break;
         }
-        // Step 2: Group dividers (date mode only)
-        if (viewMode !== 'date') return list;
 
-        const getGroupKey = (item: FileDetails): string => {
-            return item.timestamp ? new Date(item.timestamp * 1000).toISOString().slice(0, 10) : 'Unknown';
-        };
-
-        const grouped: Record<string, FileDetails[]> = {};
-        list.forEach(item => {
-            const key = getGroupKey(item);
-            if (!grouped[key]) grouped[key] = [];
-            grouped[key].push(item);
-        });
-
-        const sortedGroups = Object.entries(grouped).sort(([a], [b]) => {
-            if (a === 'Unknown' || a === 'N/A') return 1;
-            if (b === 'Unknown' || b === 'N/A') return -1;
-            return sortMethod === 'Oldest' ? a.localeCompare(b) : b.localeCompare(a);
-        });
-
-        const result: FileDetails[] = [];
-        const colCount = Math.max(1, gridSize.columnCount || 1);
-        sortedGroups.forEach(([key, items]) => {
-            for (let i = 0; i < colCount; i++) {
-                result.push({ name: key, type: 'divider', count: items.length } as FileDetails);
-            }
-            result.push(...items);
-            const remainder = items.length % colCount;
-            if (remainder !== 0 && colCount > 1) {
-                for (let i = 0; i < colCount - remainder; i++) {
-                    result.push({ type: 'empty-space' } as FileDetails);
-                }
-            }
-        });
-        return result;
-    }, [currentFolder, data, sortMethod, searchFileName, gridSize.columnCount, viewMode, filteredRelPaths]);
+        return injectDividers(list, viewMode, Math.max(1, gridSize.columnCount || 1));
+    }, [currentFolder, data, sortMethod, searchFileName, gridSize.columnCount, viewMode]);
 
     // Memoized autocomplete options for image names
     const imagesAutoCompleteNames = useMemo<AutoCompleteOption[]>(() => {
@@ -435,8 +477,6 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         currentFolder, setCurrentFolder,
         searchFileName, setSearchFileName,
         viewMode, setViewMode,
-        activeFilter, setActiveFilter,
-        filteredRelPaths, setFilteredRelPaths,
         showSettings, setShowSettings,
         showRawMetadata, setShowRawMetadata,
         sortMethod, setSortMethod,
@@ -468,8 +508,6 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         currentFolder, 
         searchFileName, 
         viewMode,
-        activeFilter,
-        filteredRelPaths,
         showSettings, 
         showRawMetadata, 
         sortMethod, 

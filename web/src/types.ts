@@ -22,6 +22,14 @@ export interface FileDetails {
     height?: number;
     rel_path?: string;
     count?: number;
+    /** Enriched from DB — present on media/image/audio items */
+    model?: string | null;
+    positive_prompt?: string | null;
+    prompt_only_fp?: string | null;
+    /** Divider-only fields */
+    divider_mode?: 'date' | 'model' | 'prompt';
+    sample_paths?: string[];
+    divider_models?: string[];
 }
 
 export interface ImageParams {
@@ -62,20 +70,4 @@ export interface Folders {
 
 export interface FilesTree {
     folders: Folders;
-}
-
-export interface ModelGroup {
-    model: string;
-    count: number;
-    /** Up to 4 rel_paths for thumbnail strip */
-    sample_paths: string[];
-}
-
-export interface PromptGroup {
-    fingerprint: string;
-    positive_prompt: string | null;
-    models: string[];
-    count: number;
-    /** Up to 4 rel_paths for thumbnail strip */
-    sample_paths: string[];
 }

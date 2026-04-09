@@ -3,41 +3,11 @@ import GalleryHeader from './GalleryHeader';
 import GalleryGrid from './GalleryGrid';
 import GalleryLightbox from './GalleryLightbox';
 import GallerySettingsModal from './GallerySettingsModal';
-import GroupView from './GroupView';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useModalDismiss } from './hooks/useModalDismiss';
 
 const GalleryModal = () => {
-    const {
-        open, setOpen, showSettings,
-        viewMode, setViewMode, setActiveFilter, setFilteredRelPaths,
-    } = useGalleryContext();
-
-    const handleSelectModel = async (model: string) => {
-        try {
-            const res = await fetch(`/Gallery/groups/files?by=model&value=${encodeURIComponent(model)}`, { cache: 'no-store' });
-            const json = await res.json();
-            setFilteredRelPaths(json.rel_paths ?? []);
-            setActiveFilter({ by: 'model', value: model, label: model });
-            setViewMode('all');
-        } catch (e) {
-            console.error('Failed to fetch group files:', e);
-            setViewMode('all');
-        }
-    };
-
-    const handleSelectPrompt = async (fingerprint: string, label: string) => {
-        try {
-            const res = await fetch(`/Gallery/groups/files?by=prompt&value=${encodeURIComponent(fingerprint)}`, { cache: 'no-store' });
-            const json = await res.json();
-            setFilteredRelPaths(json.rel_paths ?? []);
-            setActiveFilter({ by: 'prompt', value: fingerprint, label });
-            setViewMode('all');
-        } catch (e) {
-            console.error('Failed to fetch group files:', e);
-            setViewMode('all');
-        }
-    };
+    const { open, setOpen, showSettings } = useGalleryContext();
 
     const dismiss = useModalDismiss(() => setOpen(false), { disabled: showSettings });
 
@@ -61,19 +31,9 @@ const GalleryModal = () => {
                     </div>
 
                     {/* Body */}
-                    <div className="flex flex-1 min-h-0 overflow-hidden">
-                        {viewMode === 'model' || viewMode === 'prompt' ? (
-                            <GroupView
-                                onSelectModel={handleSelectModel}
-                                onSelectPrompt={handleSelectPrompt}
-                                activeTab={viewMode === 'prompt' ? 'prompt' : 'model'}
-                            />
-                        ) : (
-                            <div className="relative flex-1 min-h-0 min-w-0 overflow-hidden">
-                                <GalleryGrid />
-                                <GalleryLightbox />
-                            </div>
-                        )}
+                    <div className="relative flex-1 min-h-0 min-w-0 overflow-hidden">
+                        <GalleryGrid />
+                        <GalleryLightbox />
                     </div>
                 </DialogContent>
             </Dialog>
