@@ -360,10 +360,10 @@ const GalleryHeader = () => {
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="z-[var(--cg-z-popup)]">
-                        <SelectItem value="Newest">Date: Newest</SelectItem>
-                        <SelectItem value="Oldest">Date: Oldest</SelectItem>
-                        <SelectItem value="Name ↑">Name: A → Z</SelectItem>
-                        <SelectItem value="Name ↓">Name: Z → A</SelectItem>
+                        <SelectItem value="Newest">Newest</SelectItem>
+                        <SelectItem value="Oldest">Oldest</SelectItem>
+                        <SelectItem value="Name ↑">A → Z</SelectItem>
+                        <SelectItem value="Name ↓">Z → A</SelectItem>
                     </SelectContent>
                 </Select>
 
