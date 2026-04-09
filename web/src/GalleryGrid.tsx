@@ -5,7 +5,6 @@ import ImageCard, { ImageCardHeight, ImageCardWidth } from './ImageCard';
 import { useGalleryContext } from './GalleryContext';
 import { Loader2 } from 'lucide-react';
 import { BASE_PATH } from './ComfyAppApi';
-import { Badge } from '@/components/ui/badge';
 
 const THUMB_SIZE = 64;
 const FALLBACK_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
@@ -45,6 +44,7 @@ const GalleryGrid = () => {
         imagesDetailsList,
         loading,
         openLightbox,
+        viewMode,
     } = useGalleryContext();
 
     const gridRef = useRef<VariableSizeGrid>(null);
@@ -75,7 +75,8 @@ const GalleryGrid = () => {
         if (image.type === 'divider') {
             if (columnIndex !== 0) return null;
             const divMode = image.divider_mode ?? 'date';
-            const hasThumbs = divMode !== 'date' && image.sample_paths && image.sample_paths.length > 0;
+            const isDate = divMode === 'date';
+            const hasThumbs = !isDate && image.sample_paths && image.sample_paths.length > 0;
             return (
                 <div
                     style={{
@@ -84,8 +85,9 @@ const GalleryGrid = () => {
                         background: 'transparent',
                         display: 'flex',
                         flexDirection: hasThumbs ? 'column' : 'row',
-                        alignItems: hasThumbs ? 'flex-start' : 'flex-end',
-                        paddingLeft: 16,
+                        alignItems: isDate ? 'center' : hasThumbs ? 'flex-start' : 'flex-end',
+                        justifyContent: isDate ? 'center' : undefined,
+                        paddingLeft: isDate ? undefined : 16,
                         paddingBottom: 8,
                         paddingTop: 16,
                         position: 'absolute',
@@ -103,9 +105,6 @@ const GalleryGrid = () => {
                                 {image.count}
                             </span>
                         )}
-                        {divMode === 'prompt' && image.divider_models && image.divider_models.map(m => (
-                            <Badge key={m} variant="secondary" className="text-[10px] px-1.5 py-0 h-4">{m}</Badge>
-                        ))}
                     </div>
                     {hasThumbs && <ThumbnailStrip samplePaths={image.sample_paths!} />}
                 </div>
@@ -121,6 +120,7 @@ const GalleryGrid = () => {
                 <ImageCard
                     image={{ ...image, dragFolder: currentFolder }}
                     key={image.name}
+                    showModelBadge={viewMode === 'prompt' && !!image.model}
                     onInfoClick={() => handleInfoClick(image)}
                     onOpenLightbox={() => openLightbox(image.url)}
                 />

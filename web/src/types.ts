@@ -29,7 +29,6 @@ export interface FileDetails {
     /** Divider-only fields */
     divider_mode?: 'date' | 'model' | 'prompt';
     sample_paths?: string[];
-    divider_models?: string[];
 }
 
 export interface ImageParams {

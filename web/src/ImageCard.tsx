@@ -19,10 +19,12 @@ function ImageCard({
     image,
     onInfoClick,
     onOpenLightbox,
+    showModelBadge = false,
 }: {
     image: FileDetails & { dragFolder?: string };
     onInfoClick: (imageName: string | undefined) => void;
     onOpenLightbox: () => void;
+    showModelBadge?: boolean;
 }) {
     const { settings, selectedImages, setSelectedImages, setShowMetadataPanel } = useGalleryContext();
     const dragRef = useRef<HTMLDivElement>(null);
@@ -99,6 +101,13 @@ function ImageCard({
                         >
                             <Trash2 className="h-3.5 w-3.5" />
                         </Button>
+                    </div>
+                )}
+
+                {/* Model badge overlay (prompt mode only) */}
+                {showModelBadge && image.model && (
+                    <div className="absolute top-2 left-2 z-[3] max-w-[160px] truncate rounded-full bg-black/60 px-2 py-0.5 text-[11px] text-white/80 leading-[18px]">
+                        {image.model}
                     </div>
                 )}
 

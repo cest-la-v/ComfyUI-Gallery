@@ -115,7 +115,7 @@ function injectDividers(
     mode: ViewMode,
     colCount: number,
 ): FileDetails[] {
-    type GroupEntry = { key: string; label: string; items: FileDetails[]; models?: string[] };
+    type GroupEntry = { key: string; label: string; items: FileDetails[] };
 
     let groups: GroupEntry[];
 
@@ -168,8 +168,7 @@ function injectDividers(
         const keys = Object.keys(grouped).sort((a, b) => grouped[b].length - grouped[a].length);
         groups = keys.map(key => {
             const items = grouped[key];
-            const models = [...new Set(items.map(i => i.model).filter(Boolean) as string[])];
-            return { key, label: items[0]?.positive_prompt ?? '(no prompt)', items, models };
+            return { key, label: items[0]?.positive_prompt ?? '(no prompt)', items };
         });
         if (noMetaBucket.length > 0) {
             groups.push({ key: '(no metadata)', label: '(no metadata)', items: noMetaBucket });
@@ -177,7 +176,7 @@ function injectDividers(
     }
 
     const result: FileDetails[] = [];
-    groups.forEach(({ key, label, items, models }) => {
+    groups.forEach(({ key, label, items }) => {
         const samplePaths = items
             .filter(i => i.type === 'image' || i.type === 'media')
             .slice(0, 4)
@@ -193,7 +192,6 @@ function injectDividers(
             count: items.length,
             divider_mode: mode,
             sample_paths: samplePaths,
-            ...(models ? { divider_models: models } : {}),
         };
         for (let i = 0; i < colCount; i++) result.push(divider);
         result.push(...items);
