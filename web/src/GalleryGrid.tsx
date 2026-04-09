@@ -75,8 +75,9 @@ const GalleryGrid = () => {
         if (image.type === 'divider') {
             if (columnIndex !== 0) return null;
             const divMode = image.divider_mode ?? 'date';
-            const isDate = divMode === 'date';
-            const hasThumbs = !isDate && image.sample_paths && image.sample_paths.length > 0;
+            const isPrompt = divMode === 'prompt';
+            const hasThumbs = !isPrompt && divMode !== 'date' && image.sample_paths && image.sample_paths.length > 0;
+            const centered = divMode === 'date' || divMode === 'model';
             return (
                 <div
                     style={{
@@ -85,9 +86,9 @@ const GalleryGrid = () => {
                         background: 'transparent',
                         display: 'flex',
                         flexDirection: hasThumbs ? 'column' : 'row',
-                        alignItems: isDate ? 'center' : hasThumbs ? 'flex-start' : 'flex-end',
-                        justifyContent: isDate ? 'center' : undefined,
-                        paddingLeft: isDate ? undefined : 16,
+                        alignItems: centered ? 'center' : hasThumbs ? 'flex-start' : 'flex-end',
+                        justifyContent: centered ? 'center' : undefined,
+                        paddingLeft: centered ? undefined : 16,
                         paddingBottom: 8,
                         paddingTop: 16,
                         position: 'absolute',
