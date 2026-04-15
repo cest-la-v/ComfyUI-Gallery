@@ -23,6 +23,13 @@ export default tseslint.config(
                 'warn',
                 { allowConstantExport: true },
             ],
+            'no-restricted-syntax': [
+                'error',
+                {
+                    selector: "Property[key.name='zIndex'] > Literal[raw=/^-?[0-9]/]",
+                    message: "Use var(--cg-z-*) instead of a hardcoded z-index number.",
+                },
+            ],
         },
     },
 )

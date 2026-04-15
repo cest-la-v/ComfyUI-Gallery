@@ -92,6 +92,7 @@ const GalleryGrid = () => {
                         paddingBottom: 8,
                         paddingTop: 16,
                         position: 'absolute',
+                        // eslint-disable-next-line no-restricted-syntax -- local stacking within divider row, not gallery-level z-index
                         zIndex: 2,
                         gap: hasThumbs ? 0 : 8,
                     }}

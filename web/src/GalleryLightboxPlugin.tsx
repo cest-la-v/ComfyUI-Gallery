@@ -88,7 +88,9 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                         {showToolbar && (
                             <div style={{
                                 position: 'absolute', bottom: 24, left: '50%',
-                                transform: 'translateX(-50%)', zIndex: 10,
+                                transform: 'translateX(-50%)',
+                                // eslint-disable-next-line no-restricted-syntax -- local stacking within yarl carousel area, not gallery-level z-index
+                                zIndex: 10,
                                 pointerEvents: 'auto',
                             }}>
                                 {confirmingDelete ? (
