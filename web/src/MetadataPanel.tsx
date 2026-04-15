@@ -19,7 +19,7 @@ import {
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 const PROMPT_ROW_LIMIT = 6;
-const BORDER = '1px solid #303030';
+const BORDER = '1px solid var(--border)';
 
 interface DescRow { label: ReactNode; content: ReactNode; contentAlign?: 'center'; }
 
@@ -34,10 +34,10 @@ function MetadataSkeleton() {
             {rows.map(({ lw, cw }, i) => (
                 <div key={i} style={{ display: 'flex', borderBottom: i < rows.length - 1 ? BORDER : 'none', minHeight: 32, alignItems: 'center' }}>
                     <div style={{ width: 110, minWidth: 110, padding: '6px 12px', borderRight: BORDER, display: 'flex', alignItems: 'center' }}>
-                        <div className="animate-pulse rounded bg-white/10" style={{ width: lw, height: 14 }} />
+                        <div className="animate-pulse rounded bg-foreground/10" style={{ width: lw, height: 14 }} />
                     </div>
                     <div style={{ flex: 1, padding: '6px 12px', display: 'flex', alignItems: 'center' }}>
-                        <div className="animate-pulse rounded bg-white/10" style={{ width: cw, height: 14 }} />
+                        <div className="animate-pulse rounded bg-foreground/10" style={{ width: cw, height: 14 }} />
                     </div>
                 </div>
             ))}
@@ -267,9 +267,9 @@ export function MetadataPanel({ image, onDeleteRequest }: { image: FileDetails; 
 
     return (
         <div
+            className="bg-card"
             style={{
                 height: '100%',
-                background: 'rgba(30, 30, 30, 0.95)',
                 padding: '16px',
                 display: 'flex', flexDirection: 'column', gap: 12,
                 overflow: 'hidden',
@@ -277,7 +277,7 @@ export function MetadataPanel({ image, onDeleteRequest }: { image: FileDetails; 
             onClick={(e) => e.stopPropagation()}
         >
             {/* Metadata / Raw JSON toggle */}
-            <div className="flex rounded-md overflow-hidden text-xs shrink-0" style={{ border: '1px solid #444' }}>
+            <div className="flex rounded-md overflow-hidden text-xs shrink-0 border border-border">
                 {(['metadata', 'raw'] as const).map(v => {
                     const active = (showRawMetadata ? 'raw' : 'metadata') === v;
                     return (
@@ -285,7 +285,7 @@ export function MetadataPanel({ image, onDeleteRequest }: { image: FileDetails; 
                             key={v}
                             className={cn(
                                 "flex-1 py-1 px-2 transition-colors",
-                                active ? "bg-primary text-primary-foreground" : "text-[#aaa] hover:bg-white/10"
+                                active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
                             )}
                             onClick={() => { setShowRawMetadata(v === 'raw'); (document.activeElement as HTMLElement)?.blur(); }}
                         >
@@ -360,8 +360,8 @@ export function MetadataPanel({ image, onDeleteRequest }: { image: FileDetails; 
                                         style={{ borderBottom: i < items.length - 1 ? BORDER : 'none', minHeight: 32 }}
                                     >
                                         <div
-                                            className="flex items-center shrink-0"
-                                            style={{ width: 110, minWidth: 110, padding: '6px 12px', borderRight: BORDER, background: 'rgba(255,255,255,0.04)' }}
+                                            className="flex items-center shrink-0 bg-muted/40"
+                                            style={{ width: 110, minWidth: 110, padding: '6px 12px', borderRight: BORDER }}
                                         >
                                             {row.label}
                                         </div>
