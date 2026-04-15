@@ -267,7 +267,7 @@ export function MetadataPanel({ image, onDeleteRequest }: { image: FileDetails; 
 
     return (
         <div
-            className="bg-card"
+            className="bg-card text-foreground"
             style={{
                 height: '100%',
                 padding: '16px',
