@@ -167,6 +167,7 @@ export function MetadataPanel({ image, onDeleteRequest }: { image: FileDetails; 
                 <div style={{ ...clampStyle, whiteSpace: 'pre-line', wordBreak: 'break-word' }}>{value}</div>
                 <button
                     className="text-xs text-primary hover:underline mt-0.5 inline-block"
+                    onMouseDown={e => e.preventDefault()}
                     onClick={e => { e.stopPropagation(); setExpandedKeys(k => ({ ...k, [key]: !isExpanded })); }}
                 >
                     {isExpanded ? 'Collapse' : 'Expand'}
@@ -287,7 +288,8 @@ export function MetadataPanel({ image, onDeleteRequest }: { image: FileDetails; 
                                 "flex-1 py-1 px-2 transition-colors",
                                 active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
                             )}
-                            onClick={() => { setShowRawMetadata(v === 'raw'); (document.activeElement as HTMLElement)?.blur(); }}
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => setShowRawMetadata(v === 'raw')}
                         >
                             {v === 'metadata' ? 'Metadata' : 'Raw JSON'}
                         </button>
@@ -300,7 +302,7 @@ export function MetadataPanel({ image, onDeleteRequest }: { image: FileDetails; 
                 {image.type === 'image' && (
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button size="sm" variant="outline" onClick={handleCopyImage}>
+                            <Button size="sm" variant="outline" onMouseDown={e => e.preventDefault()} onClick={handleCopyImage}>
                                 <Copy className="h-3.5 w-3.5" />Copy
                             </Button>
                         </TooltipTrigger>
@@ -309,13 +311,13 @@ export function MetadataPanel({ image, onDeleteRequest }: { image: FileDetails; 
                 )}
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button size="sm" variant="outline" onClick={handleDownload}>
+                        <Button size="sm" variant="outline" onMouseDown={e => e.preventDefault()} onClick={handleDownload}>
                             <Download className="h-3.5 w-3.5" />Download
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>Download file</TooltipContent>
                 </Tooltip>
-                <Button size="sm" variant="destructive" onClick={() => onDeleteRequest ? onDeleteRequest() : setShowDeleteConfirm(true)}>
+                <Button size="sm" variant="destructive" onMouseDown={e => e.preventDefault()} onClick={() => onDeleteRequest ? onDeleteRequest() : setShowDeleteConfirm(true)}>
                     <Trash2 className="h-3.5 w-3.5" />Delete
                 </Button>
                 <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
