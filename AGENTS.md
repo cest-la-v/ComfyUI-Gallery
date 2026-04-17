@@ -97,6 +97,12 @@ other code.
 
 ## Architecture: DOM Isolation
 
+> **Blast-radius rule:** Before adding any event listener, global CSS rule, or direct DOM
+> mutation, ask: *what does this affect outside the gallery?* There is no iframe boundary.
+> The gallery shares `document`, `window`, and `body` with ComfyUI's entire frontend.
+> A `document.addEventListener` active while the gallery is open intercepts events for
+> ComfyUI's canvas, menus, and every other component on the page.
+
 The gallery mounts into ComfyUI's DOM without iframe isolation. Three sibling elements live at
 `document.body`:
 
@@ -265,6 +271,20 @@ A1111 writes one combined field: `Sampler: DPM++ 3M SDE Karras`.
   `important: ':is(#comfy-gallery-root, #comfy-gallery-yarl-root)'`. CSS vars, `.dark` variants,
   `.lb-btn`, and the baseline element reset are all `:is(...)`-scoped in `globals.css`.
   If you add a new CSS root for a third-party library, add it to these selectors too.
+- **Never hardcode colors in inline `style={}`.** Use CSS-variable-backed Tailwind classes
+  (`bg-background`, `text-foreground`, `bg-card`, `bg-muted`, `border-border`,
+  `text-muted-foreground`, etc.). Hardcoded `rgba()` or hex values never respond to the
+  `.dark` class toggle and break light mode silently.
+- **Never add `document` or `window` event listeners in component code.** The gallery
+  shares `document` with ComfyUI's entire frontend — global listeners fire for every
+  ComfyUI interaction, not just gallery ones. Any listener that must be global must be
+  scoped to `#comfy-gallery-root` or `#comfy-gallery-yarl-root` (attach to the element,
+  not to `document`/`window`). Clean up in the `useEffect` return.
+- **Interactive elements inside the yarl plugin must not steal keyboard focus.** When a
+  button or interactive element inside `GalleryLightboxPlugin` is clicked and retains
+  focus, yarl loses arrow-key navigation. Use `onMouseDown={e => e.preventDefault()}` on
+  toolbar/panel buttons that should not hold focus, or call `.blur()` immediately after
+  the click handler. Existing toggle buttons already do this.
 
 ### Cross-platform (macOS / Linux / Windows)
 
