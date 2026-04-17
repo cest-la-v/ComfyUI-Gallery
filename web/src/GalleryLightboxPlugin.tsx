@@ -50,17 +50,20 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
 
     const handleDelete = useCallback(async () => {
         if (!currentImage) return;
-        // After delete: advance to next image if available, else close
-        const next = previewableImages[currentIndex + 1] ?? previewableImages[currentIndex - 1];
         const success = await ComfyAppApi.deleteImage(currentImage.url);
         if (success) {
             toast.success('Image deleted');
-            if (next) {
-                const nextIdx = previewableImages.indexOf(next);
-                setLightboxIndex(nextIdx >= 0 ? nextIdx : Math.max(0, currentIndex - 1));
-                setImageInfoName(next.name);
-            } else {
+            if (previewableImages.length <= 1) {
                 closeLightbox();
+            } else if (currentIndex >= previewableImages.length - 1) {
+                // Deleted the last image — must go backwards (index will be out of bounds after refresh)
+                setLightboxIndex(currentIndex - 1);
+                setImageInfoName(previewableImages[currentIndex - 1].name);
+            } else {
+                // Non-last image: keep the same index — after data refresh previewableImages[currentIndex]
+                // will naturally be the next image. Manually updating the index causes a double-switch
+                // because on.view fires again once the slides array shrinks.
+                setImageInfoName(previewableImages[currentIndex + 1].name);
             }
         } else {
             toast.error('Failed to delete image');
