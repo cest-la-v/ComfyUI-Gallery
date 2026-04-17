@@ -11,6 +11,7 @@ import {
     AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export const ImageCardWidth = 350;
 export const ImageCardHeight = 450;
@@ -29,7 +30,6 @@ function ImageCard({
     const { settings, selectedImages, setSelectedImages, setShowMetadataPanel } = useGalleryContext();
     const dragRef = useRef<HTMLDivElement>(null);
     const [dragging, setDragging] = useState(false);
-    const [hovered, setHovered] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
     useDrag(
@@ -68,10 +68,8 @@ function ImageCard({
     return (
         <>
             <div
-                className="image-card"
+                className="image-card group"
                 ref={dragRef}
-                onMouseEnter={() => setHovered(true)}
-                onMouseLeave={() => setHovered(false)}
                 style={{
                     width: ImageCardWidth,
                     height: ImageCardHeight,
@@ -91,18 +89,19 @@ function ImageCard({
                 onClick={handleCardClick}
             >
                 {/* Delete button (hover) */}
-                {(hovered || deleteConfirmOpen) && (
-                    <div className="absolute top-2 right-2 z-[3]">
-                        <Button
-                            size="icon"
-                            variant="destructive"
-                            className="h-7 w-7 bg-black/60 hover:bg-destructive border-none shadow"
-                            onClick={e => { e.stopPropagation(); setDeleteConfirmOpen(true); }}
-                        >
-                            <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                    </div>
-                )}
+                <div className={cn(
+                    "absolute top-2 right-2 z-[3] transition-opacity",
+                    deleteConfirmOpen ? "opacity-100" : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
+                )}>
+                    <Button
+                        size="icon"
+                        variant="destructive"
+                        className="h-7 w-7 bg-black/60 hover:bg-destructive border-none shadow"
+                        onClick={e => { e.stopPropagation(); setDeleteConfirmOpen(true); }}
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                </div>
 
                 {/* Model badge overlay (prompt mode only) */}
                 {showModelBadge && image.model && (
