@@ -3,19 +3,11 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type React from 'react';
 import type { ReactNode } from 'react';
 import type { FileDetails, ImageParams } from './types';
-import { ComfyAppApi } from './ComfyAppApi';
 import { useGalleryContext } from './GalleryContext';
-import { Copy, Download, Trash2 } from 'lucide-react';
 import { BASE_PATH } from './ComfyAppApi';
-import { saveAs } from 'file-saver';
 import ReactJsonView from '@microlink/react-json-view';
 import { cn } from '@/lib/utils';
-import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-    AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
-    AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
-} from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 const PROMPT_ROW_LIMIT = 6;
@@ -94,17 +86,16 @@ function paramsToDisplayMap(params: ImageParams | null): Record<string, string> 
     return out;
 }
 
-export function MetadataPanel({ image, onDeleteRequest }: { image: FileDetails; onDeleteRequest?: () => void }) {
+export function MetadataPanel({ image }: { image: FileDetails }) {
     const [copiedKey, setCopiedKey] = useState<string | null>(null);
     const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
     const [parsedParams, setParsedParams] = useState<ImageParams | null>(null);
     const [parsedLoading, setParsedLoading] = useState(false);
     const [rawMetadata, setRawMetadata] = useState<Record<string, unknown> | null>(null);
     const [rawLoading, setRawLoading] = useState(false);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const rawFetchedForRef = useRef<string | null>(null);
 
-    const { setImageInfoName, showRawMetadata, setShowRawMetadata, settings } = useGalleryContext();
+    const { showRawMetadata, setShowRawMetadata, settings } = useGalleryContext();
 
     const relPath = image.url.startsWith('/static_gallery/')
         ? image.url.slice('/static_gallery/'.length)
@@ -216,7 +207,7 @@ export function MetadataPanel({ image, onDeleteRequest }: { image: FileDetails; 
                 content: (
                     <div className="flex gap-1 flex-wrap">
                         {formats.includes('a1111') && <Badge variant="blue">Civitai ✓</Badge>}
-                        {formats.includes('comfyui') && <Badge variant="green">ComfyUI Prompt ✓</Badge>}
+                        {formats.includes('comfyui') && <Badge variant="green">ComfyUI ✓</Badge>}
                     </div>
                 ),
                 contentAlign: 'center',
@@ -226,45 +217,6 @@ export function MetadataPanel({ image, onDeleteRequest }: { image: FileDetails; 
         rows.push(...entries.filter(([k]) => !FILEINFO_KEYS.has(k)).map(([k, v]) => makeRow(k, v)));
         return rows;
     }, [displayMap, copiedKey, renderPromptValue, parsedParams?.formats]);
-
-    const handleDelete = useCallback(async () => {
-        const success = await ComfyAppApi.deleteImage(image.url);
-        if (success) { setImageInfoName(undefined); toast.success('Image deleted'); }
-        else toast.error('Failed to delete image');
-    }, [image.url, setImageInfoName]);
-
-    const handleDownload = useCallback(async () => {
-        try {
-            const response = await fetch(`${BASE_PATH}${image.url}`, { mode: 'cors' });
-            if (!response.ok) throw new Error('Network response was not ok');
-            saveAs(await response.blob(), image.name);
-        } catch { toast.error('Failed to download file'); }
-    }, [image.url, image.name]);
-
-    const handleCopyImage = useCallback(async () => {
-        try {
-            const img = new window.Image();
-            img.crossOrigin = 'anonymous';
-            img.src = `${BASE_PATH}${image.url}`;
-            img.onload = async () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width; canvas.height = img.height;
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                    ctx.drawImage(img, 0, 0);
-                    canvas.toBlob(async (blob) => {
-                        if (blob) {
-                            try {
-                                await navigator.clipboard.write([new window.ClipboardItem({ [blob.type]: blob })]);
-                                toast.success('Image copied to clipboard');
-                            } catch { toast.error('Clipboard copy failed'); }
-                        } else toast.error('Failed to copy image');
-                    }, 'image/png');
-                }
-            };
-            img.onerror = () => toast.error('Failed to load image for copy');
-        } catch { toast.error('Failed to copy image'); }
-    }, [image.url]);
 
     return (
         <div
@@ -295,46 +247,6 @@ export function MetadataPanel({ image, onDeleteRequest }: { image: FileDetails; 
                         </button>
                     );
                 })}
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex gap-2 flex-wrap shrink-0">
-                {image.type === 'image' && (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button size="sm" variant="outline" onMouseDown={e => e.preventDefault()} onClick={handleCopyImage}>
-                                <Copy className="h-3.5 w-3.5" />Copy
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Copy image to clipboard</TooltipContent>
-                    </Tooltip>
-                )}
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button size="sm" variant="outline" onMouseDown={e => e.preventDefault()} onClick={handleDownload}>
-                            <Download className="h-3.5 w-3.5" />Download
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Download file</TooltipContent>
-                </Tooltip>
-                <Button size="sm" variant="destructive" onMouseDown={e => e.preventDefault()} onClick={() => onDeleteRequest ? onDeleteRequest() : setShowDeleteConfirm(true)}>
-                    <Trash2 className="h-3.5 w-3.5" />Delete
-                </Button>
-                <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Delete the image</AlertDialogTitle>
-                            <AlertDialogDescription>Are you sure you want to delete this image?</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>No</AlertDialogCancel>
-                            <AlertDialogAction
-                                className={buttonVariants({ variant: 'destructive' })}
-                                onClick={() => { setShowDeleteConfirm(false); handleDelete(); }}
-                            >Yes</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
             </div>
 
             {/* Scrollable content */}

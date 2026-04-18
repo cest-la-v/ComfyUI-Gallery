@@ -243,7 +243,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                             display: 'flex',
                             flexDirection: 'column',
                         }}>
-                            <MetadataPanel image={currentImage} onDeleteRequest={() => setConfirmingDelete(true)} />
+                            <MetadataPanel image={currentImage} />
                         </div>
                     )}
                 </div>
