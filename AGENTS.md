@@ -103,6 +103,12 @@ other code.
 > A `document.addEventListener` active while the gallery is open intercepts events for
 > ComfyUI's canvas, menus, and every other component on the page.
 
+> **Pre-implementation gate:** For any change touching focus ownership, keyboard events,
+> event listeners, CSS scope, z-index, DOM structure, Radix components, or modal/dialog
+> behavior — invoke the `comfyui-arch-review` skill before implementing. One rule, no exceptions
+> regardless of apparent change size. The skill encodes the specific failure modes of this
+> architecture as a structured checklist and outputs GO / CONDITIONAL GO / NO-GO.
+
 The gallery mounts into ComfyUI's DOM without iframe isolation. Three sibling elements live at
 `document.body`:
 
