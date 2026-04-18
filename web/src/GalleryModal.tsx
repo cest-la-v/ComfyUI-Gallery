@@ -7,9 +7,9 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useModalDismiss } from './hooks/useModalDismiss';
 
 const GalleryModal = () => {
-    const { open, setOpen, showSettings } = useGalleryContext();
+    const { open, setOpen, showSettings, lightboxOpen } = useGalleryContext();
 
-    const dismiss = useModalDismiss(() => setOpen(false), { disabled: showSettings });
+    const dismiss = useModalDismiss(() => setOpen(false), { disabled: showSettings || lightboxOpen });
 
     return (
         <>
