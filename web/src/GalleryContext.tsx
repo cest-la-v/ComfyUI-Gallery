@@ -150,7 +150,9 @@ function injectDividers(
         const keys = Object.keys(grouped).sort((a, b) => {
             if (a === 'Unknown') return 1;
             if (b === 'Unknown') return -1;
-            return a.localeCompare(b);
+            const maxA = Math.max(...grouped[a].map(i => i.timestamp ?? 0));
+            const maxB = Math.max(...grouped[b].map(i => i.timestamp ?? 0));
+            return maxB - maxA;
         });
         groups = keys.map(key => ({ key, label: key, items: grouped[key] }));
 
@@ -164,8 +166,12 @@ function injectDividers(
             if (!grouped[fp]) grouped[fp] = [];
             grouped[fp].push(item);
         });
-        // Sort by count desc
-        const keys = Object.keys(grouped).sort((a, b) => grouped[b].length - grouped[a].length);
+        // Sort by newest image in group
+        const keys = Object.keys(grouped).sort((a, b) => {
+            const maxA = Math.max(...grouped[a].map(i => i.timestamp ?? 0));
+            const maxB = Math.max(...grouped[b].map(i => i.timestamp ?? 0));
+            return maxB - maxA;
+        });
         groups = keys.map(key => {
             const items = grouped[key];
             return { key, label: items[0]?.positive_prompt ?? '(no prompt)', items };
