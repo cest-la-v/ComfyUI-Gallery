@@ -454,15 +454,18 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                 ) : (
                     <div className="flex flex-col gap-4">
                         {/* ── FILE INFO ── */}
-                        {parsedParams && (
-                            <div className="flex flex-col gap-3">
-                                <FileInfoSection params={parsedParams} />
-                                {/* Format badges as copy buttons */}
-                                {(hasA1111 || hasComfyUI) && (
-                                    <div className="flex gap-2 flex-wrap">
+                        {parsedParams && <FileInfoSection params={parsedParams} />}
+
+                        {/* ── GENERATION DATA ── */}
+                        {parsedParams && hasGenerationData && (
+                            <div className="flex flex-col gap-0">
+                                {/* Section header with format badges inline-right */}
+                                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                                    <span className="font-semibold text-sm">Generation data</span>
+                                    <div className="flex gap-1.5 flex-wrap ml-auto">
                                         {hasA1111 && (
                                             <FormatBadge
-                                                label="A1111 ✓"
+                                                label="A1111"
                                                 variant="blue"
                                                 loading={copying === 'a1111'}
                                                 onClick={handleCopyA1111}
@@ -470,23 +473,13 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                                         )}
                                         {hasComfyUI && (
                                             <FormatBadge
-                                                label={nodeCount != null ? `ComfyUI (${nodeCount} nodes)` : parsedLoading ? 'ComfyUI (…)' : 'ComfyUI ✓'}
+                                                label={nodeCount != null ? `ComfyUI (${nodeCount} nodes)` : 'ComfyUI'}
                                                 variant="green"
                                                 loading={copying === 'comfyui'}
                                                 onClick={handleCopyComfyUI}
                                             />
                                         )}
                                     </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* ── GENERATION DATA ── */}
-                        {parsedParams && hasGenerationData && (
-                            <div className="flex flex-col gap-0">
-                                {/* Section header */}
-                                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
-                                    <span className="font-semibold text-sm">Generation data</span>
                                 </div>
 
                                 <ResourcesSubSection params={parsedParams} />
