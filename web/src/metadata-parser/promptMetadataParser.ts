@@ -3,30 +3,58 @@ import { isPlainPromptString } from "./heuristicMetadataParser";
 import type { ExtractedPrompts, LoraInfo, MetadataExtractionPass, Parameters } from "./metadataParser";
 import { isPositivePrompt, isNegativePrompt } from "./validator";
 
+/**
+ * All known sampler node class types. Centralised here so additions are made in one place.
+ * Used by: extractModelFromPromptObject (model BFS), extractParametersFromPromptObject
+ * (params fast-path), extractByPrompt.positive/seed, PromptMetadataParser.positive/seed.
+ */
+const SAMPLER_TYPES = new Set([
+    'KSampler', 'KSamplerAdvanced', 'SamplerCustom', 'FaceDetailerPipe', 'Sage_KSampler',
+]);
+
+/**
+ * Ordered list of input key names that carry text or conditioning in the prompt graph.
+ * Tried in priority order when traversing backwards from a sampler's positive input.
+ * Keys later in this list are less common but have been seen in real-world workflows.
+ *
+ * When a new community node is encountered that uses an unlisted key to relay
+ * text/conditioning, add it here rather than adding a generic "follow all links"
+ * fallback — generic traversal risks following model/vae/negative branches and
+ * returning wrong strings.
+ */
+const PROMPT_RELAY_KEYS = [
+    'positive',   // KSampler → any conditioning relay node
+    'text',       // CLIPTextEncode, CR Prompt Text, etc.
+    'prompt',     // generic
+    'value',      // PrimitiveStringMultiline, primitive nodes
+    'pos',        // Sage_DualCLIPTextEncode
+    'ctx_02',     // rgthree Context Merge Big (ctx_02 = conditioning override, tried first)
+    'ctx_01',     // rgthree Context Merge Big (ctx_01 = base context, fallback)
+    'string_b',   // StringConcatenate (string_b usually carries main content)
+    'string_a',   // StringConcatenate (fallback when string_b is absent/empty)
+] as const;
+
 // Extracts the positive prompt by following references, always tracing the 'positive' input chain
 export function extractPositivePromptFromPromptObject(prompt: any, samplerNodeId: string | number): string {
     if (!prompt || typeof prompt !== 'object') return '';
     // Helper to recursively resolve prompt string
-    function resolvePromptRef(ref: any, visited = new Set()): string {
-        if (!ref || visited.has(ref)) return '';
-        visited.add(ref);
+    function resolvePromptRef(ref: any, visited = new Set<string>()): string {
+        if (!ref) return '';
         // Direct string
         if (typeof ref === 'string' && isPlainPromptString(ref)) return ref;
         // Object with content
-        if (typeof ref === 'object' && ref.content && isPlainPromptString(ref.content)) return ref.content;
+        if (typeof ref === 'object' && !Array.isArray(ref) && ref.content && isPlainPromptString(ref.content)) return ref.content;
         // Array reference to another node
         if (Array.isArray(ref) && typeof ref[0] === 'string') {
-            const refNode = prompt[ref[0]];
+            const nodeId = ref[0];
+            // Use node ID as visited key (stable string comparison, prevents cycles)
+            if (visited.has(nodeId)) return '';
+            visited.add(nodeId);
+            const refNode = prompt[nodeId];
             if (refNode && refNode.inputs) {
-                const inp = refNode.inputs;
-                // Follow known positive-conditioning chain keys in priority order:
-                // - positive/text/prompt/value: standard CLIP encode nodes
-                // - pos: Sage_DualCLIPTextEncode and similar
-                // - ctx_02/ctx_01: rgthree Context Merge Big (aggregates two context outputs)
-                // - string_b/string_a: StringConcatenate (string_b usually carries main content)
-                for (const key of ['positive', 'text', 'prompt', 'value', 'pos', 'ctx_02', 'ctx_01', 'string_b', 'string_a']) {
-                    if (inp[key] !== undefined) {
-                        const result = resolvePromptRef(inp[key], visited);
+                for (const key of PROMPT_RELAY_KEYS) {
+                    if (refNode.inputs[key] !== undefined) {
+                        const result = resolvePromptRef(refNode.inputs[key], visited);
                         if (result) return result;
                     }
                 }
@@ -106,7 +134,6 @@ export function extractModelFromPromptObject(prompt: any): string {
     // Pass 0 (new): trace model backwards from each top-level sampler node.
     // "Top-level" = node ID without ':' (compound IDs belong to nested sub-workflows
     // that may not have executed). Takes majority vote to handle multi-sampler graphs.
-    const SAMPLER_TYPES = new Set(['KSampler', 'KSamplerAdvanced', 'SamplerCustom', 'FaceDetailerPipe', 'Sage_KSampler']);
     const modelVotes: Record<string, number> = {};
     for (const nodeId in prompt) {
         if (nodeId.includes(':')) continue; // skip compound (subgraph) node IDs
@@ -318,7 +345,7 @@ export function extractParametersFromPromptObject(prompt: any): Parameters {
         const ct = node.class_type || node.type || '';
         const inputs = node.inputs || {};
         // Standard KSampler family — only read literal (non-link) values
-        if (ct === 'KSampler' || ct === 'KSamplerAdvanced' || ct === 'SamplerCustom' || ct === 'FaceDetailerPipe') {
+        if (SAMPLER_TYPES.has(ct)) {
             if (inputs.steps != null && !isLink(inputs.steps)) params.steps = inputs.steps;
             if (inputs.cfg != null && !isLink(inputs.cfg)) params.cfg_scale = inputs.cfg;
             if (inputs.sampler_name && !isLink(inputs.sampler_name)) params.sampler = inputs.sampler_name;
@@ -532,7 +559,7 @@ export class PromptMetadataParser {
     seed(metadata: Metadata): string | undefined {
         if (!metadata.prompt) return undefined;
         const samplerNodeId = Object.keys(metadata.prompt).find(
-            k => metadata.prompt[k]?.class_type === 'KSampler' || metadata.prompt[k]?.class_type === 'SamplerCustom' || metadata.prompt[k]?.class_type === 'FaceDetailerPipe'
+            k => SAMPLER_TYPES.has(metadata.prompt[k]?.class_type)
         );
         if (samplerNodeId) {
             const seed = extractSeedFromPromptObject(metadata.prompt, samplerNodeId);
@@ -544,7 +571,7 @@ export class PromptMetadataParser {
     positive(metadata: Metadata): string | undefined {
         if (!metadata.prompt) return undefined;
         const samplerNodeId = Object.keys(metadata.prompt).find(
-            k => metadata.prompt[k]?.class_type === 'KSampler' || metadata.prompt[k]?.class_type === 'SamplerCustom' || metadata.prompt[k]?.class_type === 'FaceDetailerPipe'
+            k => SAMPLER_TYPES.has(metadata.prompt[k]?.class_type)
         );
         if (samplerNodeId) {
             const pos = extractPositivePromptFromPromptObject(metadata.prompt, samplerNodeId);
@@ -595,7 +622,7 @@ export const extractByPrompt: MetadataExtractionPass = {
         // Try to find sampler node id via known class types
         if (!metadata.prompt) return null;
         const samplerNodeId = Object.keys(metadata.prompt).find(
-            k => metadata.prompt[k]?.class_type === 'KSampler' || metadata.prompt[k]?.class_type === 'SamplerCustom' || metadata.prompt[k]?.class_type === 'FaceDetailerPipe'
+            k => SAMPLER_TYPES.has(metadata.prompt[k]?.class_type)
         );
         if (samplerNodeId) {
             const seed = extractSeedFromPromptObject(metadata.prompt, samplerNodeId);
@@ -609,7 +636,7 @@ export const extractByPrompt: MetadataExtractionPass = {
         if (!metadata.prompt) return null;
         // Try known sampler types first
         const samplerNodeId = Object.keys(metadata.prompt).find(
-            k => metadata.prompt[k]?.class_type === 'KSampler' || metadata.prompt[k]?.class_type === 'SamplerCustom' || metadata.prompt[k]?.class_type === 'FaceDetailerPipe'
+            k => SAMPLER_TYPES.has(metadata.prompt[k]?.class_type)
         );
         if (samplerNodeId) {
             const pos = extractPositivePromptFromPromptObject(metadata.prompt, samplerNodeId);
