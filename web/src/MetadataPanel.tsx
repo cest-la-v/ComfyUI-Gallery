@@ -476,7 +476,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
 
                         {/* ── GENERATION DATA card ── */}
                         {parsedParams && hasGenerationData && (
-                            <div className="rounded-lg border border-border flex flex-col" style={{ flex: 1, minHeight: 0 }}>
+                            <div className="rounded-lg border border-border flex flex-col overflow-hidden" style={{ flex: 1, minHeight: 0 }}>
                                 {/* Pinned header */}
                                 <div className="flex items-center gap-2 px-3 pt-3 pb-2 border-b border-border shrink-0">
                                     <span className="font-semibold text-sm">Generation data</span>
