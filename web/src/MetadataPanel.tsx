@@ -443,37 +443,42 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
             </div>
 
             {/* Scrollable content */}
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 {image.type !== 'image' ? null : showRawMetadata ? (
-                    rawLoading
-                        ? <RawJsonSkeleton dark={settings.darkMode} />
-                        : (
-                            <ReactJsonView
-                                theme={settings.darkMode ? 'apathy' : 'apathy:inverted'}
-                                src={rawMetadata || {}}
-                                name={false}
-                                collapsed={2}
-                                enableClipboard
-                                displayDataTypes={false}
-                                style={{ borderRadius: 8, padding: 8, textAlign: 'left', width: '100%' }}
-                            />
-                        )
+                    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+                        {rawLoading
+                            ? <RawJsonSkeleton dark={settings.darkMode} />
+                            : (
+                                <ReactJsonView
+                                    theme={settings.darkMode ? 'apathy' : 'apathy:inverted'}
+                                    src={rawMetadata || {}}
+                                    name={false}
+                                    collapsed={2}
+                                    enableClipboard
+                                    displayDataTypes={false}
+                                    style={{ borderRadius: 8, padding: 8, textAlign: 'left', width: '100%' }}
+                                />
+                            )
+                        }
+                    </div>
                 ) : parsedLoading ? (
-                    <MetadataSkeleton />
+                    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+                        <MetadataSkeleton />
+                    </div>
                 ) : (
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-3" style={{ flex: 1, minHeight: 0 }}>
                         {/* ── FILE INFO card ── */}
                         {parsedParams && (
-                            <div className="rounded-lg border border-border p-3">
+                            <div className="rounded-lg border border-border p-3 shrink-0">
                                 <FileInfoSection params={parsedParams} />
                             </div>
                         )}
 
                         {/* ── GENERATION DATA card ── */}
                         {parsedParams && hasGenerationData && (
-                            <div className="rounded-lg border border-border p-3 flex flex-col gap-1.5">
-                                {/* Section header with format badges inline */}
-                                <div className="flex items-center gap-2 pb-2 border-b border-border">
+                            <div className="rounded-lg border border-border flex flex-col" style={{ flex: 1, minHeight: 0 }}>
+                                {/* Pinned header */}
+                                <div className="flex items-center gap-2 px-3 pt-3 pb-2 border-b border-border shrink-0">
                                     <span className="font-semibold text-sm">Generation data</span>
                                     <div className="flex gap-1.5 flex-wrap">
                                         {hasA1111 && (
@@ -495,11 +500,14 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                                     </div>
                                 </div>
 
-                                <ResourcesSubSection params={parsedParams} />
-                                <PromptSubSection params={parsedParams} />
-                                <SamplingSubSection params={parsedParams} />
-                                <UpscaleSubSection params={parsedParams} />
-                                <ExtrasSubSection extras={parsedParams.extras} />
+                                {/* Scrollable body */}
+                                <div className="flex flex-col gap-1.5 px-3 pt-1.5 pb-3" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+                                    <ResourcesSubSection params={parsedParams} />
+                                    <PromptSubSection params={parsedParams} />
+                                    <SamplingSubSection params={parsedParams} />
+                                    <UpscaleSubSection params={parsedParams} />
+                                    <ExtrasSubSection extras={parsedParams.extras} />
+                                </div>
                             </div>
                         )}
 
