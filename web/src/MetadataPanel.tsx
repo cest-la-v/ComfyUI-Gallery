@@ -452,14 +452,18 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                 ) : parsedLoading ? (
                     <MetadataSkeleton />
                 ) : (
-                    <div className="flex flex-col gap-4">
-                        {/* ── FILE INFO ── */}
-                        {parsedParams && <FileInfoSection params={parsedParams} />}
+                    <div className="flex flex-col gap-3">
+                        {/* ── FILE INFO card ── */}
+                        {parsedParams && (
+                            <div className="rounded-lg border border-border p-3">
+                                <FileInfoSection params={parsedParams} />
+                            </div>
+                        )}
 
-                        {/* ── GENERATION DATA ── */}
+                        {/* ── GENERATION DATA card ── */}
                         {parsedParams && hasGenerationData && (
-                            <div className="flex flex-col gap-0">
-                                {/* Section header with format badges inline-right */}
+                            <div className="rounded-lg border border-border p-3 flex flex-col gap-0">
+                                {/* Section header with format badges inline */}
                                 <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
                                     <span className="font-semibold text-sm">Generation data</span>
                                     <div className="flex gap-1.5 flex-wrap">
