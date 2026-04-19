@@ -74,10 +74,15 @@ def extract_params(raw_metadata: dict) -> Optional[dict]:
     if not a1111_result and not comfyui_result:
         return None
 
+    # workflow_node_count: number of nodes in the ComfyUI API prompt JSON
+    node_count: Optional[int] = len(prompt_json) if isinstance(prompt_json, dict) else None
+
     # Only one source — return it directly
     if not comfyui_result:
         return a1111_result
     if not a1111_result:
+        if node_count is not None:
+            comfyui_result["workflow_node_count"] = node_count
         return comfyui_result
 
     # Both sources found: merge.
@@ -94,6 +99,9 @@ def extract_params(raw_metadata: dict) -> Optional[dict]:
     a1111_formats = a1111_result.get("formats") or ["a1111"]
     comfyui_formats = comfyui_result.get("formats") or ["comfyui"]
     merged["formats"] = sorted(set(a1111_formats) | set(comfyui_formats))
+
+    if node_count is not None:
+        merged["workflow_node_count"] = node_count
 
     return merged
 

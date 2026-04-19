@@ -26,7 +26,7 @@ from .gallery_config import gallery_log
 from .metadata_parser.fingerprint import prompt_only_fingerprint as _prompt_only_fp
 
 DB_FILENAME = "gallery_cache.db"
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 class GalleryDB:
@@ -98,7 +98,8 @@ class GalleryDB:
                 loras              TEXT,
                 extras             TEXT,
                 prompt_fingerprint TEXT,
-                prompt_only_fp     TEXT
+                prompt_only_fp     TEXT,
+                workflow_node_count INTEGER
             );
 
             CREATE TABLE IF NOT EXISTS model_info (
@@ -187,8 +188,9 @@ class GalleryDB:
                     sampler, scheduler, steps, cfg_scale, seed,
                     vae, clip_skip, denoise_strength,
                     hires_upscaler, hires_steps, hires_denoise,
-                    loras, extras, prompt_fingerprint, prompt_only_fp)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    loras, extras, prompt_fingerprint, prompt_only_fp,
+                    workflow_node_count)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(file_id) DO UPDATE SET
                        formats=excluded.formats,
                        model=excluded.model, model_hash=excluded.model_hash,
@@ -204,7 +206,8 @@ class GalleryDB:
                        hires_denoise=excluded.hires_denoise,
                        loras=excluded.loras, extras=excluded.extras,
                        prompt_fingerprint=excluded.prompt_fingerprint,
-                       prompt_only_fp=excluded.prompt_only_fp""",
+                       prompt_only_fp=excluded.prompt_only_fp,
+                       workflow_node_count=excluded.workflow_node_count""",
                 [
                     (
                         p["file_id"],
@@ -231,6 +234,7 @@ class GalleryDB:
                             p.get("positive_prompt") or "",
                             p.get("negative_prompt") or "",
                         ) if (p.get("positive_prompt") or p.get("negative_prompt")) else None,
+                        p.get("workflow_node_count"),
                     )
                     for p in params_list
                 ],
@@ -306,6 +310,7 @@ class GalleryDB:
                       ip.vae, ip.clip_skip, ip.denoise_strength,
                       ip.hires_upscaler, ip.hires_steps, ip.hires_denoise,
                       ip.loras, ip.extras, ip.prompt_fingerprint,
+                      ip.workflow_node_count,
                       f.width, f.height, f.size, f.mtime, f.rel_path
                FROM files f
                LEFT JOIN image_params ip ON ip.file_id = f.id

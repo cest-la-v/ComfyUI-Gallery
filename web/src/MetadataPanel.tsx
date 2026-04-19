@@ -1,36 +1,45 @@
 import { toast } from 'sonner';
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type React from 'react';
-import type { ReactNode } from 'react';
 import type { FileDetails, ImageParams } from './types';
 import { useGalleryContext } from './GalleryContext';
 import { BASE_PATH } from './ComfyAppApi';
 import ReactJsonView from '@microlink/react-json-view';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
+import { badgeVariants } from '@/components/ui/badge';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Copy, Loader2 } from 'lucide-react';
 
-const PROMPT_ROW_LIMIT = 6;
-const BORDER = '1px solid var(--border)';
+const PROMPT_CLAMP = 3;
 
-interface DescRow { label: ReactNode; content: ReactNode; contentAlign?: 'center'; }
+// ─── Skeleton ────────────────────────────────────────────────────────────────
 
 function MetadataSkeleton() {
     const rows = [
-        { lw: 70,  cw: 200 }, { lw: 60,  cw: 80  }, { lw: 55,  cw: 90  },
-        { lw: 75,  cw: 120 }, { lw: 50,  cw: 90  }, { lw: 55,  cw: 220 },
-        { lw: 65,  cw: 60  }, { lw: 45,  cw: 50  },
+        { lw: 70, cw: 200 }, { lw: 60, cw: 80 }, { lw: 55, cw: 90 },
+        { lw: 75, cw: 120 }, { lw: 50, cw: 90 }, { lw: 55, cw: 220 },
+        { lw: 65, cw: 60 },  { lw: 45, cw: 50 },
     ];
     return (
-        <div style={{ borderRadius: 8, border: BORDER, overflow: 'hidden', width: '100%' }}>
-            {rows.map(({ lw, cw }, i) => (
-                <div key={i} style={{ display: 'flex', borderBottom: i < rows.length - 1 ? BORDER : 'none', minHeight: 32, alignItems: 'center' }}>
-                    <div style={{ width: 110, minWidth: 110, padding: '6px 12px', borderRight: BORDER, display: 'flex', alignItems: 'center' }}>
-                        <div className="animate-pulse rounded bg-foreground/10" style={{ width: lw, height: 14 }} />
+        <div className="flex flex-col gap-4 pt-1">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                {rows.slice(0, 4).map(({ lw, cw }, i) => (
+                    <div key={i} className="flex flex-col gap-1">
+                        <div className="animate-pulse rounded bg-foreground/10 h-3" style={{ width: lw }} />
+                        <div className="animate-pulse rounded bg-foreground/10 h-3.5" style={{ width: cw }} />
                     </div>
-                    <div style={{ flex: 1, padding: '6px 12px', display: 'flex', alignItems: 'center' }}>
-                        <div className="animate-pulse rounded bg-foreground/10" style={{ width: cw, height: 14 }} />
-                    </div>
+                ))}
+            </div>
+            <div className="flex gap-2">
+                {[60, 100].map((w, i) => (
+                    <div key={i} className="animate-pulse rounded-full bg-foreground/10 h-5" style={{ width: w }} />
+                ))}
+            </div>
+            <div className="h-px bg-border" />
+            {rows.slice(4).map(({ lw, cw }, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                    <div className="animate-pulse rounded bg-foreground/10 h-3" style={{ width: lw }} />
+                    <div className="animate-pulse rounded-full bg-foreground/10 h-5" style={{ width: cw }} />
                 </div>
             ))}
         </div>
@@ -44,7 +53,7 @@ function RawJsonSkeleton({ dark }: { dark: boolean }) {
             {widths.map((w, i) => (
                 <div
                     key={i}
-                    className={cn("animate-pulse rounded h-3.5 my-1.5", dark ? "bg-white/10" : "bg-black/10")}
+                    className={cn('animate-pulse rounded h-3.5 my-1.5', dark ? 'bg-white/10' : 'bg-black/10')}
                     style={{ width: w }}
                 />
             ))}
@@ -52,48 +61,247 @@ function RawJsonSkeleton({ dark }: { dark: boolean }) {
     );
 }
 
-function paramsToDisplayMap(params: ImageParams | null): Record<string, string> {
-    if (!params) return {};
-    const out: Record<string, string> = {};
-    const fi = params.fileinfo;
-    if (fi?.filename) out['Filename'] = fi.filename;
-    if (fi?.resolution) out['Resolution'] = fi.resolution;
-    if (fi?.size) out['File Size'] = fi.size;
-    if (fi?.date) out['Date Created'] = fi.date;
-    if (params.model) out['Model'] = params.model;
-    if (params.model_hash) out['Model Hash'] = params.model_hash;
-    if (params.sampler) out['Sampler'] = params.sampler;
-    if (params.scheduler) out['Scheduler'] = params.scheduler;
-    if (params.steps != null) out['Steps'] = String(params.steps);
-    if (params.cfg_scale != null) out['CFG Scale'] = String(params.cfg_scale);
-    if (params.seed != null) out['Seed'] = String(params.seed);
-    if (params.vae) out['VAE'] = params.vae;
-    if (params.clip_skip != null) out['Clip Skip'] = String(params.clip_skip);
-    if (params.denoise_strength != null) out['Denoising Strength'] = String(params.denoise_strength);
-    if (params.hires_upscaler) out['Hires Upscaler'] = params.hires_upscaler;
-    if (params.hires_steps != null) out['Hires Steps'] = String(params.hires_steps);
-    if (params.hires_denoise != null) out['Hires Denoise'] = String(params.hires_denoise);
-    if (params.positive_prompt) out['Positive Prompt'] = params.positive_prompt;
-    if (params.negative_prompt) out['Negative Prompt'] = params.negative_prompt;
-    if (params.loras && params.loras.length > 0) {
-        out['LoRAs'] = params.loras.map(l => l.model_strength != null ? `${l.name} (${l.model_strength})` : l.name).join(', ');
-    }
-    if (params.extras && typeof params.extras === 'object') {
-        for (const [k, v] of Object.entries(params.extras)) {
-            if (v != null && v !== '') out[k] = String(v);
-        }
-    }
-    return out;
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function SubSectionLabel({ children }: { children: React.ReactNode }) {
+    return <p className="font-semibold text-sm text-foreground mb-2">{children}</p>;
 }
 
+function Divider() {
+    return <div className="h-px bg-border my-3" />;
+}
+
+/** Clickable pill chip for Resources (model / LoRA / VAE / upscaler). */
+function ResourceChip({ label, sub }: { label: string; sub?: string }) {
+    return (
+        <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-foreground">
+            <span>{label}</span>
+            {sub && <span className="text-muted-foreground">({sub})</span>}
+        </span>
+    );
+}
+
+/** `key: value` badge chip for Generation/Extras. */
+function ParamChip({ label, value }: { label: string; value: string }) {
+    return (
+        <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-xs">
+            <span className="text-muted-foreground">{label}:</span>
+            <span className="font-medium text-foreground">{value}</span>
+        </span>
+    );
+}
+
+/** Full-width prompt block with label, copy button, and expand/collapse. */
+function PromptBlock({
+    label,
+    text,
+    muted = false,
+}: {
+    label: string;
+    text: string;
+    muted?: boolean;
+}) {
+    const [expanded, setExpanded] = useState(false);
+    const needsClamp = text.length > 200;
+
+    const clampStyle: React.CSSProperties = needsClamp && !expanded
+        ? { display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: PROMPT_CLAMP, overflow: 'hidden' }
+        : {};
+
+    return (
+        <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+                <span className="font-semibold text-sm text-foreground">{label}</span>
+                <button
+                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => {
+                        navigator.clipboard.writeText(text);
+                        toast.success('Copied!', { duration: 1000 });
+                    }}
+                    title="Copy"
+                >
+                    <Copy size={13} />
+                </button>
+            </div>
+            <div className={cn('text-sm break-words whitespace-pre-line', muted && 'text-muted-foreground')}
+                style={clampStyle}>
+                {text}
+            </div>
+            {needsClamp && (
+                <button
+                    className="text-xs text-primary hover:underline self-start"
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => setExpanded(v => !v)}
+                >
+                    {expanded ? 'Show less' : 'Show more'}
+                </button>
+            )}
+        </div>
+    );
+}
+
+/** Format badge that acts as a copy button. */
+function FormatBadge({
+    label,
+    variant,
+    loading,
+    onClick,
+}: {
+    label: string;
+    variant: 'blue' | 'green';
+    loading: boolean;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            className={cn(
+                badgeVariants({ variant }),
+                'cursor-pointer hover:opacity-80 transition-opacity gap-1',
+                loading && 'opacity-60 cursor-wait pointer-events-none',
+            )}
+            onMouseDown={e => e.preventDefault()}
+            onClick={onClick}
+            disabled={loading}
+        >
+            {loading && <Loader2 size={10} className="animate-spin" />}
+            {label}
+        </button>
+    );
+}
+
+// ─── Section components ───────────────────────────────────────────────────────
+
+function FileInfoSection({ params }: { params: ImageParams }) {
+    const fi = params.fileinfo;
+    const rows: [string, string | null | undefined][] = [
+        ['Filename', fi?.filename],
+        ['Resolution', fi?.resolution],
+        ['Size', fi?.size],
+        ['Date', fi?.date],
+    ];
+    const visible = rows.filter(([, v]) => v);
+    if (visible.length === 0) return null;
+
+    return (
+        <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
+                {visible.map(([label, value]) => (
+                    <div key={label} className="flex flex-col gap-0.5">
+                        <span className="text-xs text-muted-foreground">{label}</span>
+                        <span className="text-xs font-medium break-all">{value}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function ResourcesSubSection({ params }: { params: ImageParams }) {
+    const chips: React.ReactNode[] = [];
+
+    if (params.model) {
+        chips.push(
+            <Tooltip key="model">
+                <TooltipTrigger asChild>
+                    <span><ResourceChip label={params.model} /></span>
+                </TooltipTrigger>
+                {params.model_hash && <TooltipContent>Hash: {params.model_hash}</TooltipContent>}
+            </Tooltip>
+        );
+    }
+
+    for (const lora of params.loras ?? []) {
+        const strength = lora.model_strength != null ? String(lora.model_strength) : undefined;
+        chips.push(<ResourceChip key={`lora-${lora.name}`} label={lora.name} sub={strength} />);
+    }
+
+    if (params.vae) chips.push(<ResourceChip key="vae" label={params.vae} />);
+    if (params.hires_upscaler) chips.push(<ResourceChip key="upscaler" label={params.hires_upscaler} />);
+
+    if (chips.length === 0) return null;
+    return (
+        <div className="flex flex-col gap-2 mb-3">
+            <SubSectionLabel>Resources</SubSectionLabel>
+            <div className="flex flex-wrap gap-1.5">{chips}</div>
+        </div>
+    );
+}
+
+function PromptSubSection({ params }: { params: ImageParams }) {
+    if (!params.positive_prompt && !params.negative_prompt) return null;
+    return (
+        <div className="flex flex-col gap-3 mb-1">
+            {params.positive_prompt && (
+                <PromptBlock label="Prompt" text={params.positive_prompt} />
+            )}
+            {params.negative_prompt && (
+                <PromptBlock label="Negative prompt" text={params.negative_prompt} muted />
+            )}
+        </div>
+    );
+}
+
+function GenerationSubSection({ params }: { params: ImageParams }) {
+    const chips: React.ReactNode[] = [];
+
+    if (params.cfg_scale != null) chips.push(<ParamChip key="cfg" label="cfgScale" value={String(params.cfg_scale)} />);
+    if (params.steps != null) chips.push(<ParamChip key="steps" label="steps" value={String(params.steps)} />);
+    if (params.sampler) {
+        const sampler = params.scheduler && params.scheduler.toLowerCase() !== 'normal'
+            ? `${params.sampler} ${params.scheduler}`
+            : params.sampler;
+        chips.push(<ParamChip key="sampler" label="sampler" value={sampler} />);
+    }
+    if (params.seed != null) chips.push(<ParamChip key="seed" label="seed" value={String(params.seed)} />);
+    if (params.denoise_strength != null) chips.push(<ParamChip key="denoise" label="denoise" value={String(params.denoise_strength)} />);
+    if (params.clip_skip != null) chips.push(<ParamChip key="clip" label="clipSkip" value={String(params.clip_skip)} />);
+
+    const upscaleFactor = params.extras?.['Upscale Factor'] ?? params.extras?.['Hires upscale'];
+    const hasHires = params.hires_steps != null || params.hires_denoise != null || upscaleFactor != null;
+
+    if (chips.length === 0 && !hasHires) return null;
+    return (
+        <div className="flex flex-col gap-2 mt-3">
+            <SubSectionLabel>Generation</SubSectionLabel>
+            {chips.length > 0 && <div className="flex flex-wrap gap-1.5">{chips}</div>}
+            {hasHires && (
+                <div className="flex flex-wrap items-center gap-1.5 pl-2 border-l-2 border-border">
+                    <span className="text-xs text-muted-foreground mr-0.5">Hires</span>
+                    {upscaleFactor && <ParamChip label="factor" value={upscaleFactor} />}
+                    {params.hires_steps != null && <ParamChip label="steps" value={String(params.hires_steps)} />}
+                    {params.hires_denoise != null && <ParamChip label="denoise" value={String(params.hires_denoise)} />}
+                </div>
+            )}
+        </div>
+    );
+}
+
+/** Keys shown in the Hires row — excluded from Extras to avoid duplication. */
+const HIRES_EXTRAS_KEYS = new Set(['Upscale Factor', 'Hires upscale']);
+
+function ExtrasSubSection({ extras }: { extras: Record<string, string> | null | undefined }) {
+    const visible = Object.entries(extras ?? {}).filter(([k]) => !HIRES_EXTRAS_KEYS.has(k));
+    if (visible.length === 0) return null;
+    return (
+        <div className="flex flex-col gap-2 mt-3">
+            <SubSectionLabel>Extras</SubSectionLabel>
+            <div className="flex flex-wrap gap-1.5">
+                {visible.map(([k, v]) => <ParamChip key={k} label={k} value={v} />)}
+            </div>
+        </div>
+    );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export function MetadataPanel({ image }: { image: FileDetails }) {
-    const [copiedKey, setCopiedKey] = useState<string | null>(null);
-    const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
     const [parsedParams, setParsedParams] = useState<ImageParams | null>(null);
     const [parsedLoading, setParsedLoading] = useState(false);
     const [rawMetadata, setRawMetadata] = useState<Record<string, unknown> | null>(null);
     const [rawLoading, setRawLoading] = useState(false);
     const rawFetchedForRef = useRef<string | null>(null);
+    const [copying, setCopying] = useState<'a1111' | 'comfyui' | null>(null);
 
     const { showRawMetadata, setShowRawMetadata, settings } = useGalleryContext();
 
@@ -101,6 +309,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
         ? image.url.slice('/static_gallery/'.length)
         : image.url;
 
+    // Fetch parsed params on image change
     useEffect(() => {
         setParsedParams(null);
         setRawMetadata(null);
@@ -124,8 +333,9 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
             .catch(() => { if (!cancelled) setParsedParams(null); })
             .finally(() => { if (!cancelled) setParsedLoading(false); });
         return () => { cancelled = true; };
-    }, [relPath]);
+    }, [relPath, image.type]);
 
+    // Fetch raw metadata lazily when Raw JSON tab is active
     useEffect(() => {
         if (!showRawMetadata || image.type !== 'image') return;
         if (rawFetchedForRef.current === relPath) return;
@@ -138,96 +348,71 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
             .catch(() => { if (!cancelled) setRawMetadata({}); })
             .finally(() => { if (!cancelled) setRawLoading(false); });
         return () => { cancelled = true; };
-    }, [showRawMetadata, relPath]);
+    }, [showRawMetadata, relPath, image.type]);
 
-    const displayMap = useMemo(() => paramsToDisplayMap(parsedParams), [parsedParams]);
-
-    const renderPromptValue = useCallback((key: string, value: string) => {
-        if (value.length <= 300) {
-            return <span style={{ whiteSpace: 'pre-line', wordBreak: 'break-word' }}>{value}</span>;
+    const handleCopyA1111 = useCallback(async () => {
+        if (copying) return;
+        setCopying('a1111');
+        try {
+            const resp = await fetch(`${BASE_PATH}/Gallery/metadata/${relPath}?format=civitai`);
+            if (!resp.ok) throw new Error('Fetch failed');
+            const text = await resp.text();
+            await navigator.clipboard.writeText(text);
+            toast.success('Copied A1111 metadata!', { duration: 1500 });
+        } catch {
+            toast.error('Copy failed');
+        } finally {
+            setCopying(null);
         }
-        const isExpanded = expandedKeys[key];
-        const clampStyle = isExpanded ? {} : {
-            display: '-webkit-box',
-            WebkitBoxOrient: 'vertical',
-            WebkitLineClamp: PROMPT_ROW_LIMIT,
-            overflow: 'hidden',
-        } as React.CSSProperties;
-        return (
-            <div>
-                <div style={{ ...clampStyle, whiteSpace: 'pre-line', wordBreak: 'break-word' }}>{value}</div>
-                <button
-                    className="text-xs text-primary hover:underline mt-0.5 inline-block"
-                    onMouseDown={e => e.preventDefault()}
-                    onClick={e => { e.stopPropagation(); setExpandedKeys(k => ({ ...k, [key]: !isExpanded })); }}
-                >
-                    {isExpanded ? 'Collapse' : 'Expand'}
-                </button>
-            </div>
-        );
-    }, [expandedKeys]);
+    }, [relPath, copying]);
 
-    const items = useMemo(() => {
-        const rows: DescRow[] = [];
-        const FILEINFO_KEYS = new Set(['Filename', 'Resolution', 'File Size', 'Date Created']);
-
-        const makeRow = (key: string, value: string): DescRow => {
-            const isPrompt = key.toLowerCase().includes('prompt');
-            return {
-                label: <span className="font-semibold text-sm">{key}</span>,
-                content: (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <div
-                                className="cursor-pointer break-words whitespace-pre-line block"
-                                style={{ maxWidth: 360 }}
-                                onClick={() => {
-                                    navigator.clipboard.writeText(value);
-                                    setCopiedKey(key);
-                                    toast.success('Copied!', { duration: 1000 });
-                                    setTimeout(() => setCopiedKey(null), 1200);
-                                }}
-                            >
-                                {isPrompt ? renderPromptValue(key, value) : value}
-                            </div>
-                        </TooltipTrigger>
-                        <TooltipContent>{copiedKey === key ? 'Copied!' : 'Click to copy'}</TooltipContent>
-                    </Tooltip>
-                ),
-            };
-        };
-
-        const entries = Object.entries(displayMap);
-        rows.push(...entries.filter(([k]) => FILEINFO_KEYS.has(k)).map(([k, v]) => makeRow(k, v)));
-
-        const formats = parsedParams?.formats;
-        if (Array.isArray(formats) && formats.length > 0) {
-            rows.push({
-                label: <span className="font-semibold text-sm">Format</span>,
-                content: (
-                    <div className="flex gap-1 flex-wrap">
-                        {formats.includes('a1111') && <Badge variant="blue">Civitai ✓</Badge>}
-                        {formats.includes('comfyui') && <Badge variant="green">ComfyUI ✓</Badge>}
-                    </div>
-                ),
-                contentAlign: 'center',
-            });
+    const handleCopyComfyUI = useCallback(async () => {
+        if (copying) return;
+        setCopying('comfyui');
+        try {
+            let workflow = (rawMetadata as { workflow?: unknown } | null)?.workflow;
+            if (!workflow) {
+                const resp = await fetch(`${BASE_PATH}/Gallery/metadata/${relPath}?format=raw`);
+                if (!resp.ok) throw new Error('Fetch failed');
+                const data = await resp.json() as { metadata?: { workflow?: unknown } };
+                workflow = data.metadata?.workflow;
+                // Cache it for the Raw JSON tab
+                if (data.metadata) {
+                    setRawMetadata(data.metadata as Record<string, unknown>);
+                    rawFetchedForRef.current = relPath;
+                }
+            }
+            if (!workflow) throw new Error('No workflow in metadata');
+            await navigator.clipboard.writeText(JSON.stringify(workflow, null, 2));
+            toast.success('Copied ComfyUI workflow!', { duration: 1500 });
+        } catch {
+            toast.error('Copy failed');
+        } finally {
+            setCopying(null);
         }
+    }, [relPath, copying, rawMetadata]);
 
-        rows.push(...entries.filter(([k]) => !FILEINFO_KEYS.has(k)).map(([k, v]) => makeRow(k, v)));
-        return rows;
-    }, [displayMap, copiedKey, renderPromptValue, parsedParams?.formats]);
+    const formats = parsedParams?.formats ?? [];
+    const hasA1111 = formats.includes('a1111');
+    const hasComfyUI = formats.includes('comfyui');
+    const nodeCount = parsedParams?.workflow_node_count;
+
+    const hasGenerationData = Boolean(
+        parsedParams?.model || (parsedParams?.loras?.length ?? 0) > 0 ||
+        parsedParams?.vae || parsedParams?.hires_upscaler ||
+        parsedParams?.positive_prompt || parsedParams?.negative_prompt ||
+        parsedParams?.steps != null || parsedParams?.cfg_scale != null ||
+        parsedParams?.sampler || parsedParams?.seed != null ||
+        parsedParams?.scheduler || parsedParams?.denoise_strength != null ||
+        parsedParams?.clip_skip != null ||
+        Object.keys(parsedParams?.extras ?? {}).length > 0
+    );
 
     return (
         <div
             className="bg-card text-foreground"
-            style={{
-                height: '100%',
-                padding: '16px',
-                display: 'flex', flexDirection: 'column', gap: 12,
-                overflow: 'hidden',
-            }}
-            onClick={(e) => e.stopPropagation()}
+            style={{ height: '100%', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12, overflow: 'hidden' }}
+            onClick={e => e.stopPropagation()}
         >
             {/* Metadata / Raw JSON toggle */}
             <div className="flex rounded-md overflow-hidden text-xs shrink-0 border border-border">
@@ -237,8 +422,8 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                         <button
                             key={v}
                             className={cn(
-                                "flex-1 py-1 px-2 transition-colors",
-                                active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                                'flex-1 py-1 px-2 transition-colors',
+                                active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
                             )}
                             onMouseDown={e => e.preventDefault()}
                             onClick={() => setShowRawMetadata(v === 'raw')}
@@ -250,10 +435,11 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
             </div>
 
             {/* Scrollable content */}
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', borderRadius: 8 }}>
-                {image.type === 'image' && (
-                    showRawMetadata ? (
-                        rawLoading ? <RawJsonSkeleton dark={settings.darkMode} /> : (
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+                {image.type !== 'image' ? null : showRawMetadata ? (
+                    rawLoading
+                        ? <RawJsonSkeleton dark={settings.darkMode} />
+                        : (
                             <ReactJsonView
                                 theme={settings.darkMode ? 'apathy' : 'apathy:inverted'}
                                 src={rawMetadata || {}}
@@ -264,34 +450,68 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                                 style={{ borderRadius: 8, padding: 8, textAlign: 'left', width: '100%' }}
                             />
                         )
-                    ) : (
-                        parsedLoading ? <MetadataSkeleton /> : (
-                            <div style={{ borderRadius: 8, border: BORDER, overflow: 'hidden', width: '100%' }}>
-                                {items.map((row, i) => (
-                                    <div
-                                        key={i}
-                                        className="flex"
-                                        style={{ borderBottom: i < items.length - 1 ? BORDER : 'none', minHeight: 32 }}
-                                    >
-                                        <div
-                                            className="flex items-center shrink-0 bg-muted/40"
-                                            style={{ width: 110, minWidth: 110, padding: '6px 12px', borderRight: BORDER }}
-                                        >
-                                            {row.label}
-                                        </div>
-                                        <div
-                                            className={cn("flex items-center flex-1", row.contentAlign === 'center' && "justify-center")}
-                                            style={{ padding: '6px 12px' }}
-                                        >
-                                            {row.content}
-                                        </div>
+                ) : parsedLoading ? (
+                    <MetadataSkeleton />
+                ) : (
+                    <div className="flex flex-col gap-4">
+                        {/* ── FILE INFO ── */}
+                        {parsedParams && (
+                            <div className="flex flex-col gap-3">
+                                <FileInfoSection params={parsedParams} />
+                                {/* Format badges as copy buttons */}
+                                {(hasA1111 || hasComfyUI) && (
+                                    <div className="flex gap-2 flex-wrap">
+                                        {hasA1111 && (
+                                            <FormatBadge
+                                                label="A1111 ✓"
+                                                variant="blue"
+                                                loading={copying === 'a1111'}
+                                                onClick={handleCopyA1111}
+                                            />
+                                        )}
+                                        {hasComfyUI && (
+                                            <FormatBadge
+                                                label={nodeCount != null ? `ComfyUI (${nodeCount} nodes)` : parsedLoading ? 'ComfyUI (…)' : 'ComfyUI ✓'}
+                                                variant="green"
+                                                loading={copying === 'comfyui'}
+                                                onClick={handleCopyComfyUI}
+                                            />
+                                        )}
                                     </div>
-                                ))}
+                                )}
                             </div>
-                        )
-                    )
+                        )}
+
+                        {/* ── GENERATION DATA ── */}
+                        {parsedParams && hasGenerationData && (
+                            <div className="flex flex-col gap-0">
+                                {/* Section header */}
+                                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                                    <span className="font-semibold text-sm">Generation data</span>
+                                </div>
+
+                                <ResourcesSubSection params={parsedParams} />
+                                <PromptSubSection params={parsedParams} />
+
+                                {(parsedParams.steps != null || parsedParams.cfg_scale != null ||
+                                    parsedParams.sampler || parsedParams.seed != null ||
+                                    parsedParams.clip_skip != null || parsedParams.denoise_strength != null ||
+                                    Object.keys(parsedParams.extras ?? {}).length > 0) && (
+                                    <Divider />
+                                )}
+
+                                <GenerationSubSection params={parsedParams} />
+                                <ExtrasSubSection extras={parsedParams.extras} />
+                            </div>
+                        )}
+
+                        {!parsedParams && !parsedLoading && (
+                            <p className="text-sm text-muted-foreground">No metadata available.</p>
+                        )}
+                    </div>
                 )}
             </div>
         </div>
     );
 }
+

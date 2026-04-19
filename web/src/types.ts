@@ -51,6 +51,7 @@ export interface ImageParams {
     loras?: Array<{ name: string; model_strength?: number | null; clip_strength?: number | null }> | null;
     extras?: Record<string, string> | null;
     prompt_fingerprint?: string | null;
+    workflow_node_count?: number | null;
     fileinfo?: {
         filename?: string | null;
         resolution?: string | null;
