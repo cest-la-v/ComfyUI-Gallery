@@ -91,7 +91,7 @@ function SegmentedControl<T extends string>({ value, options, onChange }: {
 }
 
 const GallerySettingsModal = () => {
-    const { showSettings, setShowSettings, settings, setSettings } = useGalleryContext();
+    const { showSettings, setShowSettings, settings, setSettings, runAsync } = useGalleryContext();
     const [staged, setStaged] = useSetState<SettingsState>(settings);
     const [extInput, setExtInput] = useState("");
     const [dbStatus, setDbStatus] = useState<DbStatus | null>(null);
@@ -291,8 +291,9 @@ const GallerySettingsModal = () => {
                                             try {
                                                 const res = await fetch('/Gallery/db/reset', { method: 'POST' });
                                                 if (res.ok) {
-                                                    toast.success('Database reset. Metadata will be rebuilt on next scan.');
+                                                    toast.success('Database reset. Rebuilding metadata…');
                                                     setDbStatus(null);
+                                                    runAsync();
                                                 } else {
                                                     toast.error('Reset failed: ' + res.statusText);
                                                 }
