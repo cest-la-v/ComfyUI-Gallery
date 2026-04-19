@@ -245,7 +245,7 @@ function PromptSubSection({ params }: { params: ImageParams }) {
 function GenerationSubSection({ params }: { params: ImageParams }) {
     const chips: React.ReactNode[] = [];
 
-    if (params.cfg_scale != null) chips.push(<ParamChip key="cfg" label="cfg" value={String(params.cfg_scale)} />);
+    if (params.cfg_scale != null) chips.push(<ParamChip key="cfg" label="cfgScale" value={String(params.cfg_scale)} />);
     if (params.steps != null) chips.push(<ParamChip key="steps" label="steps" value={String(params.steps)} />);
     if (params.sampler) {
         const sampler = params.scheduler && params.scheduler.toLowerCase() !== 'normal'
@@ -266,10 +266,9 @@ function GenerationSubSection({ params }: { params: ImageParams }) {
             {chips.length > 0 && <div className="flex flex-wrap gap-1.5">{chips}</div>}
             {hasHires && (
                 <div className="flex flex-wrap items-center gap-1.5 pl-2 border-l-2 border-border">
-                    <span className="text-xs text-muted-foreground mr-0.5">Hires</span>
-                    {upscaleFactor && <ParamChip label="factor" value={upscaleFactor} />}
-                    {params.hires_steps != null && <ParamChip label="steps" value={String(params.hires_steps)} />}
-                    {params.hires_denoise != null && <ParamChip label="denoise" value={String(params.hires_denoise)} />}
+                    {upscaleFactor && <ParamChip label="Upscale factor" value={upscaleFactor} />}
+                    {params.hires_steps != null && <ParamChip label="Hires steps" value={String(params.hires_steps)} />}
+                    {params.hires_denoise != null && <ParamChip label="Hires denoising" value={String(params.hires_denoise)} />}
                 </div>
             )}
         </div>
@@ -488,13 +487,6 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
 
                                 <ResourcesSubSection params={parsedParams} />
                                 <PromptSubSection params={parsedParams} />
-
-                                {(parsedParams.steps != null || parsedParams.cfg_scale != null ||
-                                    parsedParams.sampler || parsedParams.seed != null ||
-                                    parsedParams.clip_skip != null || parsedParams.denoise_strength != null ||
-                                    Object.keys(parsedParams.extras ?? {}).length > 0) && (
-                                    <Divider />
-                                )}
 
                                 <GenerationSubSection params={parsedParams} />
                                 <ExtrasSubSection extras={parsedParams.extras} />
