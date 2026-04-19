@@ -6,7 +6,11 @@ import { useGalleryContext } from './GalleryContext';
 import { BASE_PATH } from './ComfyAppApi';
 import ReactJsonView from '@microlink/react-json-view';
 import { cn } from '@/lib/utils';
-import { badgeVariants } from '@/components/ui/badge';
+import { badgeVariants, Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Copy, Loader2 } from 'lucide-react';
 
 const PROMPT_CLAMP = 3;
@@ -24,37 +28,33 @@ function MetadataSkeleton() {
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                 {rows.slice(0, 4).map(({ lw, cw }, i) => (
                     <div key={i} className="flex flex-col gap-1">
-                        <div className="animate-pulse rounded bg-foreground/10 h-3" style={{ width: lw }} />
-                        <div className="animate-pulse rounded bg-foreground/10 h-3.5" style={{ width: cw }} />
+                        <Skeleton className="h-3" style={{ width: lw }} />
+                        <Skeleton className="h-3.5" style={{ width: cw }} />
                     </div>
                 ))}
             </div>
             <div className="flex gap-2">
                 {[60, 100].map((w, i) => (
-                    <div key={i} className="animate-pulse rounded-full bg-foreground/10 h-5" style={{ width: w }} />
+                    <Skeleton key={i} className="h-5 rounded-full" style={{ width: w }} />
                 ))}
             </div>
-            <div className="h-px bg-border" />
+            <Separator />
             {rows.slice(4).map(({ lw, cw }, i) => (
                 <div key={i} className="flex gap-2 items-center">
-                    <div className="animate-pulse rounded bg-foreground/10 h-3" style={{ width: lw }} />
-                    <div className="animate-pulse rounded-full bg-foreground/10 h-5" style={{ width: cw }} />
+                    <Skeleton className="h-3" style={{ width: lw }} />
+                    <Skeleton className="h-5 rounded-full" style={{ width: cw }} />
                 </div>
             ))}
         </div>
     );
 }
 
-function RawJsonSkeleton({ dark }: { dark: boolean }) {
+function RawJsonSkeleton() {
     const widths = [160, 80, 200, 60, 120, 90, 180, 70, 140, 50, 160, 80];
     return (
-        <div className="rounded-lg p-3 px-4" style={{ background: dark ? '#2b2b2b' : '#f5f5f5' }}>
+        <div className="rounded-lg bg-muted p-3 px-4">
             {widths.map((w, i) => (
-                <div
-                    key={i}
-                    className={cn('animate-pulse rounded h-3.5 my-1.5', dark ? 'bg-white/10' : 'bg-black/10')}
-                    style={{ width: w }}
-                />
+                <Skeleton key={i} className="h-3.5 my-1.5 bg-foreground/10" style={{ width: w }} />
             ))}
         </div>
     );
@@ -66,11 +66,7 @@ function SubSectionLabel({ children }: { children: React.ReactNode }) {
     return <p className="font-semibold text-sm text-foreground mb-0.5">{children}</p>;
 }
 
-function Divider() {
-    return <div className="h-px bg-border my-3" />;
-}
-
-/** Clickable pill chip for Resources (model / LoRA / VAE / upscaler). */
+/** Typed row for Resources (model / LoRA / VAE / upscaler). */
 const RESOURCE_TYPE_STYLES: Record<string, string> = {
     Checkpoint: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
     LoRA:       'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
@@ -83,23 +79,23 @@ function ResourceRow({ type, label, sub }: { type: string; label: string; sub?: 
         <div className="flex items-center gap-2 min-w-0" title={label}>
             <span className="text-sm truncate">{label}</span>
             {sub && <span className="text-xs text-muted-foreground shrink-0">({sub})</span>}
-            <span className={cn(
-                'inline-flex shrink-0 rounded-sm px-1.5 py-0.5 text-xs font-medium ml-auto',
+            <Badge className={cn(
+                'ml-auto shrink-0 rounded-sm px-1.5 py-0.5 text-xs font-medium',
                 RESOURCE_TYPE_STYLES[type] ?? 'bg-muted text-muted-foreground'
             )}>
                 {type}
-            </span>
+            </Badge>
         </div>
     );
 }
 
-/** `key: value` badge chip for Generation/Extras. */
+/** `key: value` chip for Generation / Extras params. */
 function ParamChip({ label, value }: { label: string; value: string }) {
     return (
-        <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-xs">
+        <Badge variant="outline" className="gap-1 font-normal">
             <span className="text-muted-foreground">{label}:</span>
             <span className="font-medium text-foreground">{value}</span>
-        </span>
+        </Badge>
     );
 }
 
@@ -196,15 +192,13 @@ function FileInfoSection({ params }: { params: ImageParams }) {
     if (visible.length === 0) return null;
 
     return (
-        <div className="flex flex-col gap-2">
-            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
-                {visible.map(([label, value]) => (
-                    <div key={label} className="flex flex-col gap-0.5">
-                        <span className="text-xs text-muted-foreground">{label}</span>
-                        <span className="text-xs font-medium break-all">{value}</span>
-                    </div>
-                ))}
-            </div>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
+            {visible.map(([label, value]) => (
+                <div key={label} className="flex flex-col gap-0.5">
+                    <span className="text-xs text-muted-foreground">{label}</span>
+                    <span className="text-xs font-medium break-all">{value}</span>
+                </div>
+            ))}
         </div>
     );
 }
@@ -418,8 +412,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
 
     return (
         <div
-            className="bg-card text-foreground"
-            style={{ height: '100%', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12, overflow: 'hidden' }}
+            className="bg-card text-foreground h-full p-4 flex flex-col gap-3 overflow-hidden"
             onClick={e => e.stopPropagation()}
         >
             {/* Metadata / Raw JSON toggle */}
@@ -443,11 +436,11 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
             </div>
 
             {/* Scrollable content */}
-            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                 {image.type !== 'image' ? null : showRawMetadata ? (
-                    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+                    <ScrollArea className="flex-1 min-h-0">
                         {rawLoading
-                            ? <RawJsonSkeleton dark={settings.darkMode} />
+                            ? <RawJsonSkeleton />
                             : (
                                 <ReactJsonView
                                     theme={settings.darkMode ? 'apathy' : 'apathy:inverted'}
@@ -460,26 +453,28 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                                 />
                             )
                         }
-                    </div>
+                    </ScrollArea>
                 ) : parsedLoading ? (
-                    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+                    <ScrollArea className="flex-1 min-h-0">
                         <MetadataSkeleton />
-                    </div>
+                    </ScrollArea>
                 ) : (
-                    <div className="flex flex-col gap-3" style={{ flex: 1, minHeight: 0 }}>
+                    <div className="flex flex-col gap-3 flex-1 min-h-0">
                         {/* ── FILE INFO card ── */}
                         {parsedParams && (
-                            <div className="rounded-lg border border-border p-3 shrink-0">
-                                <FileInfoSection params={parsedParams} />
-                            </div>
+                            <Card className="shrink-0">
+                                <CardContent className="p-3">
+                                    <FileInfoSection params={parsedParams} />
+                                </CardContent>
+                            </Card>
                         )}
 
                         {/* ── GENERATION DATA card ── */}
                         {parsedParams && hasGenerationData && (
-                            <div className="rounded-lg border border-border flex flex-col overflow-hidden" style={{ flex: 1, minHeight: 0 }}>
+                            <Card className="flex flex-col overflow-hidden flex-1 min-h-0">
                                 {/* Pinned header */}
-                                <div className="flex items-center gap-2 px-3 pt-3 pb-2 border-b border-border shrink-0">
-                                    <span className="font-semibold text-sm">Generation Data</span>
+                                <CardHeader className="flex-row items-center gap-2 space-y-0 px-3 pt-3 pb-2 shrink-0">
+                                    <span className="text-sm font-semibold">Generation Data</span>
                                     <div className="flex gap-1.5 flex-wrap">
                                         {hasA1111 && (
                                             <FormatBadge
@@ -498,17 +493,21 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                                             />
                                         )}
                                     </div>
-                                </div>
+                                </CardHeader>
+
+                                <Separator className="shrink-0" />
 
                                 {/* Scrollable body */}
-                                <div className="flex flex-col gap-1.5 px-3 pt-1.5 pb-3" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
-                                    <ResourcesSubSection params={parsedParams} />
-                                    <PromptSubSection params={parsedParams} />
-                                    <SamplingSubSection params={parsedParams} />
-                                    <UpscaleSubSection params={parsedParams} />
-                                    <ExtrasSubSection extras={parsedParams.extras} />
-                                </div>
-                            </div>
+                                <ScrollArea className="flex-1 min-h-0">
+                                    <div className="flex flex-col gap-1.5 px-3 pt-1.5 pb-3">
+                                        <ResourcesSubSection params={parsedParams} />
+                                        <PromptSubSection params={parsedParams} />
+                                        <SamplingSubSection params={parsedParams} />
+                                        <UpscaleSubSection params={parsedParams} />
+                                        <ExtrasSubSection extras={parsedParams.extras} />
+                                    </div>
+                                </ScrollArea>
+                            </Card>
                         )}
 
                         {!parsedParams && !parsedLoading && (
