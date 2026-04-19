@@ -63,7 +63,7 @@ function RawJsonSkeleton({ dark }: { dark: boolean }) {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function SubSectionLabel({ children }: { children: React.ReactNode }) {
-    return <p className="font-semibold text-sm text-foreground">{children}</p>;
+    return <p className="font-semibold text-sm text-foreground mb-0.5">{children}</p>;
 }
 
 function Divider() {
@@ -224,7 +224,7 @@ function ResourcesSubSection({ params }: { params: ImageParams }) {
 
     if (rows.length === 0) return null;
     return (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col">
             <SubSectionLabel>Resources</SubSectionLabel>
             <div className="flex flex-col gap-1.5">{rows}</div>
         </div>
@@ -262,7 +262,7 @@ function SamplingSubSection({ params }: { params: ImageParams }) {
 
     if (chips.length === 0) return null;
     return (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col">
             <SubSectionLabel>Sampling</SubSectionLabel>
             <div className="flex flex-wrap gap-1.5">{chips}</div>
         </div>
@@ -274,7 +274,7 @@ function UpscaleSubSection({ params }: { params: ImageParams }) {
     const hasHires = params.hires_steps != null || params.hires_denoise != null || upscaleFactor != null;
     if (!hasHires) return null;
     return (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col">
             <SubSectionLabel>Upscale</SubSectionLabel>
             <div className="flex flex-wrap gap-1.5">
                 {upscaleFactor && <ParamChip label="Upscale factor" value={upscaleFactor} />}
@@ -292,7 +292,7 @@ function ExtrasSubSection({ extras }: { extras: Record<string, string> | null | 
     const visible = Object.entries(extras ?? {}).filter(([k]) => !HIRES_EXTRAS_KEYS.has(k));
     if (visible.length === 0) return null;
     return (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col">
             <SubSectionLabel>Extras</SubSectionLabel>
             <div className="flex flex-wrap gap-1.5">
                 {visible.map(([k, v]) => <ParamChip key={k} label={k} value={v} />)}
