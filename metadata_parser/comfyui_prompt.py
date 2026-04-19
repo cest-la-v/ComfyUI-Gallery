@@ -383,6 +383,39 @@ def _extract_loras(nodes: dict) -> list[dict]:
     return loras
 
 
+def _extract_upscale_info(nodes: dict) -> dict:
+    """Extract tile-upscale node info (UltimateSDUpscale family).
+
+    Returns a dict with any subset of: hires_upscaler, hires_denoise,
+    extras (dict with 'Upscale Factor'). Only the first upscale node found
+    is used — multi-pass upscale workflows are uncommon.
+    """
+    for node in nodes.values():
+        if not isinstance(node, dict):
+            continue
+        ct = node.get("class_type", "")
+        if "UltimateSDUpscale" not in ct:
+            continue
+        inp = node.get("inputs", {})
+        result: dict = {}
+
+        if isinstance(inp.get("denoise"), (int, float)):
+            result["hires_denoise"] = float(inp["denoise"])
+
+        if isinstance(inp.get("upscale_by"), (int, float)):
+            result["extras"] = {"Upscale Factor": str(inp["upscale_by"])}
+
+        upscale_model_link = inp.get("upscale_model")
+        if _is_link(upscale_model_link):
+            ref_node = nodes.get(str(upscale_model_link[0]), {})
+            model_name = ref_node.get("inputs", {}).get("model_name")
+            if isinstance(model_name, str) and model_name:
+                result["hires_upscaler"] = normalize_model_name(model_name)
+
+        return result
+    return {}
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -529,6 +562,21 @@ def parse(prompt_json: object) -> Optional[dict]:
             result["positive_prompt"] = pos
         if "negative_prompt" not in result and neg:
             result["negative_prompt"] = neg
+
+    # Upscale info (UltimateSDUpscale family)
+    upscale = _extract_upscale_info(nodes)
+    if upscale.get("hires_upscaler") and "hires_upscaler" not in result:
+        result["hires_upscaler"] = upscale["hires_upscaler"]
+    if upscale.get("hires_denoise") is not None and "hires_denoise" not in result:
+        result["hires_denoise"] = upscale["hires_denoise"]
+    if upscale.get("extras"):
+        existing: dict = result.get("extras") or {}
+        if isinstance(existing, str):
+            try:
+                existing = json.loads(existing)
+            except (ValueError, json.JSONDecodeError):
+                existing = {}
+        result["extras"] = {**existing, **upscale["extras"]}
 
     # LoRAs
     loras = _extract_loras(nodes)

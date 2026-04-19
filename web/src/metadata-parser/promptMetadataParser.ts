@@ -2,6 +2,7 @@ import type { Metadata } from "../types";
 import { isPlainPromptString } from "./heuristicMetadataParser";
 import type { ExtractedPrompts, LoraInfo, MetadataExtractionPass, Parameters } from "./metadataParser";
 import { isPositivePrompt, isNegativePrompt } from "./validator";
+import { normalizeModelName } from "./samplerNormalizer";
 
 /**
  * Returns true for any sampler-family node class type.
@@ -333,6 +334,43 @@ export function extractLorasFromPromptObject(prompt: any): LoraInfo[] {
         }
     }
     return loras;
+}
+
+type UpscaleInfo = {
+    hires_upscaler?: string;
+    hires_denoise?: number;
+    upscale_by?: number;
+};
+
+/**
+ * Extract tile-upscale node info (UltimateSDUpscale family).
+ * Returns the first upscale node found — multi-pass upscale workflows are uncommon.
+ */
+export function extractUpscaleFromPromptObject(prompt: any): UpscaleInfo {
+    if (!prompt || typeof prompt !== 'object') return {};
+    for (const nodeId in prompt) {
+        const node = prompt[nodeId];
+        if (!node || typeof node !== 'object') continue;
+        const ct: string = node.class_type || node.type || '';
+        if (!ct.includes('UltimateSDUpscale')) continue;
+        const inputs = node.inputs || {};
+        const info: UpscaleInfo = {};
+
+        if (typeof inputs.denoise === 'number') info.hires_denoise = inputs.denoise;
+        if (typeof inputs.upscale_by === 'number') info.upscale_by = inputs.upscale_by;
+
+        // Follow upscale_model link → UpscaleModelLoader.model_name
+        if (isLink(inputs.upscale_model)) {
+            const refNode = prompt[inputs.upscale_model[0]];
+            const modelName = refNode?.inputs?.model_name;
+            if (typeof modelName === 'string' && modelName) {
+                info.hires_upscaler = normalizeModelName(modelName);
+            }
+        }
+
+        return info;
+    }
+    return {};
 }
 
 // Extracts sampler/steps/cfg/model/seed/etc from the prompt object.

@@ -1,6 +1,6 @@
 // Utility to parse and format metadata for the Gallery preview
 import { isPlainPromptString } from './heuristicMetadataParser';
-import { extractByPrompt } from './promptMetadataParser';
+import { extractByPrompt, extractUpscaleFromPromptObject } from './promptMetadataParser';
 import type { FileDetails, Metadata } from '../types';
 import { isNegativePrompt, isPositivePrompt } from './validator';
 import { extractByWorkflow } from './workflowMetadataParser';
@@ -189,6 +189,14 @@ export function parseComfyMetadata(metadata: Metadata, source: MetadataSource = 
         // Title-case the key for display: "vae hash" → "Vae Hash"
         const displayKey = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
         result[displayKey] = value;
+    }
+
+    // Upscale info from ComfyUI prompt graph (UltimateSDUpscale family)
+    if (metadata.prompt && typeof metadata.prompt === 'object') {
+        const upscale = extractUpscaleFromPromptObject(metadata.prompt);
+        if (upscale.hires_upscaler && !result['Hires Upscaler']) result['Hires Upscaler'] = upscale.hires_upscaler;
+        if (upscale.hires_denoise != null && !result['Hires Denoise']) result['Hires Denoise'] = String(upscale.hires_denoise);
+        if (upscale.upscale_by != null && !result['Upscale Factor']) result['Upscale Factor'] = String(upscale.upscale_by);
     }
 
     return result;
