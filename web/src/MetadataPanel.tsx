@@ -224,7 +224,7 @@ function ResourcesSubSection({ params }: { params: ImageParams }) {
 
     if (rows.length === 0) return null;
     return (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1">
             <SubSectionLabel>Resources</SubSectionLabel>
             <div className="flex flex-col gap-1.5">{rows}</div>
         </div>
@@ -234,7 +234,7 @@ function ResourcesSubSection({ params }: { params: ImageParams }) {
 function PromptSubSection({ params }: { params: ImageParams }) {
     if (!params.positive_prompt && !params.negative_prompt) return null;
     return (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
             {params.positive_prompt && (
                 <PromptBlock label="Prompt" text={params.positive_prompt} />
             )}
@@ -245,7 +245,7 @@ function PromptSubSection({ params }: { params: ImageParams }) {
     );
 }
 
-function GenerationSubSection({ params }: { params: ImageParams }) {
+function SamplingSubSection({ params }: { params: ImageParams }) {
     const chips: React.ReactNode[] = [];
 
     if (params.cfg_scale != null) chips.push(<ParamChip key="cfg" label="cfgScale" value={String(params.cfg_scale)} />);
@@ -260,28 +260,27 @@ function GenerationSubSection({ params }: { params: ImageParams }) {
     if (params.denoise_strength != null) chips.push(<ParamChip key="denoise" label="denoise" value={String(params.denoise_strength)} />);
     if (params.clip_skip != null) chips.push(<ParamChip key="clip" label="clipSkip" value={String(params.clip_skip)} />);
 
+    if (chips.length === 0) return null;
+    return (
+        <div className="flex flex-col gap-1">
+            <SubSectionLabel>Sampling</SubSectionLabel>
+            <div className="flex flex-wrap gap-1.5">{chips}</div>
+        </div>
+    );
+}
+
+function UpscaleSubSection({ params }: { params: ImageParams }) {
     const upscaleFactor = params.extras?.['Upscale Factor'] ?? params.extras?.['Hires upscale'];
     const hasHires = params.hires_steps != null || params.hires_denoise != null || upscaleFactor != null;
-
-    if (chips.length === 0 && !hasHires) return null;
+    if (!hasHires) return null;
     return (
-        <div className="flex flex-col gap-2">
-            {chips.length > 0 && (
-                <div className="flex flex-col gap-1.5">
-                    <SubSectionLabel>Sampling</SubSectionLabel>
-                    <div className="flex flex-wrap gap-1.5">{chips}</div>
-                </div>
-            )}
-            {hasHires && (
-                <div className="flex flex-col gap-1.5">
-                    <SubSectionLabel>Upscale</SubSectionLabel>
-                    <div className="flex flex-wrap gap-1.5">
-                        {upscaleFactor && <ParamChip label="Upscale factor" value={upscaleFactor} />}
-                        {params.hires_steps != null && <ParamChip label="Hires steps" value={String(params.hires_steps)} />}
-                        {params.hires_denoise != null && <ParamChip label="Hires denoising" value={String(params.hires_denoise)} />}
-                    </div>
-                </div>
-            )}
+        <div className="flex flex-col gap-1">
+            <SubSectionLabel>Upscale</SubSectionLabel>
+            <div className="flex flex-wrap gap-1.5">
+                {upscaleFactor && <ParamChip label="Upscale factor" value={upscaleFactor} />}
+                {params.hires_steps != null && <ParamChip label="Hires steps" value={String(params.hires_steps)} />}
+                {params.hires_denoise != null && <ParamChip label="Hires denoising" value={String(params.hires_denoise)} />}
+            </div>
         </div>
     );
 }
@@ -293,7 +292,7 @@ function ExtrasSubSection({ extras }: { extras: Record<string, string> | null | 
     const visible = Object.entries(extras ?? {}).filter(([k]) => !HIRES_EXTRAS_KEYS.has(k));
     if (visible.length === 0) return null;
     return (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1">
             <SubSectionLabel>Extras</SubSectionLabel>
             <div className="flex flex-wrap gap-1.5">
                 {visible.map(([k, v]) => <ParamChip key={k} label={k} value={v} />)}
@@ -472,7 +471,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
 
                         {/* ── GENERATION DATA card ── */}
                         {parsedParams && hasGenerationData && (
-                            <div className="rounded-lg border border-border p-3 flex flex-col gap-2">
+                            <div className="rounded-lg border border-border p-3 flex flex-col gap-1.5">
                                 {/* Section header with format badges inline */}
                                 <div className="flex items-center gap-2 pb-2 border-b border-border">
                                     <span className="font-semibold text-sm">Generation data</span>
@@ -498,8 +497,8 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
 
                                 <ResourcesSubSection params={parsedParams} />
                                 <PromptSubSection params={parsedParams} />
-
-                                <GenerationSubSection params={parsedParams} />
+                                <SamplingSubSection params={parsedParams} />
+                                <UpscaleSubSection params={parsedParams} />
                                 <ExtrasSubSection extras={parsedParams.extras} />
                             </div>
                         )}
