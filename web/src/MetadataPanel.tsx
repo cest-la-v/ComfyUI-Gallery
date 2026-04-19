@@ -462,7 +462,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                                 {/* Section header with format badges inline-right */}
                                 <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
                                     <span className="font-semibold text-sm">Generation data</span>
-                                    <div className="flex gap-1.5 flex-wrap ml-auto">
+                                    <div className="flex gap-1.5 flex-wrap">
                                         {hasA1111 && (
                                             <FormatBadge
                                                 label="A1111"
