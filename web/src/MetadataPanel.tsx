@@ -479,7 +479,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                             <div className="rounded-lg border border-border flex flex-col overflow-hidden" style={{ flex: 1, minHeight: 0 }}>
                                 {/* Pinned header */}
                                 <div className="flex items-center gap-2 px-3 pt-3 pb-2 border-b border-border shrink-0">
-                                    <span className="font-semibold text-sm">Generation data</span>
+                                    <span className="font-semibold text-sm">Generation Data</span>
                                     <div className="flex gap-1.5 flex-wrap">
                                         {hasA1111 && (
                                             <FormatBadge
