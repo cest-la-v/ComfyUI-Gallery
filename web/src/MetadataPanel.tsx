@@ -7,7 +7,6 @@ import { BASE_PATH } from './ComfyAppApi';
 import ReactJsonView from '@microlink/react-json-view';
 import { cn } from '@/lib/utils';
 import { badgeVariants } from '@/components/ui/badge';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Copy, Loader2 } from 'lucide-react';
 
 const PROMPT_CLAMP = 3;
@@ -72,12 +71,25 @@ function Divider() {
 }
 
 /** Clickable pill chip for Resources (model / LoRA / VAE / upscaler). */
-function ResourceChip({ label, sub }: { label: string; sub?: string }) {
+const RESOURCE_TYPE_STYLES: Record<string, string> = {
+    Checkpoint: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+    LoRA:       'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+    VAE:        'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+    Upscaler:   'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+};
+
+function ResourceRow({ type, label, sub }: { type: string; label: string; sub?: string }) {
     return (
-        <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-foreground">
-            <span>{label}</span>
-            {sub && <span className="text-muted-foreground">({sub})</span>}
-        </span>
+        <div className="flex items-center gap-2 min-w-0">
+            <span className={cn(
+                'inline-flex shrink-0 rounded-sm px-1.5 py-0.5 text-xs font-medium',
+                RESOURCE_TYPE_STYLES[type] ?? 'bg-muted text-muted-foreground'
+            )}>
+                {type}
+            </span>
+            <span className="text-sm truncate">{label}</span>
+            {sub && <span className="text-xs text-muted-foreground shrink-0">({sub})</span>}
+        </div>
     );
 }
 
@@ -198,32 +210,23 @@ function FileInfoSection({ params }: { params: ImageParams }) {
 }
 
 function ResourcesSubSection({ params }: { params: ImageParams }) {
-    const chips: React.ReactNode[] = [];
+    const rows: React.ReactNode[] = [];
 
     if (params.model) {
-        chips.push(
-            <Tooltip key="model">
-                <TooltipTrigger asChild>
-                    <span><ResourceChip label={params.model} /></span>
-                </TooltipTrigger>
-                {params.model_hash && <TooltipContent>Hash: {params.model_hash}</TooltipContent>}
-            </Tooltip>
-        );
+        rows.push(<ResourceRow key="model" type="Checkpoint" label={params.model} sub={params.model_hash ?? undefined} />);
     }
-
     for (const lora of params.loras ?? []) {
         const strength = lora.model_strength != null ? String(lora.model_strength) : undefined;
-        chips.push(<ResourceChip key={`lora-${lora.name}`} label={lora.name} sub={strength} />);
+        rows.push(<ResourceRow key={`lora-${lora.name}`} type="LoRA" label={lora.name} sub={strength} />);
     }
+    if (params.vae) rows.push(<ResourceRow key="vae" type="VAE" label={params.vae} />);
+    if (params.hires_upscaler) rows.push(<ResourceRow key="upscaler" type="Upscaler" label={params.hires_upscaler} />);
 
-    if (params.vae) chips.push(<ResourceChip key="vae" label={params.vae} />);
-    if (params.hires_upscaler) chips.push(<ResourceChip key="upscaler" label={params.hires_upscaler} />);
-
-    if (chips.length === 0) return null;
+    if (rows.length === 0) return null;
     return (
         <div className="flex flex-col gap-2 mb-3">
             <SubSectionLabel>Resources</SubSectionLabel>
-            <div className="flex flex-wrap gap-1.5">{chips}</div>
+            <div className="flex flex-col gap-1.5">{rows}</div>
         </div>
     );
 }
