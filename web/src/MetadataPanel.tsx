@@ -81,14 +81,14 @@ const RESOURCE_TYPE_STYLES: Record<string, string> = {
 function ResourceRow({ type, label, sub }: { type: string; label: string; sub?: string }) {
     return (
         <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm truncate">{label}</span>
+            {sub && <span className="text-xs text-muted-foreground shrink-0">({sub})</span>}
             <span className={cn(
-                'inline-flex shrink-0 rounded-sm px-1.5 py-0.5 text-xs font-medium',
+                'inline-flex shrink-0 rounded-sm px-1.5 py-0.5 text-xs font-medium ml-auto',
                 RESOURCE_TYPE_STYLES[type] ?? 'bg-muted text-muted-foreground'
             )}>
                 {type}
             </span>
-            <span className="text-sm truncate">{label}</span>
-            {sub && <span className="text-xs text-muted-foreground shrink-0">({sub})</span>}
         </div>
     );
 }
