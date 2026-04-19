@@ -133,8 +133,10 @@ export function parseA1111Parameters(raw: string): A1111Fields | null {
         }
     }
 
-    // Must have at least a params line to be valid A1111 format
-    if (paramsLineIdx === -1) return null;
+    // Need either a params line or a "Negative prompt:" marker to be A1111-like.
+    // Some images carry positive+negative prompts in `parameters` but no generation
+    // params line (e.g. ComfyUI nodes that write only the prompt text). Still useful.
+    if (paramsLineIdx === -1 && negativeLineIdx === -1) return null;
 
     const fields: A1111Fields = {
         positive: null,
@@ -150,7 +152,8 @@ export function parseA1111Parameters(raw: string): A1111Fields | null {
         extras: {},
     };
 
-    // Parse params line
+    // Parse params line (only if present)
+    if (paramsLineIdx !== -1) {
     const pairs = splitParamLine(lines[paramsLineIdx].trim());
     for (const [key, value] of pairs) {
         const fieldName = PARAM_KEY_MAP[key];
@@ -172,6 +175,7 @@ export function parseA1111Parameters(raw: string): A1111Fields | null {
         fields.sampler = sampler || null;
         if (scheduler && !fields.scheduler) fields.scheduler = scheduler;
     }
+    }
 
     // Extract negative prompt
     if (negativeLineIdx !== -1) {
@@ -179,7 +183,9 @@ export function parseA1111Parameters(raw: string): A1111Fields | null {
         const negText = negLine.replace(/^Negative prompt:\s*/i, '').trim();
         // Collect continuation lines between negativeLineIdx and paramsLineIdx
         const negParts = [negText];
-        for (let i = negativeLineIdx + 1; i < paramsLineIdx; i++) {
+        // Collect continuation lines up to params line (or end of string if no params line)
+        const negEnd = paramsLineIdx !== -1 ? paramsLineIdx : lines.length;
+        for (let i = negativeLineIdx + 1; i < negEnd; i++) {
             negParts.push(lines[i]);
         }
         fields.negative = negParts.join('\n').trim() || null;

@@ -18,23 +18,17 @@ export function extractPositivePromptFromPromptObject(prompt: any, samplerNodeId
         if (Array.isArray(ref) && typeof ref[0] === 'string') {
             const refNode = prompt[ref[0]];
             if (refNode && refNode.inputs) {
-                // Prefer to follow 'positive' input if present
-                if (refNode.inputs.positive) {
-                    const result = resolvePromptRef(refNode.inputs.positive, visited);
-                    if (result) return result;
-                }
-                // Otherwise, try 'text', 'prompt', or 'value' fields
-                if (refNode.inputs.text) {
-                    const result = resolvePromptRef(refNode.inputs.text, visited);
-                    if (result) return result;
-                }
-                if (refNode.inputs.prompt) {
-                    const result = resolvePromptRef(refNode.inputs.prompt, visited);
-                    if (result) return result;
-                }
-                if (refNode.inputs.value) {
-                    const result = resolvePromptRef(refNode.inputs.value, visited);
-                    if (result) return result;
+                const inp = refNode.inputs;
+                // Follow known positive-conditioning chain keys in priority order:
+                // - positive/text/prompt/value: standard CLIP encode nodes
+                // - pos: Sage_DualCLIPTextEncode and similar
+                // - ctx_02/ctx_01: rgthree Context Merge Big (aggregates two context outputs)
+                // - string_b/string_a: StringConcatenate (string_b usually carries main content)
+                for (const key of ['positive', 'text', 'prompt', 'value', 'pos', 'ctx_02', 'ctx_01', 'string_b', 'string_a']) {
+                    if (inp[key] !== undefined) {
+                        const result = resolvePromptRef(inp[key], visited);
+                        if (result) return result;
+                    }
                 }
             }
         }
