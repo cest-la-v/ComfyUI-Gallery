@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Item, ItemContent, ItemTitle, ItemDescription, ItemActions, ItemGroup } from '@/components/ui/item';
 import { Copy, Loader2 } from 'lucide-react';
 
 const PROMPT_CLAMP = 3;
@@ -63,7 +64,23 @@ function RawJsonSkeleton() {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function SubSectionLabel({ children }: { children: React.ReactNode }) {
-    return <p className="font-semibold text-sm text-foreground mb-0.5">{children}</p>;
+    return <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">{children}</p>;
+}
+
+/** Copy icon button — used inside PromptBlock. */
+function CopyButton({ text }: { text: string }) {
+    return (
+        <button
+            className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
+            onClick={() => {
+                navigator.clipboard.writeText(text);
+                toast.success('Copied!', { duration: 1000 });
+            }}
+            title="Copy"
+        >
+            <Copy size={13} />
+        </button>
+    );
 }
 
 /** Typed row for Resources (model / LoRA / VAE / upscaler). */
@@ -76,16 +93,20 @@ const RESOURCE_TYPE_STYLES: Record<string, string> = {
 
 function ResourceRow({ type, label, sub }: { type: string; label: string; sub?: string }) {
     return (
-        <div className="flex items-center gap-2 min-w-0" title={label}>
-            <span className="text-sm truncate">{label}</span>
-            {sub && <span className="text-xs text-muted-foreground shrink-0">({sub})</span>}
-            <Badge className={cn(
-                'ml-auto shrink-0 rounded-sm px-1.5 py-0.5 text-xs font-medium',
-                RESOURCE_TYPE_STYLES[type] ?? 'bg-muted text-muted-foreground'
-            )}>
-                {type}
-            </Badge>
-        </div>
+        <Item size="sm" className="gap-2 px-0 py-0.5 min-w-0" title={label}>
+            <ItemContent className="min-w-0 gap-0">
+                <ItemTitle className="w-full truncate font-normal">{label}</ItemTitle>
+                {sub && <ItemDescription className="text-xs line-clamp-1">{sub}</ItemDescription>}
+            </ItemContent>
+            <ItemActions className="shrink-0">
+                <Badge className={cn(
+                    'rounded-sm px-1.5 py-0.5 text-xs font-medium',
+                    RESOURCE_TYPE_STYLES[type] ?? 'bg-muted text-muted-foreground'
+                )}>
+                    {type}
+                </Badge>
+            </ItemActions>
+        </Item>
     );
 }
 
@@ -120,17 +141,7 @@ function PromptBlock({
         <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
                 <span className="font-semibold text-sm text-foreground">{label}</span>
-                <button
-                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
-                    onMouseDown={e => e.preventDefault()}
-                    onClick={() => {
-                        navigator.clipboard.writeText(text);
-                        toast.success('Copied!', { duration: 1000 });
-                    }}
-                    title="Copy"
-                >
-                    <Copy size={13} />
-                </button>
+                <CopyButton text={text} />
             </div>
             <div className={cn('text-sm break-words whitespace-pre-line', muted && 'text-muted-foreground')}
                 style={clampStyle}>
@@ -220,7 +231,7 @@ function ResourcesSubSection({ params }: { params: ImageParams }) {
     return (
         <div className="flex flex-col">
             <SubSectionLabel>Resources</SubSectionLabel>
-            <div className="flex flex-col gap-1.5">{rows}</div>
+            <ItemGroup>{rows}</ItemGroup>
         </div>
     );
 }
@@ -230,10 +241,10 @@ function PromptSubSection({ params }: { params: ImageParams }) {
     return (
         <div className="flex flex-col gap-1.5">
             {params.positive_prompt && (
-                <PromptBlock label="Prompt" text={params.positive_prompt} />
+                <PromptBlock label="Positive" text={params.positive_prompt} />
             )}
             {params.negative_prompt && (
-                <PromptBlock label="Negative prompt" text={params.negative_prompt} muted />
+                <PromptBlock label="Negative" text={params.negative_prompt} muted />
             )}
         </div>
     );
