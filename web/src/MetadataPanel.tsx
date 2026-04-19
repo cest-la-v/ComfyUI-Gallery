@@ -472,9 +472,9 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
 
                         {/* ── GENERATION DATA card ── */}
                         {parsedParams && hasGenerationData && (
-                            <div className="rounded-lg border border-border p-3 flex flex-col gap-3">
+                            <div className="rounded-lg border border-border p-3 flex flex-col gap-2">
                                 {/* Section header with format badges inline */}
-                                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                                <div className="flex items-center gap-2 pb-2 border-b border-border">
                                     <span className="font-semibold text-sm">Generation data</span>
                                     <div className="flex gap-1.5 flex-wrap">
                                         {hasA1111 && (
