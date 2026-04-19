@@ -265,7 +265,7 @@ function GenerationSubSection({ params }: { params: ImageParams }) {
         <div className="flex flex-col gap-2 mt-3">
             {chips.length > 0 && <div className="flex flex-wrap gap-1.5">{chips}</div>}
             {hasHires && (
-                <div className="flex flex-wrap items-center gap-1.5 pl-2 border-l-2 border-border">
+                <div className="flex flex-wrap items-center gap-1.5">
                     {upscaleFactor && <ParamChip label="Upscale factor" value={upscaleFactor} />}
                     {params.hires_steps != null && <ParamChip label="Hires steps" value={String(params.hires_steps)} />}
                     {params.hires_denoise != null && <ParamChip label="Hires denoising" value={String(params.hires_denoise)} />}
