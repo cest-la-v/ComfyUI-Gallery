@@ -245,7 +245,7 @@ function PromptSubSection({ params }: { params: ImageParams }) {
 function GenerationSubSection({ params }: { params: ImageParams }) {
     const chips: React.ReactNode[] = [];
 
-    if (params.cfg_scale != null) chips.push(<ParamChip key="cfg" label="cfgScale" value={String(params.cfg_scale)} />);
+    if (params.cfg_scale != null) chips.push(<ParamChip key="cfg" label="cfg" value={String(params.cfg_scale)} />);
     if (params.steps != null) chips.push(<ParamChip key="steps" label="steps" value={String(params.steps)} />);
     if (params.sampler) {
         const sampler = params.scheduler && params.scheduler.toLowerCase() !== 'normal'
