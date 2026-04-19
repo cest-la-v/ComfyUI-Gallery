@@ -186,8 +186,19 @@ def _resolve_model_link(nodes: dict, ref: object, visited: Optional[set] = None)
     return None
 
 
-def _resolve_text_link(nodes: dict, ref: object, visited: Optional[set] = None) -> Optional[str]:
-    """Follow link chain until a plain prompt string is found."""
+def _resolve_text_link(
+    nodes: dict,
+    ref: object,
+    visited: Optional[set] = None,
+    polarity: str = "positive",
+) -> Optional[str]:
+    """Follow link chain until a plain prompt string is found.
+
+    polarity controls which branch is preferred when a node has both
+    'positive' and 'negative' inputs (e.g. rgthree Context nodes):
+    - 'positive' → try positive/pos before negative/neg
+    - 'negative' → try negative/neg before positive/pos
+    """
     if visited is None:
         visited = set()
     if _is_plain_prompt(ref):
@@ -210,11 +221,18 @@ def _resolve_text_link(nodes: dict, ref: object, visited: Optional[set] = None) 
         for key in ("populated_text", "wildcard_text"):
             if _is_plain_prompt(inp.get(key)):
                 return str(inp[key])
-    # Try common text fields recursively
-    for key in ("text", "prompt", "value", "positive", "string"):
+    # Polarity-specific keys first so Context nodes route to the correct branch.
+    # ctx_02 before ctx_01 (conditioning override takes precedence in Context Merge Big).
+    if polarity == "positive":
+        relay_keys = ("text", "prompt", "value", "positive", "pos",
+                      "ctx_02", "ctx_01", "string_b", "string_a", "string")
+    else:
+        relay_keys = ("text", "prompt", "value", "negative", "neg",
+                      "ctx_02", "ctx_01", "string_b", "string_a", "string")
+    for key in relay_keys:
         val = inp.get(key)
         if val is not None:
-            result = _resolve_text_link(nodes, val, visited)
+            result = _resolve_text_link(nodes, val, visited, polarity)
             if result:
                 return result
     return None
@@ -467,11 +485,11 @@ def parse(prompt_json: object) -> Optional[dict]:
                         break
             # Resolve pos/neg from sampler hub
             if "positive_prompt" not in result and _is_link(inp.get("positive")):
-                text = _resolve_text_link(nodes, inp["positive"])
+                text = _resolve_text_link(nodes, inp["positive"], polarity="positive")
                 if text:
                     result["positive_prompt"] = text
             if "negative_prompt" not in result and _is_link(inp.get("negative")):
-                text = _resolve_text_link(nodes, inp["negative"])
+                text = _resolve_text_link(nodes, inp["negative"], polarity="negative")
                 if text:
                     result["negative_prompt"] = text
 

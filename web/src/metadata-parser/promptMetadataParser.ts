@@ -80,6 +80,54 @@ export function extractPositivePromptFromPromptObject(prompt: any, samplerNodeId
     return '';
 }
 
+// Negative relay keys: negative/neg first so Context nodes route to the correct branch
+const NEGATIVE_RELAY_KEYS = [
+    'negative',   // KSampler → conditioning relay (negative chain)
+    'neg',        // Sage_DualCLIPTextEncode negative input
+    'text',       // CLIPTextEncode, CR Prompt Text
+    'prompt',     // generic
+    'value',      // PrimitiveStringMultiline, primitive nodes
+    'ctx_02',     // rgthree Context Merge Big (conditioning override first)
+    'ctx_01',     // rgthree Context Merge Big (base context fallback)
+    'string_b',
+    'string_a',
+] as const;
+
+// Extracts the negative prompt by following the sampler's 'negative' input chain
+export function extractNegativePromptFromPromptObject(prompt: any, samplerNodeId: string | number): string {
+    if (!prompt || typeof prompt !== 'object') return '';
+    function resolveNegRef(ref: any, visited = new Set<string>()): string {
+        if (!ref) return '';
+        if (typeof ref === 'string' && isPlainPromptString(ref)) return ref;
+        if (typeof ref === 'object' && !Array.isArray(ref) && ref.content && isPlainPromptString(ref.content)) return ref.content;
+        if (Array.isArray(ref) && typeof ref[0] === 'string') {
+            const nodeId = ref[0];
+            if (visited.has(nodeId)) return '';
+            visited.add(nodeId);
+            const refNode = prompt[nodeId];
+            if (refNode && refNode.inputs) {
+                for (const key of NEGATIVE_RELAY_KEYS) {
+                    if (refNode.inputs[key] !== undefined) {
+                        const result = resolveNegRef(refNode.inputs[key], visited);
+                        if (result) return result;
+                    }
+                }
+            }
+        }
+        return '';
+    }
+    const sampler = prompt[samplerNodeId];
+    if (!sampler || !sampler.inputs) return '';
+    const negInput = sampler.inputs.negative;
+    if (Array.isArray(negInput) && typeof negInput[0] === 'string') {
+        return resolveNegRef(negInput, new Set());
+    }
+    if (typeof negInput === 'string' && isPlainPromptString(negInput)) {
+        return negInput;
+    }
+    return '';
+}
+
 // Extracts the model filename by following references, including LoRA/model loader nodes
 export function extractModelFromPromptObject(prompt: any): string {
     if (!prompt || typeof prompt !== 'object') return '';
@@ -633,6 +681,19 @@ export class PromptMetadataParser {
         return undefined;
     }
     negative(metadata: Metadata): string | undefined {
+        if (!metadata.prompt) return undefined;
+        const samplerNodeId = Object.keys(metadata.prompt).find(
+            k => isSamplerType(metadata.prompt[k]?.class_type)
+        );
+        if (samplerNodeId) {
+            const neg = extractNegativePromptFromPromptObject(metadata.prompt, samplerNodeId);
+            if (neg) return neg;
+        }
+        const hubId = findSamplerHubFromPrompt(metadata.prompt);
+        if (hubId && hubId !== samplerNodeId) {
+            const neg = extractNegativePromptFromPromptObject(metadata.prompt, hubId);
+            if (neg) return neg;
+        }
         const promptPrompts = extractPromptsFromPromptObject(metadata.prompt);
         if (promptPrompts.negative) return promptPrompts.negative;
         return undefined;
@@ -701,36 +762,19 @@ export const extractByPrompt: MetadataExtractionPass = {
     },
     negative(metadata: Metadata) {
         if (!metadata.prompt) return null;
-        // Hub-first: follow hub's negative link chain using resolvePromptStringFromPromptObject
+        // Try known sampler types first (mirrors positive extractor)
+        const samplerNodeId = Object.keys(metadata.prompt).find(
+            k => isSamplerType(metadata.prompt[k]?.class_type)
+        );
+        if (samplerNodeId) {
+            const neg = extractNegativePromptFromPromptObject(metadata.prompt, samplerNodeId);
+            if (neg) return neg;
+        }
+        // Hub-first fallback
         const hubId = findSamplerHubFromPrompt(metadata.prompt);
-        if (hubId) {
-            const hub = metadata.prompt[hubId];
-            if (hub?.inputs) {
-                const negRef = hub.inputs.negative;
-                // Use existing resolvePromptStringFromPromptObject via the heuristic scan fallback path
-                // by temporarily treating negative as positive (same link-following logic)
-                if (isLink(negRef)) {
-                    const negNode = metadata.prompt[negRef[0]];
-                    if (negNode?.inputs) {
-                        for (const key of ['prompt', 'text', 'value']) {
-                            const val = negNode.inputs[key];
-                            if (typeof val === 'string' && val.trim()) return val;
-                            if (isLink(val)) {
-                                // Follow one more hop
-                                const deepNode = metadata.prompt[val[0]];
-                                if (deepNode?.inputs) {
-                                    for (const dk of ['prompt', 'text', 'value']) {
-                                        const dv = deepNode.inputs[dk];
-                                        if (typeof dv === 'string' && dv.trim()) return dv;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else if (typeof negRef === 'string' && negRef.trim()) {
-                    return negRef;
-                }
-            }
+        if (hubId && hubId !== samplerNodeId) {
+            const neg = extractNegativePromptFromPromptObject(metadata.prompt, hubId);
+            if (neg) return neg;
         }
         // Heuristic fallback
         const promptPrompts = extractPromptsFromPromptObject(metadata.prompt);
