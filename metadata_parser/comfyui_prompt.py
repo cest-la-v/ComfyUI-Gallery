@@ -28,6 +28,9 @@ _CHECKPOINT_TYPES = frozenset({
 _KSAMPLER_TYPES = frozenset({
     "KSampler", "KSamplerAdvanced", "SamplerCustom",
     "FaceDetailerPipe", "Sage_KSampler",
+    # Config node: carries literal steps_total/cfg/sampler_name/scheduler values
+    # that the execution KSampler defers to via links
+    "KSampler Config (rgthree)",
 })
 _CLIP_TEXT_TYPES = frozenset({
     "CLIPTextEncode", "CLIPTextEncodeSDXL", "CLIPTextEncodeSDXLRefiner",
@@ -38,6 +41,8 @@ _CLIP_TEXT_TYPES = frozenset({
 # Field specs: (input_name, result_key, type)
 _SAMPLER_FIELD_SPECS: list[tuple[str, str, str]] = [
     ("steps",        "steps",      "int"),
+    # KSampler Config (rgthree) uses steps_total instead of steps
+    ("steps_total",  "steps",      "int"),
     ("cfg",          "cfg_scale",  "float"),
     ("cfg_scale",    "cfg_scale",  "float"),
     ("sampler_name", "sampler",    "str"),
@@ -412,6 +417,9 @@ def parse(prompt_json: object) -> Optional[dict]:
         if ct in _KSAMPLER_TYPES:
             if "steps" not in result and inp.get("steps") is not None and not _is_link(inp.get("steps")):
                 result["steps"] = int(inp["steps"])
+            # KSampler Config (rgthree) uses steps_total instead of steps
+            elif "steps" not in result and inp.get("steps_total") is not None and not _is_link(inp.get("steps_total")):
+                result["steps"] = int(inp["steps_total"])
             if "cfg_scale" not in result and inp.get("cfg") is not None and not _is_link(inp.get("cfg")):
                 result["cfg_scale"] = float(inp["cfg"])
             if "sampler" not in result and isinstance(inp.get("sampler_name"), str) and not _is_link(inp.get("sampler_name")):

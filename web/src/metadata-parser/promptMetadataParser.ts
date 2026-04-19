@@ -204,6 +204,8 @@ function isLink(val: any): val is [string, number] {
  */
 const SAMPLER_FIELD_SPECS: Array<{ input: string; field: keyof Parameters; type: 'number' | 'string' | 'model' }> = [
     { input: 'steps',       field: 'steps',     type: 'number' },
+    // KSampler Config (rgthree) uses steps_total instead of steps
+    { input: 'steps_total', field: 'steps',     type: 'number' },
     { input: 'cfg',         field: 'cfg_scale',  type: 'number' },
     { input: 'cfg_scale',   field: 'cfg_scale',  type: 'number' },
     { input: 'sampler_name',field: 'sampler',    type: 'string' },
@@ -349,8 +351,10 @@ export function extractParametersFromPromptObject(prompt: any): Parameters {
         const ct = node.class_type || node.type || '';
         const inputs = node.inputs || {};
         // Standard KSampler family — only read literal (non-link) values
+        // KSampler Config (rgthree) uses steps_total instead of steps
         if (isSamplerType(ct)) {
             if (inputs.steps != null && !isLink(inputs.steps)) params.steps = inputs.steps;
+            else if (inputs.steps_total != null && !isLink(inputs.steps_total) && params.steps == null) params.steps = inputs.steps_total;
             if (inputs.cfg != null && !isLink(inputs.cfg)) params.cfg_scale = inputs.cfg;
             if (inputs.sampler_name && !isLink(inputs.sampler_name)) params.sampler = inputs.sampler_name;
             if (inputs.scheduler && !isLink(inputs.scheduler)) params.scheduler = inputs.scheduler;
