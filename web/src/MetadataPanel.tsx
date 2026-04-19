@@ -263,7 +263,6 @@ function GenerationSubSection({ params }: { params: ImageParams }) {
     if (chips.length === 0 && !hasHires) return null;
     return (
         <div className="flex flex-col gap-2 mt-3">
-            <SubSectionLabel>Generation</SubSectionLabel>
             {chips.length > 0 && <div className="flex flex-wrap gap-1.5">{chips}</div>}
             {hasHires && (
                 <div className="flex flex-wrap items-center gap-1.5 pl-2 border-l-2 border-border">
