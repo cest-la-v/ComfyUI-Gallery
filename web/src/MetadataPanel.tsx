@@ -80,7 +80,7 @@ const RESOURCE_TYPE_STYLES: Record<string, string> = {
 
 function ResourceRow({ type, label, sub }: { type: string; label: string; sub?: string }) {
     return (
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0" title={label}>
             <span className="text-sm truncate">{label}</span>
             {sub && <span className="text-xs text-muted-foreground shrink-0">({sub})</span>}
             <span className={cn(
