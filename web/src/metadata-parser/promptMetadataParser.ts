@@ -4,13 +4,17 @@ import type { ExtractedPrompts, LoraInfo, MetadataExtractionPass, Parameters } f
 import { isPositivePrompt, isNegativePrompt } from "./validator";
 
 /**
- * All known sampler node class types. Centralised here so additions are made in one place.
- * Used by: extractModelFromPromptObject (model BFS), extractParametersFromPromptObject
- * (params fast-path), extractByPrompt.positive/seed, PromptMetadataParser.positive/seed.
+ * Returns true for any sampler-family node class type.
+ *
+ * Matches all "KSampler*" and "*KSampler" variants by substring — this covers
+ * KSampler, KSamplerAdvanced, Sage_KSampler, and also KSampler Config (rgthree)
+ * which, while not an execution node, carries the actual literal sampler parameters
+ * (cfg, sampler_name, scheduler) that the execution node defers to via links.
+ * Non-KSampler sampler types are kept explicit.
  */
-const SAMPLER_TYPES = new Set([
-    'KSampler', 'KSamplerAdvanced', 'SamplerCustom', 'FaceDetailerPipe', 'Sage_KSampler',
-]);
+function isSamplerType(ct: string): boolean {
+    return ct.includes('KSampler') || ct === 'SamplerCustom' || ct === 'FaceDetailerPipe';
+}
 
 /**
  * Ordered list of input key names that carry text or conditioning in the prompt graph.
@@ -138,7 +142,7 @@ export function extractModelFromPromptObject(prompt: any): string {
     for (const nodeId in prompt) {
         if (nodeId.includes(':')) continue; // skip compound (subgraph) node IDs
         const node = prompt[nodeId];
-        if (!node || !SAMPLER_TYPES.has(node.class_type)) continue;
+        if (!node || !isSamplerType(node.class_type)) continue;
         const modelInput = node.inputs?.model;
         if (!modelInput) continue;
         const resolved = resolveModelRef(modelInput);
@@ -345,7 +349,7 @@ export function extractParametersFromPromptObject(prompt: any): Parameters {
         const ct = node.class_type || node.type || '';
         const inputs = node.inputs || {};
         // Standard KSampler family — only read literal (non-link) values
-        if (SAMPLER_TYPES.has(ct)) {
+        if (isSamplerType(ct)) {
             if (inputs.steps != null && !isLink(inputs.steps)) params.steps = inputs.steps;
             if (inputs.cfg != null && !isLink(inputs.cfg)) params.cfg_scale = inputs.cfg;
             if (inputs.sampler_name && !isLink(inputs.sampler_name)) params.sampler = inputs.sampler_name;
@@ -559,7 +563,7 @@ export class PromptMetadataParser {
     seed(metadata: Metadata): string | undefined {
         if (!metadata.prompt) return undefined;
         const samplerNodeId = Object.keys(metadata.prompt).find(
-            k => SAMPLER_TYPES.has(metadata.prompt[k]?.class_type)
+            k => isSamplerType(metadata.prompt[k]?.class_type)
         );
         if (samplerNodeId) {
             const seed = extractSeedFromPromptObject(metadata.prompt, samplerNodeId);
@@ -571,7 +575,7 @@ export class PromptMetadataParser {
     positive(metadata: Metadata): string | undefined {
         if (!metadata.prompt) return undefined;
         const samplerNodeId = Object.keys(metadata.prompt).find(
-            k => SAMPLER_TYPES.has(metadata.prompt[k]?.class_type)
+            k => isSamplerType(metadata.prompt[k]?.class_type)
         );
         if (samplerNodeId) {
             const pos = extractPositivePromptFromPromptObject(metadata.prompt, samplerNodeId);
@@ -622,7 +626,7 @@ export const extractByPrompt: MetadataExtractionPass = {
         // Try to find sampler node id via known class types
         if (!metadata.prompt) return null;
         const samplerNodeId = Object.keys(metadata.prompt).find(
-            k => SAMPLER_TYPES.has(metadata.prompt[k]?.class_type)
+            k => isSamplerType(metadata.prompt[k]?.class_type)
         );
         if (samplerNodeId) {
             const seed = extractSeedFromPromptObject(metadata.prompt, samplerNodeId);
@@ -636,7 +640,7 @@ export const extractByPrompt: MetadataExtractionPass = {
         if (!metadata.prompt) return null;
         // Try known sampler types first
         const samplerNodeId = Object.keys(metadata.prompt).find(
-            k => SAMPLER_TYPES.has(metadata.prompt[k]?.class_type)
+            k => isSamplerType(metadata.prompt[k]?.class_type)
         );
         if (samplerNodeId) {
             const pos = extractPositivePromptFromPromptObject(metadata.prompt, samplerNodeId);
