@@ -293,7 +293,12 @@ const GallerySettingsModal = () => {
                                                 if (res.ok) {
                                                     toast.success('Database reset. Rebuilding metadata…');
                                                     setDbStatus(null);
-                                                    runAsync();
+                                                    runAsync().then(() => {
+                                                        fetch('/Gallery/db/status', { cache: 'no-store' })
+                                                            .then(r => r.ok ? r.json() : null)
+                                                            .then(d => setDbStatus(d))
+                                                            .catch(() => {});
+                                                    });
                                                 } else {
                                                     toast.error('Reset failed: ' + res.statusText);
                                                 }
