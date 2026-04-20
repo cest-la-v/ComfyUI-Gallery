@@ -254,6 +254,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                     {showMetadataPanel && currentImage && (
                         <div className="bg-card border-l border-border" style={{
                             width: 400, minWidth: 320,
+                            height: '100%',
                             overflow: 'hidden',
                             display: 'flex',
                             flexDirection: 'column',

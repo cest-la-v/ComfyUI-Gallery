@@ -87,4 +87,12 @@
     --ring:               var(--primary-background, oklch(0.546 0.245 262.881));
 }
 
+/* Radix ScrollArea's internal content wrapper uses display:table (inline style) which
+   causes max-content width behaviour, breaking flex width constraints and overflowing
+   chips/text past the panel edge. Override to display:block — minWidth:100% is kept
+   by the inline style and is harmless on a block element. */
+:is(#comfy-gallery-root, #comfy-gallery-yarl-root) [data-radix-scroll-area-viewport] > div {
+    display: block !important;
+}
+
 

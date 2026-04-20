@@ -96,7 +96,7 @@ function ResourceRow({ type, label, sub }: { type: string; label: string; sub?: 
         <Item size="sm" className="gap-2 px-0 py-0.5 min-w-0 items-start" title={label}>
             <ItemContent className="min-w-0 gap-0">
                 <ItemTitle className="w-full truncate font-normal block">{label}</ItemTitle>
-                {sub && <ItemDescription className="text-xs line-clamp-1">{sub}</ItemDescription>}
+                {sub && <ItemDescription className="text-xs line-clamp-1 leading-tight">{sub}</ItemDescription>}
             </ItemContent>
             <ItemActions className="shrink-0">
                 <Badge className={cn(
@@ -113,9 +113,9 @@ function ResourceRow({ type, label, sub }: { type: string; label: string; sub?: 
 /** `key: value` chip for Generation / Extras params. */
 function ParamChip({ label, value }: { label: string; value: string }) {
     return (
-        <Badge variant="outline" className="gap-1 font-normal">
-            <span className="text-muted-foreground uppercase tracking-wider">{label}:</span>
-            <span className="font-medium text-foreground">{value}</span>
+        <Badge variant="outline" className="gap-1 font-normal max-w-full min-w-0">
+            <span className="text-muted-foreground uppercase tracking-wider shrink-0">{label}:</span>
+            <span className="font-medium text-foreground truncate min-w-0">{value}</span>
         </Badge>
     );
 }
@@ -438,7 +438,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
 
     return (
         <div
-            className="bg-card text-foreground h-full p-4 flex flex-col gap-3 overflow-hidden"
+            className="bg-card text-foreground flex-1 min-h-0 p-4 flex flex-col gap-3 overflow-hidden"
             onClick={e => e.stopPropagation()}
         >
             {/* Metadata / Raw JSON toggle */}
