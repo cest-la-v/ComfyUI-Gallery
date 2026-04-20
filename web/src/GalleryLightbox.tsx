@@ -7,12 +7,50 @@ import Counter from 'yet-another-react-lightbox/plugins/counter';
 import { useGalleryContext } from './GalleryContext';
 import type { FileDetails } from './types';
 import { BASE_PATH } from './ComfyAppApi';
-import { Music } from 'lucide-react';
+import { Music, ZoomIn, ZoomOut } from 'lucide-react';
 import { GalleryOverlayPlugin } from './GalleryLightboxPlugin';
 
 // 'custom' type prevents yarl's isImageSlide() from returning true for video/audio,
 // which would incorrectly activate the Zoom plugin on non-image slides.
 type GallerySlide = Slide & { fileDetails: FileDetails; type?: string };
+
+interface ZoomRef {
+    zoom: number; minZoom: number; maxZoom: number;
+    disabled: boolean;
+    zoomIn: () => void; zoomOut: () => void;
+}
+
+function ZoomButton({ zoom, minZoom, maxZoom, disabled, zoomIn, zoomOut }: ZoomRef) {
+    if (disabled) return null;
+    const pct = Math.round(zoom * 100);
+    const atMin = zoom <= minZoom;
+    const atMax = zoom >= maxZoom;
+    return (
+        <div className="flex items-center">
+            <button
+                className="lb-btn"
+                onClick={zoomOut}
+                disabled={atMin}
+                style={atMin ? { opacity: 0.35 } : undefined}
+                onMouseDown={e => e.preventDefault()}
+            >
+                <ZoomOut size={18} />
+            </button>
+            <span style={{ minWidth: 42, textAlign: 'center', fontSize: 12, color: 'var(--yarl__color_button)', userSelect: 'none' }}>
+                {pct}%
+            </span>
+            <button
+                className="lb-btn"
+                onClick={zoomIn}
+                disabled={atMax}
+                style={atMax ? { opacity: 0.35 } : undefined}
+                onMouseDown={e => e.preventDefault()}
+            >
+                <ZoomIn size={18} />
+            </button>
+        </div>
+    );
+}
 
 const GalleryLightbox = () => {
     const {
@@ -119,8 +157,9 @@ const GalleryLightbox = () => {
             slides={slides}
             close={handleLightboxClose}
             on={{ view: handleLightboxView }}
-            render={{ slide: renderSlide, slideContainer: renderSlideContainer }}
+            render={{ slide: renderSlide, slideContainer: renderSlideContainer, buttonZoom: ZoomButton }}
             plugins={[Zoom, Fullscreen, Counter, GalleryOverlayPlugin]}
+            zoom={{ maxZoomPixelRatio: 3, scrollToZoom: true }}
             portal={{ root: yarlRoot }}
             styles={{ root: { '--yarl__color_backdrop': 'rgba(0,0,0,0.88)' } as Parameters<typeof Lightbox>[0]['styles'] extends { root?: infer R } ? R : never }}
         />
