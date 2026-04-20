@@ -275,10 +275,10 @@ function UpscaleSubSection({ params }: { params: ImageParams }) {
         <div className="flex flex-col">
             <SubSectionLabel>Hires</SubSectionLabel>
             <div className="flex flex-wrap gap-1.5">
-                {upscaleFactor && <ParamChip label="Upscale factor" value={upscaleFactor} />}
-                {params.hires_upscaler && <ParamChip label="Upscaler" value={params.hires_upscaler} />}
-                {params.hires_steps != null && <ParamChip label="Hires steps" value={String(params.hires_steps)} />}
-                {params.hires_denoise != null && <ParamChip label="Hires denoising" value={String(params.hires_denoise)} />}
+                {upscaleFactor && <ParamChip label="upscale factor" value={upscaleFactor} />}
+                {params.hires_upscaler && <ParamChip label="upscaler" value={params.hires_upscaler} />}
+                {params.hires_steps != null && <ParamChip label="steps" value={String(params.hires_steps)} />}
+                {params.hires_denoise != null && <ParamChip label="denoising" value={String(params.hires_denoise)} />}
             </div>
         </div>
     );
