@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
-    X, Settings, Sun, Moon, Loader2, Folder,
+    X, Settings, Sun, Moon, Loader2, Folder, Palette,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -15,12 +15,14 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { useGalleryContext } from './GalleryContext';
 import type { ViewMode } from './GalleryContext';
 import { useDebounce, useCountDown } from 'ahooks';
 import JSZip from 'jszip';
 import FileSaver from 'file-saver';
 import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
+import { BASE_THEMES, ACCENT_THEMES } from './themes';
 
 const VIEW_MODE_OPTIONS: { label: string; value: ViewMode }[] = [
     { label: 'By Date', value: 'date' },
@@ -380,6 +382,95 @@ const GalleryHeader = () => {
                     </TooltipTrigger>
                     <TooltipContent>{settings.darkMode ? 'Light Mode' : 'Dark Mode'}</TooltipContent>
                 </Tooltip>
+
+                {/* Theme quick-pick popover */}
+                <Popover>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="comfy-gallery-icon-btn"
+                                    onMouseDown={e => e.preventDefault()}
+                                >
+                                    <Palette className="h-4 w-4" />
+                                </Button>
+                            </PopoverTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Theme</TooltipContent>
+                    </Tooltip>
+                    <PopoverContent align="end" className="w-64 p-3 flex flex-col gap-3">
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Base Theme</span>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    title="Default"
+                                    onMouseDown={e => e.preventDefault()}
+                                    onClick={() => setSettings({ ...settings, themeBase: 'default' })}
+                                    className={cn(
+                                        "size-6 rounded-full overflow-hidden ring-offset-background transition-all shrink-0",
+                                        settings.themeBase === 'default' ? "ring-2 ring-offset-2 ring-foreground" : "hover:scale-110"
+                                    )}
+                                >
+                                    <div className="flex h-full">
+                                        <div className="flex-1 bg-[oklch(0.141_0.005_285.823)]" />
+                                        <div className="flex-1 bg-[oklch(0.985_0_0)]" />
+                                    </div>
+                                </button>
+                                {BASE_THEMES.map(t => (
+                                    <button
+                                        key={t.name}
+                                        type="button"
+                                        title={t.label}
+                                        onMouseDown={e => e.preventDefault()}
+                                        onClick={() => setSettings({ ...settings, themeBase: t.name })}
+                                        className={cn(
+                                            "size-6 rounded-full ring-offset-background transition-all shrink-0",
+                                            settings.themeBase === t.name ? "ring-2 ring-offset-2 ring-foreground" : "hover:scale-110"
+                                        )}
+                                        style={{ backgroundColor: t.preview }}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Accent Color</span>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    title="Default"
+                                    onMouseDown={e => e.preventDefault()}
+                                    onClick={() => setSettings({ ...settings, themeAccent: 'default' })}
+                                    className={cn(
+                                        "size-6 rounded-full overflow-hidden ring-offset-background transition-all shrink-0",
+                                        settings.themeAccent === 'default' ? "ring-2 ring-offset-2 ring-foreground" : "hover:scale-110"
+                                    )}
+                                >
+                                    <div className="flex h-full">
+                                        <div className="flex-1 bg-[oklch(0.141_0.005_285.823)]" />
+                                        <div className="flex-1 bg-[oklch(0.985_0_0)]" />
+                                    </div>
+                                </button>
+                                {ACCENT_THEMES.map(t => (
+                                    <button
+                                        key={t.name}
+                                        type="button"
+                                        title={t.label}
+                                        onMouseDown={e => e.preventDefault()}
+                                        onClick={() => setSettings({ ...settings, themeAccent: t.name })}
+                                        className={cn(
+                                            "size-6 rounded-full ring-offset-background transition-all shrink-0",
+                                            settings.themeAccent === t.name ? "ring-2 ring-offset-2 ring-foreground" : "hover:scale-110"
+                                        )}
+                                        style={{ backgroundColor: t.preview }}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    </PopoverContent>
+                </Popover>
 
                 <Tooltip>
                     <TooltipTrigger asChild>
