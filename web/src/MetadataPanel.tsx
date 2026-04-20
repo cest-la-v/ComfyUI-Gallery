@@ -273,7 +273,7 @@ function UpscaleSubSection({ params }: { params: ImageParams }) {
     if (!hasHires) return null;
     return (
         <div className="flex flex-col">
-            <SubSectionLabel>Upscale</SubSectionLabel>
+            <SubSectionLabel>Hires</SubSectionLabel>
             <div className="flex flex-wrap gap-1.5">
                 {upscaleFactor && <ParamChip label="Upscale factor" value={upscaleFactor} />}
                 {params.hires_upscaler && <ParamChip label="Upscaler" value={params.hires_upscaler} />}
