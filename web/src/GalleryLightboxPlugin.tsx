@@ -243,14 +243,25 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                     </div>
 
                     {/* Metadata panel — onKeyDown publishes to yarl event bus so ArrowLeft/Right
-                        navigate even when focus is inside the panel (bypasses focus/sensor chain). */}
+                        navigate even when focus is inside the panel (bypasses focus/sensor chain).
+                        tabIndex={-1} makes the container focusable. onMouseDown focuses it when
+                        clicking non-interactive areas (text/blank), so onKeyDown fires. Interactive
+                        children (buttons) keep their own focus; keydown still bubbles up here. */}
                     {showMetadataPanel && currentImage && (
                         <div className="bg-card border-l border-border" style={{
                             width: 400, minWidth: 320,
                             overflow: 'hidden',
                             display: 'flex',
                             flexDirection: 'column',
+                            outline: 'none',
                         }}
+                            tabIndex={-1}
+                            onMouseDown={e => {
+                                const t = e.target as HTMLElement;
+                                if (!t.closest('button, input, textarea, select, a, [tabindex]')) {
+                                    (e.currentTarget as HTMLElement).focus();
+                                }
+                            }}
                             onKeyDown={handlePanelKeyDown}
                         >
                             <MetadataPanel image={currentImage} />
