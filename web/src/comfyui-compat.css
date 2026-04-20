@@ -65,7 +65,7 @@
     --cg-z-content:       3001; /* DialogContent, header dropdowns */
     --cg-z-settings-ov:   3002; /* Settings DialogOverlay */
     --cg-z-settings:      3003; /* Settings DialogContent */
-    --cg-z-tooltip:       3010; /* Tooltip */
+    --cg-z-tooltip:       3210; /* Tooltip — must be above popup/popover */
     --cg-z-lightbox:      3100; /* yarl Lightbox portal */
     --cg-z-popup:         3200; /* Select content, AlertDialog overlay */
     --cg-z-alert:         3201; /* AlertDialog content */
