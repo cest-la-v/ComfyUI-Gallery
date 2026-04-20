@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { MODULE_CONTROLLER, createModule, useLightboxState } from 'yet-another-react-lightbox';
+import { MODULE_CONTROLLER, createModule, useLightboxState, useEvents, ACTION_PREV, ACTION_NEXT } from 'yet-another-react-lightbox';
 import type { Plugin, ComponentProps } from 'yet-another-react-lightbox';
 import { useGalleryContext } from './GalleryContext';
 import { MetadataPanel } from './MetadataPanel';
@@ -40,6 +40,13 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
     // Portal override: Tooltip/Radix portals target this div (inside #comfy-gallery-yarl-root,
     // not inert), so they remain interactive while yarl's portal is open.
     const [lbPortalContainer, setLbPortalContainer] = useState<HTMLElement | null>(null);
+
+    const { publish } = useEvents();
+
+    const handlePanelKeyDown = useCallback((e: React.KeyboardEvent) => {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); publish(ACTION_PREV); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); publish(ACTION_NEXT); }
+    }, [publish]);
 
     const previewableImages = useMemo(
         () => imagesDetailsList.filter(img => img.type === 'image' || img.type === 'media' || img.type === 'audio'),
@@ -235,14 +242,17 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                         )}
                     </div>
 
-                    {/* Metadata panel */}
+                    {/* Metadata panel — onKeyDown publishes to yarl event bus so ArrowLeft/Right
+                        navigate even when focus is inside the panel (bypasses focus/sensor chain). */}
                     {showMetadataPanel && currentImage && (
                         <div className="bg-card border-l border-border" style={{
                             width: 400, minWidth: 320,
                             overflow: 'hidden',
                             display: 'flex',
                             flexDirection: 'column',
-                        }}>
+                        }}
+                            onKeyDown={handlePanelKeyDown}
+                        >
                             <MetadataPanel image={currentImage} />
                         </div>
                     )}
