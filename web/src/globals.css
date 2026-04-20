@@ -11,6 +11,7 @@
 @import "tailwindcss/utilities";
 @import "tw-animate-css";
 @import "yet-another-react-lightbox/styles.css";
+@import "yet-another-react-lightbox/plugins/counter.css";
 @import "./comfyui-compat.css";
 
 @theme inline {

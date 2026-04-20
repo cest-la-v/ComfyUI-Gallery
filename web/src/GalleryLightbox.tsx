@@ -2,6 +2,8 @@ import React, { useMemo, useCallback } from 'react';
 import Lightbox from 'yet-another-react-lightbox';
 import type { Slide } from 'yet-another-react-lightbox';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
+import Fullscreen from 'yet-another-react-lightbox/plugins/fullscreen';
+import Counter from 'yet-another-react-lightbox/plugins/counter';
 import { useGalleryContext } from './GalleryContext';
 import type { FileDetails } from './types';
 import { BASE_PATH } from './ComfyAppApi';
@@ -118,7 +120,7 @@ const GalleryLightbox = () => {
             close={handleLightboxClose}
             on={{ view: handleLightboxView }}
             render={{ slide: renderSlide, slideContainer: renderSlideContainer }}
-            plugins={[Zoom, GalleryOverlayPlugin]}
+            plugins={[Zoom, Fullscreen, Counter, GalleryOverlayPlugin]}
             portal={{ root: yarlRoot }}
             styles={{ root: { '--yarl__color_backdrop': 'rgba(0,0,0,0.88)' } as Parameters<typeof Lightbox>[0]['styles'] extends { root?: infer R } ? R : never }}
         />
