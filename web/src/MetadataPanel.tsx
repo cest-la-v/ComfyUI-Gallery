@@ -290,8 +290,26 @@ function isHiresExtrasKey(k: string) {
     return lower.startsWith('hires') || lower === 'upscale factor';
 }
 
+function ADetailerSubSection({ extras }: { extras: Record<string, string> | null | undefined }) {
+    const rows = Object.entries(extras ?? {}).filter(([k]) => k.toLowerCase().startsWith('adetailer'));
+    if (rows.length === 0) return null;
+    return (
+        <div className="flex flex-col">
+            <SubSectionLabel>ADetailer</SubSectionLabel>
+            <div className="flex flex-wrap gap-1.5">
+                {rows.map(([k, v]) => (
+                    <ParamChip key={k} label={k.slice('adetailer'.length).trimStart()} value={v} />
+                ))}
+            </div>
+        </div>
+    );
+}
+
 function ExtrasSubSection({ extras }: { extras: Record<string, string> | null | undefined }) {
-    const visible = Object.entries(extras ?? {}).filter(([k]) => !isHiresExtrasKey(k));
+    const visible = Object.entries(extras ?? {}).filter(([k]) => {
+        const lower = k.toLowerCase();
+        return !isHiresExtrasKey(k) && !lower.startsWith('adetailer');
+    });
     if (visible.length === 0) return null;
     return (
         <div className="flex flex-col">
@@ -512,6 +530,7 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                                         <PromptSubSection params={parsedParams} />
                                         <SamplingSubSection params={parsedParams} />
                                         <UpscaleSubSection params={parsedParams} />
+                                        <ADetailerSubSection extras={parsedParams.extras} />
                                         <ExtrasSubSection extras={parsedParams.extras} />
                                     </div>
                                 </ScrollArea>
