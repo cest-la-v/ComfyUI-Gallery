@@ -10,6 +10,7 @@ import {
     AlertDialogTitle, AlertDialogDescription, AlertDialogFooter,
     AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { buttonVariants } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
@@ -99,42 +100,50 @@ function ThemeSwatch({ color, selected, label, onClick }: {
     onClick: () => void;
 }) {
     return (
-        <button
-            type="button"
-            title={label}
-            onClick={onClick}
-            onMouseDown={e => e.preventDefault()}
-            className={cn(
-                "size-6 rounded-full transition-all shrink-0 ring-offset-background",
-                selected
-                    ? "ring-2 ring-offset-2 ring-foreground"
-                    : "hover:scale-110"
-            )}
-            style={{ backgroundColor: color }}
-        />
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <button
+                    type="button"
+                    onClick={onClick}
+                    onMouseDown={e => e.preventDefault()}
+                    className={cn(
+                        "size-6 rounded-full transition-all shrink-0 ring-offset-background",
+                        selected
+                            ? "ring-2 ring-offset-2 ring-foreground"
+                            : "hover:scale-110"
+                    )}
+                    style={{ backgroundColor: color }}
+                />
+            </TooltipTrigger>
+            <TooltipContent>{label}</TooltipContent>
+        </Tooltip>
     );
 }
 
 /** Default swatch: checkerboard-like split showing light/dark neutral. */
-function DefaultSwatch({ selected, onClick }: { selected: boolean; onClick: () => void }) {
+function DefaultSwatch({ selected, onClick, label }: { selected: boolean; onClick: () => void; label: string }) {
     return (
-        <button
-            type="button"
-            title="Default (ComfyUI)"
-            onClick={onClick}
-            onMouseDown={e => e.preventDefault()}
-            className={cn(
-                "size-6 rounded-full transition-all shrink-0 ring-offset-background overflow-hidden",
-                selected
-                    ? "ring-2 ring-offset-2 ring-foreground"
-                    : "hover:scale-110"
-            )}
-        >
-            <div className="flex h-full">
-                <div className="flex-1" style={{ backgroundColor: "oklch(0.141 0.005 285.823)" }} />
-                <div className="flex-1" style={{ backgroundColor: "oklch(0.985 0 0)" }} />
-            </div>
-        </button>
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <button
+                    type="button"
+                    onClick={onClick}
+                    onMouseDown={e => e.preventDefault()}
+                    className={cn(
+                        "size-6 rounded-full transition-all shrink-0 ring-offset-background overflow-hidden",
+                        selected
+                            ? "ring-2 ring-offset-2 ring-foreground"
+                            : "hover:scale-110"
+                    )}
+                >
+                    <div className="flex h-full">
+                        <div className="flex-1" style={{ backgroundColor: "oklch(0.141 0.005 285.823)" }} />
+                        <div className="flex-1" style={{ backgroundColor: "oklch(0.985 0 0)" }} />
+                    </div>
+                </button>
+            </TooltipTrigger>
+            <TooltipContent>{label}</TooltipContent>
+        </Tooltip>
     );
 }
 
@@ -290,6 +299,7 @@ const GallerySettingsModal = () => {
                             <div className="flex flex-wrap gap-2 items-center">
                                 <DefaultSwatch
                                     selected={staged.themeBase === 'default'}
+                                    label="Default (ComfyUI)"
                                     onClick={() => {
                                         setStaged({ themeBase: 'default', themeAccent: 'default' });
                                         setSettings({ ...settings, ...staged, themeBase: 'default', themeAccent: 'default' });
@@ -319,6 +329,7 @@ const GallerySettingsModal = () => {
                             <div className="flex flex-wrap gap-2 items-center">
                                 <DefaultSwatch
                                     selected={staged.themeAccent === 'default'}
+                                    label="Same as base"
                                     onClick={() => { setStaged({ themeAccent: 'default' }); setSettings({ ...settings, ...staged, themeAccent: 'default' }); }}
                                 />
                                 {ACCENT_THEMES.map(t => (
