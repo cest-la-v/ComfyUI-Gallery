@@ -404,68 +404,82 @@ const GalleryHeader = () => {
                         <div className="flex flex-col gap-1.5">
                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Base Theme</span>
                             <div className="flex flex-wrap gap-2">
-                                <button
-                                    type="button"
-                                    title="Default"
-                                    onMouseDown={e => e.preventDefault()}
-                                    onClick={() => setSettings({ ...settings, themeBase: 'default' })}
-                                    className={cn(
-                                        "size-6 rounded-full overflow-hidden ring-offset-background transition-all shrink-0",
-                                        settings.themeBase === 'default' ? "ring-2 ring-offset-2 ring-foreground" : "hover:scale-110"
-                                    )}
-                                >
-                                    <div className="flex h-full">
-                                        <div className="flex-1 bg-[oklch(0.141_0.005_285.823)]" />
-                                        <div className="flex-1 bg-[oklch(0.985_0_0)]" />
-                                    </div>
-                                </button>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            type="button"
+                                            onMouseDown={e => e.preventDefault()}
+                                            onClick={() => setSettings({ ...settings, themeBase: 'default' })}
+                                            className={cn(
+                                                "size-6 rounded-full overflow-hidden ring-offset-background transition-all shrink-0",
+                                                settings.themeBase === 'default' ? "ring-2 ring-offset-2 ring-foreground" : "hover:scale-110"
+                                            )}
+                                        >
+                                            <div className="flex h-full">
+                                                <div className="flex-1 bg-[oklch(0.141_0.005_285.823)]" />
+                                                <div className="flex-1 bg-[oklch(0.985_0_0)]" />
+                                            </div>
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Default</TooltipContent>
+                                </Tooltip>
                                 {BASE_THEMES.map(t => (
-                                    <button
-                                        key={t.name}
-                                        type="button"
-                                        title={t.label}
-                                        onMouseDown={e => e.preventDefault()}
-                                        onClick={() => setSettings({ ...settings, themeBase: t.name })}
-                                        className={cn(
-                                            "size-6 rounded-full ring-offset-background transition-all shrink-0",
-                                            settings.themeBase === t.name ? "ring-2 ring-offset-2 ring-foreground" : "hover:scale-110"
-                                        )}
-                                        style={{ backgroundColor: t.preview }}
-                                    />
+                                    <Tooltip key={t.name}>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                type="button"
+                                                onMouseDown={e => e.preventDefault()}
+                                                onClick={() => setSettings({ ...settings, themeBase: t.name })}
+                                                className={cn(
+                                                    "size-6 rounded-full ring-offset-background transition-all shrink-0",
+                                                    settings.themeBase === t.name ? "ring-2 ring-offset-2 ring-foreground" : "hover:scale-110"
+                                                )}
+                                                style={{ backgroundColor: t.preview }}
+                                            />
+                                        </TooltipTrigger>
+                                        <TooltipContent>{t.label}</TooltipContent>
+                                    </Tooltip>
                                 ))}
                             </div>
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Accent Color</span>
                             <div className="flex flex-wrap gap-2">
-                                <button
-                                    type="button"
-                                    title="Default"
-                                    onMouseDown={e => e.preventDefault()}
-                                    onClick={() => setSettings({ ...settings, themeAccent: 'default' })}
-                                    className={cn(
-                                        "size-6 rounded-full overflow-hidden ring-offset-background transition-all shrink-0",
-                                        settings.themeAccent === 'default' ? "ring-2 ring-offset-2 ring-foreground" : "hover:scale-110"
-                                    )}
-                                >
-                                    <div className="flex h-full">
-                                        <div className="flex-1 bg-[oklch(0.141_0.005_285.823)]" />
-                                        <div className="flex-1 bg-[oklch(0.985_0_0)]" />
-                                    </div>
-                                </button>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            type="button"
+                                            onMouseDown={e => e.preventDefault()}
+                                            onClick={() => setSettings({ ...settings, themeAccent: 'default' })}
+                                            className={cn(
+                                                "size-6 rounded-full overflow-hidden ring-offset-background transition-all shrink-0",
+                                                settings.themeAccent === 'default' ? "ring-2 ring-offset-2 ring-foreground" : "hover:scale-110"
+                                            )}
+                                        >
+                                            <div className="flex h-full">
+                                                <div className="flex-1 bg-[oklch(0.141_0.005_285.823)]" />
+                                                <div className="flex-1 bg-[oklch(0.985_0_0)]" />
+                                            </div>
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Default</TooltipContent>
+                                </Tooltip>
                                 {ACCENT_THEMES.map(t => (
-                                    <button
-                                        key={t.name}
-                                        type="button"
-                                        title={t.label}
-                                        onMouseDown={e => e.preventDefault()}
-                                        onClick={() => setSettings({ ...settings, themeAccent: t.name })}
-                                        className={cn(
-                                            "size-6 rounded-full ring-offset-background transition-all shrink-0",
-                                            settings.themeAccent === t.name ? "ring-2 ring-offset-2 ring-foreground" : "hover:scale-110"
-                                        )}
-                                        style={{ backgroundColor: t.preview }}
-                                    />
+                                    <Tooltip key={t.name}>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                type="button"
+                                                onMouseDown={e => e.preventDefault()}
+                                                onClick={() => setSettings({ ...settings, themeAccent: t.name })}
+                                                className={cn(
+                                                    "size-6 rounded-full ring-offset-background transition-all shrink-0",
+                                                    settings.themeAccent === t.name ? "ring-2 ring-offset-2 ring-foreground" : "hover:scale-110"
+                                                )}
+                                                style={{ backgroundColor: t.preview }}
+                                            />
+                                        </TooltipTrigger>
+                                        <TooltipContent>{t.label}</TooltipContent>
+                                    </Tooltip>
                                 ))}
                             </div>
                         </div>
