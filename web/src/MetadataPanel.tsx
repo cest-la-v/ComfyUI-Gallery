@@ -93,7 +93,7 @@ const RESOURCE_TYPE_STYLES: Record<string, string> = {
 
 function ResourceRow({ type, label, sub }: { type: string; label: string; sub?: string }) {
     return (
-        <Item size="sm" className="gap-2 px-0 py-0.5 min-w-0" title={label}>
+        <Item size="sm" className="gap-2 px-0 py-0.5 min-w-0 items-start" title={label}>
             <ItemContent className="min-w-0 gap-0">
                 <ItemTitle className="w-full truncate font-normal block">{label}</ItemTitle>
                 {sub && <ItemDescription className="text-xs line-clamp-1">{sub}</ItemDescription>}
