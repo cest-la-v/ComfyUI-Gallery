@@ -268,13 +268,15 @@ function SamplingSubSection({ params }: { params: ImageParams }) {
 
 function UpscaleSubSection({ params }: { params: ImageParams }) {
     const upscaleFactor = params.extras?.['Upscale Factor'] ?? params.extras?.['Hires upscale'];
-    const hasHires = params.hires_steps != null || params.hires_denoise != null || upscaleFactor != null;
+    const hasHires = params.hires_steps != null || params.hires_denoise != null
+        || params.hires_upscaler != null || upscaleFactor != null;
     if (!hasHires) return null;
     return (
         <div className="flex flex-col">
             <SubSectionLabel>Upscale</SubSectionLabel>
             <div className="flex flex-wrap gap-1.5">
                 {upscaleFactor && <ParamChip label="Upscale factor" value={upscaleFactor} />}
+                {params.hires_upscaler && <ParamChip label="Upscaler" value={params.hires_upscaler} />}
                 {params.hires_steps != null && <ParamChip label="Hires steps" value={String(params.hires_steps)} />}
                 {params.hires_denoise != null && <ParamChip label="Hires denoising" value={String(params.hires_denoise)} />}
             </div>
@@ -282,11 +284,14 @@ function UpscaleSubSection({ params }: { params: ImageParams }) {
     );
 }
 
-/** Keys shown in the Hires row — excluded from Extras to avoid duplication. */
-const HIRES_EXTRAS_KEYS = new Set(['Upscale Factor', 'Hires upscale']);
+/** Exclude all hires-related keys from Extras to avoid duplication with UpscaleSubSection. */
+function isHiresExtrasKey(k: string) {
+    const lower = k.toLowerCase();
+    return lower.startsWith('hires') || lower === 'upscale factor';
+}
 
 function ExtrasSubSection({ extras }: { extras: Record<string, string> | null | undefined }) {
-    const visible = Object.entries(extras ?? {}).filter(([k]) => !HIRES_EXTRAS_KEYS.has(k));
+    const visible = Object.entries(extras ?? {}).filter(([k]) => !isHiresExtrasKey(k));
     if (visible.length === 0) return null;
     return (
         <div className="flex flex-col">
