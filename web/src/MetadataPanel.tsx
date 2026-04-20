@@ -121,15 +121,7 @@ function ParamChip({ label, value }: { label: string; value: string }) {
 }
 
 /** Full-width prompt block with label, copy button, and expand/collapse. */
-function PromptBlock({
-    label,
-    text,
-    muted = false,
-}: {
-    label: string;
-    text: string;
-    muted?: boolean;
-}) {
+function PromptBlock({ label, text }: { label: string; text: string }) {
     const [expanded, setExpanded] = useState(false);
     const needsClamp = text.length > 200;
 
@@ -143,7 +135,7 @@ function PromptBlock({
                 <SubSectionLabel>{label}</SubSectionLabel>
                 <CopyButton text={text} />
             </div>
-            <div className={cn('text-sm break-words whitespace-pre-line', muted && 'text-muted-foreground')}
+            <div className="text-sm break-words whitespace-pre-line"
                 style={clampStyle}>
                 {text}
             </div>
@@ -244,7 +236,7 @@ function PromptSubSection({ params }: { params: ImageParams }) {
                 <PromptBlock label="Positive" text={params.positive_prompt} />
             )}
             {params.negative_prompt && (
-                <PromptBlock label="Negative" text={params.negative_prompt} muted />
+                <PromptBlock label="Negative" text={params.negative_prompt} />
             )}
         </div>
     );
