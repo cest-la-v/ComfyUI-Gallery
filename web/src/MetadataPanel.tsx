@@ -93,12 +93,12 @@ const RESOURCE_TYPE_STYLES: Record<string, string> = {
 
 function ResourceRow({ type, label, sub }: { type: string; label: string; sub?: string }) {
     return (
-        <Item size="sm" className="gap-2 px-0 py-0.5 min-w-0 items-start">
+        <Item size="sm" className="gap-2 px-0 py-0.5 min-w-0" title={label}>
             <ItemContent className="min-w-0 gap-0">
-                <ItemTitle className="w-full font-normal whitespace-normal break-words">{label}</ItemTitle>
+                <ItemTitle className="w-full truncate font-normal">{label}</ItemTitle>
                 {sub && <ItemDescription className="text-xs line-clamp-1">{sub}</ItemDescription>}
             </ItemContent>
-            <ItemActions className="shrink-0 pt-0.5">
+            <ItemActions className="shrink-0">
                 <Badge className={cn(
                     'rounded-sm px-1.5 py-0.5 text-xs font-medium',
                     RESOURCE_TYPE_STYLES[type] ?? 'bg-muted text-muted-foreground'
