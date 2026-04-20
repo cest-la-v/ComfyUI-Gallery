@@ -402,14 +402,14 @@ const GalleryHeader = () => {
                     </Tooltip>
                     <PopoverContent align="end" className="w-64 p-3 flex flex-col gap-3">
                         <div className="flex flex-col gap-1.5">
-                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Base Theme</span>
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Base Color</span>
                             <div className="flex flex-wrap gap-2">
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <button
                                             type="button"
                                             onMouseDown={e => e.preventDefault()}
-                                            onClick={() => setSettings({ ...settings, themeBase: 'default' })}
+                                            onClick={() => setSettings({ ...settings, themeBase: 'default', themeAccent: 'default' })}
                                             className={cn(
                                                 "size-6 rounded-full overflow-hidden ring-offset-background transition-all shrink-0",
                                                 settings.themeBase === 'default' ? "ring-2 ring-offset-2 ring-foreground" : "hover:scale-110"
@@ -429,7 +429,7 @@ const GalleryHeader = () => {
                                             <button
                                                 type="button"
                                                 onMouseDown={e => e.preventDefault()}
-                                                onClick={() => setSettings({ ...settings, themeBase: t.name })}
+                                                onClick={() => setSettings({ ...settings, themeBase: t.name, themeAccent: 'default' })}
                                                 className={cn(
                                                     "size-6 rounded-full ring-offset-background transition-all shrink-0",
                                                     settings.themeBase === t.name ? "ring-2 ring-offset-2 ring-foreground" : "hover:scale-110"
@@ -443,7 +443,7 @@ const GalleryHeader = () => {
                             </div>
                         </div>
                         <div className="flex flex-col gap-1.5">
-                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Accent Color</span>
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Theme</span>
                             <div className="flex flex-wrap gap-2">
                                 <Tooltip>
                                     <TooltipTrigger asChild>
@@ -462,7 +462,7 @@ const GalleryHeader = () => {
                                             </div>
                                         </button>
                                     </TooltipTrigger>
-                                    <TooltipContent>Default</TooltipContent>
+                                    <TooltipContent>Same as base</TooltipContent>
                                 </Tooltip>
                                 {ACCENT_THEMES.map(t => (
                                     <Tooltip key={t.name}>

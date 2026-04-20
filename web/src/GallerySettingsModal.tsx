@@ -15,11 +15,12 @@ import { toast } from 'sonner';
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { useGalleryContext, type SettingsState } from './GalleryContext';
 import { useSetState } from 'ahooks';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useDebounceFn } from 'ahooks';
 import { ComfyAppApi, isComfyMode } from './ComfyAppApi';
 import { cn } from '@/lib/utils';
 import { useModalDismiss } from './hooks/useModalDismiss';
+import { BASE_THEMES, ACCENT_THEMES } from './themes';
 
 interface DbStatus {
     schema_version: number;
@@ -90,6 +91,53 @@ function SegmentedControl<T extends string>({ value, options, onChange }: {
     );
 }
 
+/** Single color swatch circle — click to select. */
+function ThemeSwatch({ color, selected, label, onClick }: {
+    color: string;
+    selected: boolean;
+    label: string;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            title={label}
+            onClick={onClick}
+            onMouseDown={e => e.preventDefault()}
+            className={cn(
+                "size-6 rounded-full transition-all shrink-0 ring-offset-background",
+                selected
+                    ? "ring-2 ring-offset-2 ring-foreground"
+                    : "hover:scale-110"
+            )}
+            style={{ backgroundColor: color }}
+        />
+    );
+}
+
+/** Default swatch: checkerboard-like split showing light/dark neutral. */
+function DefaultSwatch({ selected, onClick }: { selected: boolean; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            title="Default (ComfyUI)"
+            onClick={onClick}
+            onMouseDown={e => e.preventDefault()}
+            className={cn(
+                "size-6 rounded-full transition-all shrink-0 ring-offset-background overflow-hidden",
+                selected
+                    ? "ring-2 ring-offset-2 ring-foreground"
+                    : "hover:scale-110"
+            )}
+        >
+            <div className="flex h-full">
+                <div className="flex-1 bg-[oklch(0.141_0.005_285.823)]" />
+                <div className="flex-1 bg-[oklch(0.985_0_0)]" />
+            </div>
+        </button>
+    );
+}
+
 const GallerySettingsModal = () => {
     const { showSettings, setShowSettings, settings, setSettings, runAsync } = useGalleryContext();
     const [staged, setStaged] = useSetState<SettingsState>(settings);
@@ -97,15 +145,19 @@ const GallerySettingsModal = () => {
     const [dbStatus, setDbStatus] = useState<DbStatus | null>(null);
     const [resolvedPath, setResolvedPath] = useState<ResolvedPath | null>(null);
     const [resolving, setResolving] = useState(false);
+    // Store settings at modal-open time so Cancel can revert live theme preview
+    const openSettingsRef = useRef<SettingsState>(settings);
 
     // When modal opens, reset staged to current settings and fetch DB status
     useEffect(() => {
         if (showSettings) {
+            openSettingsRef.current = settings;
             setStaged(settings);
             setExtInput((settings && (settings as any).scanExtensions) ? (settings as any).scanExtensions.join(', ') : "");
             fetch('/Gallery/db/status', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => setDbStatus(d)).catch(() => {});
         }
-    }, [showSettings, settings, setStaged]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showSettings]);
 
     // Live path resolution — debounced 400ms
     const doResolve = useCallback(async (path: string) => {
@@ -131,8 +183,12 @@ const GallerySettingsModal = () => {
         setSettings(newSettings);
         setShowSettings(false);
     };
-    const handleCancel = () => setShowSettings(false);
-    const dismiss = useModalDismiss(() => setShowSettings(false));
+    const handleCancel = () => {
+        // Revert any live theme changes applied during preview
+        setSettings(openSettingsRef.current);
+        setShowSettings(false);
+    };
+    const dismiss = useModalDismiss(() => handleCancel());
 
     return (
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
@@ -222,6 +278,65 @@ const GallerySettingsModal = () => {
                                 onChange={v => setStaged({ floatingButton: v === 'floating' })}
                             />
                         </SettingRow>
+                    </div>
+
+                    <Separator />
+
+                    {/* Appearance — theme */}
+                    <div className="flex flex-col gap-3">
+                        <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Appearance</span>
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-sm font-medium leading-tight">Base Color</span>
+                            <div className="flex flex-wrap gap-2 items-center">
+                                <DefaultSwatch
+                                    selected={staged.themeBase === 'default'}
+                                    onClick={() => {
+                                        setStaged({ themeBase: 'default', themeAccent: 'default' });
+                                        setSettings({ ...settings, ...staged, themeBase: 'default', themeAccent: 'default' });
+                                    }}
+                                />
+                                {BASE_THEMES.map(t => (
+                                    <ThemeSwatch
+                                        key={t.name}
+                                        color={t.preview}
+                                        label={t.label}
+                                        selected={staged.themeBase === t.name}
+                                        onClick={() => {
+                                            setStaged({ themeBase: t.name, themeAccent: 'default' });
+                                            setSettings({ ...settings, ...staged, themeBase: t.name, themeAccent: 'default' });
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                            <span className="text-xs text-muted-foreground leading-tight">
+                                {staged.themeBase === 'default'
+                                    ? 'Default — inherits from ComfyUI'
+                                    : (BASE_THEMES.find(t => t.name === staged.themeBase)?.label ?? staged.themeBase)}
+                            </span>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-sm font-medium leading-tight">Theme</span>
+                            <div className="flex flex-wrap gap-2 items-center">
+                                <DefaultSwatch
+                                    selected={staged.themeAccent === 'default'}
+                                    onClick={() => { setStaged({ themeAccent: 'default' }); setSettings({ ...settings, ...staged, themeAccent: 'default' }); }}
+                                />
+                                {ACCENT_THEMES.map(t => (
+                                    <ThemeSwatch
+                                        key={t.name}
+                                        color={t.preview}
+                                        label={t.label}
+                                        selected={staged.themeAccent === t.name}
+                                        onClick={() => { setStaged({ themeAccent: t.name }); setSettings({ ...settings, ...staged, themeAccent: t.name }); }}
+                                    />
+                                ))}
+                            </div>
+                            <span className="text-xs text-muted-foreground leading-tight">
+                                {staged.themeAccent === 'default'
+                                    ? `Same as base${staged.themeBase !== 'default' ? ` — ${BASE_THEMES.find(t => t.name === staged.themeBase)?.label ?? staged.themeBase}` : ''}`
+                                    : (ACCENT_THEMES.find(t => t.name === staged.themeAccent)?.label ?? staged.themeAccent)}
+                            </span>
+                        </div>
                     </div>
 
                     <Separator />
