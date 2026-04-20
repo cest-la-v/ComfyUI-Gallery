@@ -416,8 +416,8 @@ const GalleryHeader = () => {
                                             )}
                                         >
                                             <div className="flex h-full">
-                                                <div className="flex-1 bg-[oklch(0.141_0.005_285.823)]" />
-                                                <div className="flex-1 bg-[oklch(0.985_0_0)]" />
+                                                <div className="flex-1" style={{ backgroundColor: "oklch(0.141 0.005 285.823)" }} />
+                                                <div className="flex-1" style={{ backgroundColor: "oklch(0.985 0 0)" }} />
                                             </div>
                                         </button>
                                     </TooltipTrigger>
@@ -457,8 +457,8 @@ const GalleryHeader = () => {
                                             )}
                                         >
                                             <div className="flex h-full">
-                                                <div className="flex-1 bg-[oklch(0.141_0.005_285.823)]" />
-                                                <div className="flex-1 bg-[oklch(0.985_0_0)]" />
+                                                <div className="flex-1" style={{ backgroundColor: "oklch(0.141 0.005 285.823)" }} />
+                                                <div className="flex-1" style={{ backgroundColor: "oklch(0.985 0 0)" }} />
                                             </div>
                                         </button>
                                     </TooltipTrigger>

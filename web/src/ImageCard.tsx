@@ -76,7 +76,7 @@ function ImageCard({
                     borderRadius: 8,
                     overflow: 'hidden',
                     margin: '15px',
-                    border: dragging ? '2px solid #1890ff' : '1px solid rgba(255,255,255,0.1)',
+                    border: dragging ? '2px solid var(--primary)' : '1px solid var(--border)',
                     opacity: dragging ? 0.5 : 1,
                     display: 'flex',
                     alignContent: 'center',
@@ -84,7 +84,7 @@ function ImageCard({
                     alignItems: 'center',
                     position: 'relative',
                     cursor: 'grab',
-                    boxShadow: selectedImages.includes(image.url) ? '0 0 0 3px #1890ff' : undefined,
+                    boxShadow: selectedImages.includes(image.url) ? '0 0 0 3px var(--primary)' : undefined,
                 }}
                 onClick={handleCardClick}
             >
@@ -96,7 +96,7 @@ function ImageCard({
                     <Button
                         size="icon"
                         variant="destructive"
-                        className="h-7 w-7 bg-black/60 hover:bg-destructive border-none shadow"
+                        className="h-7 w-7 bg-background/60 hover:bg-destructive border-none shadow"
                         onClick={e => { e.stopPropagation(); setDeleteConfirmOpen(true); }}
                     >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -105,7 +105,7 @@ function ImageCard({
 
                 {/* Model badge overlay (prompt mode only) */}
                 {showModelBadge && image.model && (
-                    <div className="absolute top-2 left-2 z-[3] max-w-[160px] truncate rounded-full bg-black/60 px-2 py-0.5 text-[11px] text-white/80 leading-[18px]">
+                    <div className="absolute top-2 left-2 z-[3] max-w-[160px] truncate rounded-full bg-background/60 px-2 py-0.5 text-[11px] text-foreground/80 leading-[18px]">
                         {image.model}
                     </div>
                 )}
@@ -123,13 +123,13 @@ function ImageCard({
                     />
                 ) : image.type === 'audio' ? (
                     <div className="flex flex-col items-center justify-center w-full h-full">
-                        <Music style={{ marginBottom: 24, color: '#1890ff' }} className="h-16 w-16" />
-                        <span className="mb-4 px-4 text-center max-w-full text-[#e6e6e6] truncate text-sm">
+                        <Music style={{ marginBottom: 24, color: 'var(--primary)' }} className="h-16 w-16" />
+                        <span className="mb-4 px-4 text-center max-w-full text-muted-foreground truncate text-sm">
                             {image.name}
                         </span>
                         <audio controls style={{ width: '90%', height: 40 }} src={`${BASE_PATH}${image.url}`} onClick={e => e.stopPropagation()} />
                         <button
-                            className="mt-2 text-xs text-cyan-400 hover:underline"
+                            className="mt-2 text-xs text-primary hover:underline"
                             onClick={openLightbox}
                         >Open in viewer</button>
                     </div>
@@ -151,7 +151,7 @@ function ImageCard({
                 <div
                     style={{
                         position: 'absolute',
-                        backgroundColor: '#00000042',
+                        backgroundColor: 'color-mix(in oklch, var(--background) 60%, transparent)',
                         width: '-webkit-fill-available',
                         padding: '10px',
                         bottom: 0,
@@ -161,14 +161,14 @@ function ImageCard({
                     }}
                 >
                     <span
-                        className="font-semibold text-white text-sm truncate mr-2"
+                        className="font-semibold text-foreground text-sm truncate mr-2"
                         style={{ margin: 0 }}
                     >
                         {image.name}
                     </span>
                     <Button
                         size="icon"
-                        className="h-8 w-8 shrink-0 bg-cyan-600/80 hover:bg-cyan-500 text-white border-none"
+                        className="h-8 w-8 shrink-0 bg-primary/80 hover:bg-primary text-primary-foreground border-none"
                         onClick={e => {
                             e.stopPropagation();
                             onInfoClick(image.name);

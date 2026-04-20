@@ -128,7 +128,7 @@ const GalleryOpenButton = () => {
                     style={{
                         width: 32,
                         height: 8,
-                        background: '#888',
+                        background: 'var(--muted-foreground)',
                         borderRadius: 4,
                         margin: '0 auto 4px auto',
                         cursor: 'grab',

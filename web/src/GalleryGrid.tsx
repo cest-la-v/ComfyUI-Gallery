@@ -98,12 +98,12 @@ const GalleryGrid = () => {
                     }}
                 >
                     <div className="flex items-center gap-2 flex-wrap">
-                        <span style={{ fontWeight: 700, fontSize: 14, color: '#aaa', letterSpacing: '0.01em' }}
+                        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--muted-foreground)', letterSpacing: '0.01em' }}
                               className={divMode === 'prompt' ? 'line-clamp-2' : ''}>
                             {image.name}
                         </span>
                         {image.count != null && (
-                            <span style={{ fontSize: 11, lineHeight: '18px', padding: '0 6px', borderRadius: 10, background: 'rgba(255,255,255,0.08)', color: '#888' }}>
+                            <span style={{ fontSize: 11, lineHeight: '18px', padding: '0 6px', borderRadius: 10, background: 'color-mix(in oklch, var(--foreground) 8%, transparent)', color: 'var(--muted-foreground)' }}>
                                 {image.count}
                             </span>
                         )}
@@ -147,7 +147,7 @@ const GalleryGrid = () => {
     return (
         <>
             {loading && (
-                <div className="absolute inset-0 bg-zinc-900/50 z-[100] flex items-center justify-center">
+                <div className="absolute inset-0 bg-background/50 z-[100] flex items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
             )}

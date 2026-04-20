@@ -106,9 +106,9 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                 {confirmingDelete ? (
                                     <div
                                         className="flex items-center gap-2 rounded-lg px-3 py-2"
-                                        style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
+                                        style={{ background: 'color-mix(in oklch, var(--background) 75%, transparent)', backdropFilter: 'blur(8px)' }}
                                     >
-                                        <span className="text-sm text-white mr-1">Delete this image?</span>
+                                        <span className="text-sm text-foreground mr-1">Delete this image?</span>
                                         <button className="lb-btn text-green-400 hover:text-green-300" onMouseDown={e => e.preventDefault()} onClick={handleDelete}>
                                             <Check size={18} />
                                         </button>
@@ -119,7 +119,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                 ) : (
                                     <div
                                         className="flex items-center gap-1 rounded-lg px-2 py-1"
-                                        style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)' }}
+                                        style={{ background: 'color-mix(in oklch, var(--background) 50%, transparent)', backdropFilter: 'blur(8px)' }}
                                     >
                                         <Tooltip>
                                             <TooltipTrigger asChild>

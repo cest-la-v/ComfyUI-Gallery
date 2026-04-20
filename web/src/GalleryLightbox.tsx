@@ -117,8 +117,8 @@ const GalleryLightbox = () => {
         if (img.type === 'audio') {
             return (
                 <div key={img.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80vh', gap: 24 }}>
-                    <Music style={{ color: '#1890ff' }} className="h-20 w-20" />
-                    <span style={{ color: '#e6e6e6', fontSize: 16, maxWidth: 400, textAlign: 'center' }}>{img.name}</span>
+                    <Music style={{ color: 'var(--primary)' }} className="h-20 w-20" />
+                    <span style={{ color: 'var(--foreground)', fontSize: 16, maxWidth: 400, textAlign: 'center' }}>{img.name}</span>
                     <audio src={`${BASE_PATH}${img.url}`} autoPlay controls style={{ width: 360 }} />
                 </div>
             );
