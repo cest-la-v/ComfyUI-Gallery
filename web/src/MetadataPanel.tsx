@@ -114,7 +114,7 @@ function ResourceRow({ type, label, sub }: { type: string; label: string; sub?: 
 function ParamChip({ label, value }: { label: string; value: string }) {
     return (
         <Badge variant="outline" className="gap-1 font-normal">
-            <span className="text-muted-foreground">{label}:</span>
+            <span className="text-muted-foreground uppercase tracking-wider">{label}:</span>
             <span className="font-medium text-foreground">{value}</span>
         </Badge>
     );
