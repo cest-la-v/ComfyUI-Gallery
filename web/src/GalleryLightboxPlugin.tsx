@@ -109,10 +109,10 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                         style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
                                     >
                                         <span className="text-sm text-white mr-1">Delete this image?</span>
-                                        <button className="lb-btn text-green-400 hover:text-green-300" onClick={handleDelete}>
+                                        <button className="lb-btn text-green-400 hover:text-green-300" onMouseDown={e => e.preventDefault()} onClick={handleDelete}>
                                             <Check size={18} />
                                         </button>
-                                        <button className={btnCls} onClick={() => setConfirmingDelete(false)}>
+                                        <button className={btnCls} onMouseDown={e => e.preventDefault()} onClick={() => setConfirmingDelete(false)}>
                                             <X size={18} />
                                         </button>
                                     </div>
@@ -125,6 +125,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                             <TooltipTrigger asChild>
                                                 <button
                                                     className={showMetadataPanel && !showRawMetadata ? activeCls : btnCls}
+                                                    onMouseDown={e => e.preventDefault()}
                                                     onClick={() => {
                                                         if (showMetadataPanel && !showRawMetadata) setShowMetadataPanel(false);
                                                         else { setShowMetadataPanel(true); setShowRawMetadata(false); }
@@ -137,6 +138,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                             <TooltipTrigger asChild>
                                                 <button
                                                     className={showMetadataPanel && showRawMetadata ? activeCls : btnCls}
+                                                    onMouseDown={e => e.preventDefault()}
                                                     onClick={() => {
                                                         if (showMetadataPanel && showRawMetadata) setShowMetadataPanel(false);
                                                         else { setShowMetadataPanel(true); setShowRawMetadata(true); }
@@ -148,7 +150,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                         <div className="lb-divider" />
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <button className={btnCls} onClick={() => setImageRotation(r => ((r - 90 + 360) % 360) as 0 | 90 | 180 | 270)}>
+                                                <button className={btnCls} onMouseDown={e => e.preventDefault()} onClick={() => setImageRotation(r => ((r - 90 + 360) % 360) as 0 | 90 | 180 | 270)}>
                                                     <RotateCcw size={18} />
                                                 </button>
                                             </TooltipTrigger>
@@ -156,7 +158,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                         </Tooltip>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <button className={btnCls} onClick={() => setImageRotation(r => ((r + 90) % 360) as 0 | 90 | 180 | 270)}>
+                                                <button className={btnCls} onMouseDown={e => e.preventDefault()} onClick={() => setImageRotation(r => ((r + 90) % 360) as 0 | 90 | 180 | 270)}>
                                                     <RotateCw size={18} />
                                                 </button>
                                             </TooltipTrigger>
@@ -164,7 +166,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                         </Tooltip>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <button className={imageFlipH ? activeCls : btnCls} onClick={() => setImageFlipH(v => !v)}>
+                                                <button className={imageFlipH ? activeCls : btnCls} onMouseDown={e => e.preventDefault()} onClick={() => setImageFlipH(v => !v)}>
                                                     <FlipHorizontal size={18} />
                                                 </button>
                                             </TooltipTrigger>
@@ -172,7 +174,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                         </Tooltip>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <button className={imageFlipV ? activeCls : btnCls} onClick={() => setImageFlipV(v => !v)}>
+                                                <button className={imageFlipV ? activeCls : btnCls} onMouseDown={e => e.preventDefault()} onClick={() => setImageFlipV(v => !v)}>
                                                     <FlipVertical size={18} />
                                                 </button>
                                             </TooltipTrigger>
@@ -183,6 +185,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                             <TooltipTrigger asChild>
                                                 <button
                                                     className={copySuccess ? 'lb-btn lb-btn-active lb-btn-success' : btnCls}
+                                                    onMouseDown={e => e.preventDefault()}
                                                     onClick={async () => {
                                                         if (!currentImage) return;
                                                         const img = new window.Image();
@@ -213,7 +216,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                         </Tooltip>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <button className={btnCls} onClick={async () => {
+                                                <button className={btnCls} onMouseDown={e => e.preventDefault()} onClick={async () => {
                                                     if (!currentImage) return;
                                                     try {
                                                         const r = await fetch(`${BASE_PATH}${currentImage.url}`, { mode: 'cors' });
@@ -231,6 +234,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                             <TooltipTrigger asChild>
                                                 <button
                                                     className={`${btnCls} text-red-400 hover:text-red-300`}
+                                                    onMouseDown={e => e.preventDefault()}
                                                     onClick={() => setConfirmingDelete(true)}
                                                 ><Trash2 size={18} /></button>
                                             </TooltipTrigger>
