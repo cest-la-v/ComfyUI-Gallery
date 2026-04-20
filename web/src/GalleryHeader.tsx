@@ -173,6 +173,7 @@ const GalleryHeader = () => {
     const [downloading, setDownloading] = useState(false);
     const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [themePickerOpen, setThemePickerOpen] = useState(false);
 
     useEffect(() => {
         const onDragStart = () => setShowClose(true);
@@ -384,8 +385,8 @@ const GalleryHeader = () => {
                 </Tooltip>
 
                 {/* Theme quick-pick popover */}
-                <Popover>
-                    <Tooltip>
+                <Popover open={themePickerOpen} onOpenChange={setThemePickerOpen}>
+                    <Tooltip open={themePickerOpen ? false : undefined}>
                         <TooltipTrigger asChild>
                             <PopoverTrigger asChild>
                                 <Button
