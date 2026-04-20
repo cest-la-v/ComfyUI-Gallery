@@ -140,7 +140,7 @@ function PromptBlock({
     return (
         <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
-                <span className="font-semibold text-sm text-foreground">{label}</span>
+                <SubSectionLabel>{label}</SubSectionLabel>
                 <CopyButton text={text} />
             </div>
             <div className={cn('text-sm break-words whitespace-pre-line', muted && 'text-muted-foreground')}
