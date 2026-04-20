@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Item, ItemContent, ItemTitle, ItemDescription, ItemActions, ItemGroup } from '@/components/ui/item';
 import { Copy, Loader2 } from 'lucide-react';
 
@@ -70,16 +71,20 @@ function SubSectionLabel({ children }: { children: React.ReactNode }) {
 /** Copy icon button — used inside PromptBlock. */
 function CopyButton({ text }: { text: string }) {
     return (
-        <button
-            className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
-            onClick={() => {
-                navigator.clipboard.writeText(text);
-                toast.success('Copied!', { duration: 1000 });
-            }}
-            title="Copy"
-        >
-            <Copy size={13} />
-        </button>
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <button
+                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
+                    onClick={() => {
+                        navigator.clipboard.writeText(text);
+                        toast.success('Copied!', { duration: 1000 });
+                    }}
+                >
+                    <Copy size={13} />
+                </button>
+            </TooltipTrigger>
+            <TooltipContent>Copy</TooltipContent>
+        </Tooltip>
     );
 }
 
@@ -93,9 +98,14 @@ const RESOURCE_TYPE_STYLES: Record<string, string> = {
 
 function ResourceRow({ type, label, sub }: { type: string; label: string; sub?: string }) {
     return (
-        <Item size="sm" className="gap-2 px-0 py-0.5 min-w-0 items-start" title={label}>
+        <Item size="sm" className="gap-2 px-0 py-0.5 min-w-0 items-start">
             <ItemContent className="min-w-0 gap-0">
-                <ItemTitle className="w-full truncate font-normal block">{label}</ItemTitle>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <ItemTitle className="w-full truncate font-normal block">{label}</ItemTitle>
+                    </TooltipTrigger>
+                    <TooltipContent>{label}</TooltipContent>
+                </Tooltip>
                 {sub && <ItemDescription className="text-xs line-clamp-1 leading-tight">{sub}</ItemDescription>}
             </ItemContent>
             <ItemActions className="shrink-0">

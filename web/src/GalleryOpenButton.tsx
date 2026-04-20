@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Loader2 } from 'lucide-react';
 import { useGalleryContext } from './GalleryContext';
 import { useLocalStorageState, useDebounceFn } from 'ahooks';
@@ -124,17 +125,18 @@ const GalleryOpenButton = () => {
                     userSelect: 'none',
                 }}
             >
-                <div
-                    style={{
-                        width: 32,
-                        height: 8,
-                        background: 'var(--muted-foreground)',
-                        borderRadius: 4,
-                        margin: '0 auto 4px auto',
-                        cursor: 'grab',
-                    }}
-                    title="Drag to move"
-                    onMouseDown={e => {
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <div
+                            style={{
+                                width: 32,
+                                height: 8,
+                                background: 'var(--muted-foreground)',
+                                borderRadius: 4,
+                                margin: '0 auto 4px auto',
+                                cursor: 'grab',
+                            }}
+                            onMouseDown={e => {
                         const startX = e.clientX;
                         const startY = e.clientY;
                         const origX = position?.x ?? 32;
@@ -163,6 +165,9 @@ const GalleryOpenButton = () => {
                         window.addEventListener('mouseup', onUp);
                     }}
                 />
+                    </TooltipTrigger>
+                    <TooltipContent>Drag to move</TooltipContent>
+                </Tooltip>
                 <Button
                     id={OPEN_BUTTON_ID}
                     className="comfy-gallery-primary-btn gap-1.5"
