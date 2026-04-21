@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useMemo, useEffect, useCall
 import type { Dispatch, SetStateAction } from 'react';
 import { useSize, useRequest, useAsyncEffect, useEventListener, useLocalStorageState, useClickAway } from 'ahooks';
 import type { FileDetails, FilesTree } from './types';
+import { useTheme } from './hooks/useTheme';
 type AutoCompleteOption = { value?: string; label?: React.ReactNode };
 import { ComfyAppApi, OPEN_BUTTON_ID } from './ComfyAppApi';
 
@@ -33,6 +34,8 @@ export interface SettingsState {
     disableLogs: boolean;
     usePollingObserver: boolean;
     scanExtensions: string[];
+    themeBase: string;
+    themeAccent: string;
     /** Incremented when we need to migrate stored settings to new defaults. */
     _settingsVersion?: number;
 }
@@ -47,7 +50,9 @@ export const DEFAULT_SETTINGS: SettingsState = {
     disableLogs: false,
     usePollingObserver: false,
     scanExtensions: ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'gif', 'webm', 'mov', 'wav', 'mp3', 'm4a', 'flac'],
-    _settingsVersion: 3,
+    themeBase: 'default',
+    themeAccent: 'default',
+    _settingsVersion: 4,
 };
 export const STORAGE_KEY = 'comfy-ui-gallery-settings';
 
@@ -314,9 +319,16 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     // One-time migrations:
     // v1→v2: darkMode was false by default, force true.
     // v2→v3: hideOpenButton removed — no conversion needed, unknown fields are ignored.
+    // v3→v4: themeBase + themeAccent added (both default to 'default').
     useEffect(() => {
-        if (settingsState && (settingsState._settingsVersion ?? 1) < 3) {
-            setSettings({ ...settingsState, darkMode: true, _settingsVersion: 3 });
+        if (settingsState && (settingsState._settingsVersion ?? 1) < 4) {
+            setSettings({
+                ...settingsState,
+                darkMode: true,
+                themeBase: settingsState.themeBase ?? 'default',
+                themeAccent: settingsState.themeAccent ?? 'default',
+                _settingsVersion: 4,
+            });
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -327,6 +339,9 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         document.getElementById('comfy-gallery-root')?.classList.toggle('dark', dark);
         document.getElementById('comfy-gallery-yarl-root')?.classList.toggle('dark', dark);
     }, [settingsState?.darkMode]);
+
+    // Apply base/accent theme CSS variable overrides
+    useTheme(settingsState?.themeBase ?? 'default', settingsState?.themeAccent ?? 'default');
 
     // Memoized list of all images in the current folder
     const imagesDetailsList = useMemo(() => {
