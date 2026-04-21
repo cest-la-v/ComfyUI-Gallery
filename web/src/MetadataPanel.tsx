@@ -70,7 +70,7 @@ function SubSection({ label, action, children }: {
     children: React.ReactNode;
 }) {
     return (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 py-1">
             <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
                 {action}
@@ -240,20 +240,6 @@ function ResourcesSubSection({ params }: { params: ImageParams }) {
     if (rows.length === 0) return null;
     return (
         <SubSection label="Resources"><ItemGroup>{rows}</ItemGroup></SubSection>
-    );
-}
-
-function PromptSubSection({ params }: { params: ImageParams }) {
-    if (!params.positive_prompt && !params.negative_prompt) return null;
-    return (
-        <div className="flex flex-col gap-1.5">
-            {params.positive_prompt && (
-                <PromptBlock label="Positive" text={params.positive_prompt} />
-            )}
-            {params.negative_prompt && (
-                <PromptBlock label="Negative" text={params.negative_prompt} />
-            )}
-        </div>
     );
 }
 
@@ -536,9 +522,16 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
 
                                 {/* Scrollable body */}
                                 <ScrollArea className="flex-1 min-h-0">
-                                    <div className="flex flex-col gap-1.5 px-3 pt-1.5 pb-3">
+                                    <div className="flex flex-col gap-1 px-3 py-2">
                                         <ResourcesSubSection params={parsedParams} />
-                                        <PromptSubSection params={parsedParams} />
+                                        {parsedParams.positive_prompt && <>
+                                            <Separator className="shrink-0" />
+                                            <PromptBlock label="Positive" text={parsedParams.positive_prompt} />
+                                        </>}
+                                        {parsedParams.negative_prompt && <>
+                                            <Separator className="shrink-0" />
+                                            <PromptBlock label="Negative" text={parsedParams.negative_prompt} />
+                                        </>}
                                         <SamplingSubSection params={parsedParams} />
                                         <UpscaleSubSection params={parsedParams} />
                                         <ADetailerSubSection extras={parsedParams.extras} />
