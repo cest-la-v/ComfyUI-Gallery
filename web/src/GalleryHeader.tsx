@@ -377,7 +377,7 @@ const GalleryHeader = () => {
                         </TooltipTrigger>
                         <TooltipContent>Sort</TooltipContent>
                     </Tooltip>
-                    <DropdownMenuContent align="end" className="z-[var(--cg-z-popup)]">
+                    <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Sort by</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuRadioGroup
