@@ -81,6 +81,14 @@
    Scoped to both gallery roots (including yarl's portal root) so the plugin
    content inside #comfy-gallery-yarl-root is also protected.
    ────────────────────────────────────────────────────────────────────────── */
+/* Default border-color for all elements — prevents ComfyUI's `color: white` from
+   bleeding into borders via currentColor on bare `border` utilities.
+   Specificity (1,0,0) — overridden by element resets below (1,0,1) and
+   Tailwind border-color utilities (1,1,0). */
+:is(#comfy-gallery-root, #comfy-gallery-yarl-root) * {
+    border-color: var(--border);
+}
+
 :is(#comfy-gallery-root, #comfy-gallery-yarl-root) button {
     background-color: transparent;
     border-width: 0;
@@ -101,15 +109,6 @@
     border-color: var(--input);
     box-shadow: none;
     outline: none;
-    color: var(--foreground);
-    font-size: inherit;
-    font-family: inherit;
-}
-:is(#comfy-gallery-root, #comfy-gallery-yarl-root) select {
-    background-color: transparent;
-    border-width: 1px;
-    border-style: solid;
-    border-color: var(--border);
     color: var(--foreground);
     font-size: inherit;
     font-family: inherit;
