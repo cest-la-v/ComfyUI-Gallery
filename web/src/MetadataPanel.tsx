@@ -524,14 +524,18 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                                 <ScrollArea className="flex-1 min-h-0">
                                     <div className="flex flex-col gap-1 px-3 py-2">
                                         <ResourcesSubSection params={parsedParams} />
-                                        {parsedParams.positive_prompt && <>
+                                        {(parsedParams.positive_prompt || parsedParams.negative_prompt) && (
                                             <Separator className="shrink-0" />
+                                        )}
+                                        {parsedParams.positive_prompt && (
                                             <PromptBlock label="Positive" text={parsedParams.positive_prompt} />
-                                        </>}
-                                        {parsedParams.negative_prompt && <>
-                                            <Separator className="shrink-0" />
+                                        )}
+                                        {parsedParams.negative_prompt && (
                                             <PromptBlock label="Negative" text={parsedParams.negative_prompt} />
-                                        </>}
+                                        )}
+                                        {(parsedParams.positive_prompt || parsedParams.negative_prompt) && (
+                                            <Separator className="shrink-0" />
+                                        )}
                                         <SamplingSubSection params={parsedParams} />
                                         <UpscaleSubSection params={parsedParams} />
                                         <ADetailerSubSection extras={parsedParams.extras} />
