@@ -27,7 +27,7 @@ export interface FileDetails {
     positive_prompt?: string | null;
     prompt_only_fp?: string | null;
     /** Divider-only fields */
-    divider_mode?: 'date' | 'model' | 'prompt';
+    divider_mode?: 'date' | 'model' | 'prompt' | 'folder';
     sample_paths?: string[];
 }
 

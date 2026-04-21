@@ -33,7 +33,6 @@ function ThumbnailStrip({ samplePaths }: { samplePaths: string[] }) {
 
 const GalleryGrid = () => {
     const {
-        currentFolder,
         gridSize,
         setGridSize,
         autoSizer,
@@ -120,7 +119,7 @@ const GalleryGrid = () => {
         return (
             <div style={{ ...style, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 <ImageCard
-                    image={{ ...image, dragFolder: currentFolder }}
+                    image={{ ...image, dragFolder: image.rel_path?.includes('/') ? image.rel_path.slice(0, image.rel_path.lastIndexOf('/')) : '' }}
                     key={image.name}
                     showModelBadge={viewMode === 'prompt' && !!image.model}
                     onInfoClick={() => handleInfoClick(image)}
@@ -128,7 +127,7 @@ const GalleryGrid = () => {
                 />
             </div>
         );
-    }, [gridSize.columnCount, imagesDetailsList, handleInfoClick, openLightbox, currentFolder]);
+    }, [gridSize.columnCount, imagesDetailsList, handleInfoClick, openLightbox]);
 
     useEffect(() => {
         const { width, height } = autoSizer;
@@ -142,7 +141,7 @@ const GalleryGrid = () => {
         if (grid) {
             Array.from(grid.children).forEach(child => { (child as HTMLElement).style.position = 'relative'; });
         }
-    }, [gridSize, imageInfoName, currentFolder]);
+    }, [gridSize, imageInfoName]);
 
     return (
         <>

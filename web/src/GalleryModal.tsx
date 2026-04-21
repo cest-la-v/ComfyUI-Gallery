@@ -2,13 +2,14 @@ import { cn } from '@/lib/utils';
 import { useGalleryContext } from './GalleryContext';
 import GalleryHeader from './GalleryHeader';
 import GalleryGrid from './GalleryGrid';
+import GalleryOverview from './GalleryOverview';
 import GalleryLightbox from './GalleryLightbox';
 import GallerySettingsModal from './GallerySettingsModal';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useModalDismiss } from './hooks/useModalDismiss';
 
 const GalleryModal = () => {
-    const { open, setOpen, showSettings, lightboxOpen, settings } = useGalleryContext();
+    const { open, setOpen, showSettings, lightboxOpen, settings, gridView } = useGalleryContext();
     const isBottom = settings.galleryLayout === 'bottom';
 
     const dismiss = useModalDismiss(() => setOpen(false), { disabled: showSettings || lightboxOpen });
@@ -41,7 +42,7 @@ const GalleryModal = () => {
                                 <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
                             </div>
                             <main className="relative flex-1 min-h-0 min-w-0 overflow-hidden">
-                                <GalleryGrid />
+                                {gridView === 'overview' ? <GalleryOverview /> : <GalleryGrid />}
                                 <GalleryLightbox />
                             </main>
                             <footer className="px-3 py-2 border-t shrink-0">
@@ -54,7 +55,7 @@ const GalleryModal = () => {
                                 <GalleryHeader />
                             </header>
                             <main className="relative flex-1 min-h-0 min-w-0 overflow-hidden">
-                                <GalleryGrid />
+                                {gridView === 'overview' ? <GalleryOverview /> : <GalleryGrid />}
                                 <GalleryLightbox />
                             </main>
                         </>

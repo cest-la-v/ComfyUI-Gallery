@@ -58,11 +58,14 @@ export const DEFAULT_SETTINGS: SettingsState = {
 };
 export const STORAGE_KEY = 'comfy-ui-gallery-settings';
 
-export type ViewMode = 'date' | 'model' | 'prompt';
+export type ViewMode = 'date' | 'model' | 'prompt' | 'folder';
 
 export interface GalleryContextType {
-    currentFolder: string;
-    setCurrentFolder: Dispatch<SetStateAction<string>>;
+    groupFilter: string;
+    setGroupFilter: Dispatch<SetStateAction<string>>;
+    gridView: 'detail' | 'overview';
+    setGridView: Dispatch<SetStateAction<'detail' | 'overview'>>;
+    groupValues: { key: string; label: string }[];
     searchFileName: string;
     setSearchFileName: Dispatch<SetStateAction<string>>;
     viewMode: ViewMode;
@@ -117,85 +120,103 @@ export interface GalleryContextType {
 
 const GalleryContext = createContext<GalleryContextType | undefined>(undefined);
 
+export type GroupEntry = {
+    key: string;
+    label: string;
+    items: FileDetails[];
+    maxTimestamp: number;
+    samplePaths: string[];
+};
+
+function getFolderGroupKey(item: FileDetails): string {
+    if (!item.rel_path) return '';
+    const lastSlash = item.rel_path.lastIndexOf('/');
+    return lastSlash >= 0 ? item.rel_path.slice(0, lastSlash) : '';
+}
+
+function stripCommonFolderPrefix(keys: string[]): string {
+    const nonEmpty = keys.filter(k => k !== '');
+    if (nonEmpty.length === 0) return '';
+    const firstPart = nonEmpty[0].split('/')[0];
+    return nonEmpty.every(k => k.split('/')[0] === firstPart) ? firstPart : '';
+}
+
+export function getGroupKey(item: FileDetails, mode: ViewMode): string {
+    switch (mode) {
+        case 'date': return item.timestamp ? new Date(item.timestamp * 1000).toISOString().slice(0, 10) : 'Unknown';
+        case 'model': return item.model ?? 'Unknown';
+        case 'prompt': return item.prompt_only_fp ?? '';
+        case 'folder': return getFolderGroupKey(item);
+    }
+}
+
+export function computeGroups(
+    sortedItems: FileDetails[],
+    mode: ViewMode,
+    sortMethod: 'Newest' | 'Oldest' | 'Name ↑' | 'Name ↓',
+): GroupEntry[] {
+    const grouped = new Map<string, FileDetails[]>();
+    sortedItems.forEach(item => {
+        const key = getGroupKey(item, mode);
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key)!.push(item);
+    });
+
+    const prefix = mode === 'folder' ? stripCommonFolderPrefix([...grouped.keys()]) : '';
+
+    const entries: GroupEntry[] = [...grouped.entries()].map(([key, items]) => {
+        let label: string;
+        if (mode === 'date') {
+            label = key;
+        } else if (mode === 'model') {
+            label = key;
+        } else if (mode === 'folder') {
+            label = key === '' ? '(root)' : (prefix ? key.slice(prefix.length + 1) || key : key);
+        } else {
+            // prompt — key is prompt_only_fp fingerprint, label is the actual text
+            const sample = items.find(i => i.positive_prompt);
+            const text = sample?.positive_prompt ?? '';
+            label = text ? (text.length > 50 ? text.slice(0, 50) + '…' : text) : '(no prompt)';
+        }
+        const maxTimestamp = items.reduce((max, i) => Math.max(max, i.timestamp ?? 0), 0);
+        const samplePaths = items
+            .filter(i => i.type === 'image' || i.type === 'media')
+            .slice(0, 5)
+            .map(i => i.rel_path!)
+            .filter(Boolean);
+        return { key, label, items, maxTimestamp, samplePaths };
+    });
+
+    // Sort groups by sortMethod
+    entries.sort((a, b) => {
+        switch (sortMethod) {
+            case 'Newest': return b.maxTimestamp - a.maxTimestamp;
+            case 'Oldest': return a.maxTimestamp - b.maxTimestamp;
+            case 'Name ↑': return a.label.localeCompare(b.label);
+            case 'Name ↓': return b.label.localeCompare(a.label);
+        }
+    });
+
+    // 'Unknown' / no-metadata always last
+    const pushToEnd = (predicate: (e: GroupEntry) => boolean) => {
+        const idx = entries.findIndex(predicate);
+        if (idx > 0) entries.push(entries.splice(idx, 1)[0]);
+    };
+    if (mode === 'date' || mode === 'model') pushToEnd(e => e.key === 'Unknown');
+    if (mode === 'prompt') pushToEnd(e => e.key === '');
+
+    return entries;
+}
+
 function injectDividers(
     sortedList: FileDetails[],
     mode: ViewMode,
     colCount: number,
+    sortMethod: 'Newest' | 'Oldest' | 'Name ↑' | 'Name ↓',
 ): FileDetails[] {
-    type GroupEntry = { key: string; label: string; items: FileDetails[] };
-
-    let groups: GroupEntry[];
-
-    if (mode === 'date') {
-        const grouped: Record<string, FileDetails[]> = {};
-        sortedList.forEach(item => {
-            const key = item.timestamp
-                ? new Date(item.timestamp * 1000).toISOString().slice(0, 10)
-                : 'Unknown';
-            if (!grouped[key]) grouped[key] = [];
-            grouped[key].push(item);
-        });
-        // Preserve sort order from the sorted list (first-seen key order), Unknown last
-        const seen: string[] = [];
-        sortedList.forEach(item => {
-            const key = item.timestamp
-                ? new Date(item.timestamp * 1000).toISOString().slice(0, 10)
-                : 'Unknown';
-            if (!seen.includes(key)) seen.push(key);
-        });
-        const unknownIdx = seen.indexOf('Unknown');
-        if (unknownIdx > 0) { seen.splice(unknownIdx, 1); seen.push('Unknown'); }
-        groups = seen.map(key => ({ key, label: key, items: grouped[key] ?? [] }));
-
-    } else if (mode === 'model') {
-        const grouped: Record<string, FileDetails[]> = {};
-        sortedList.forEach(item => {
-            const key = item.model ?? 'Unknown';
-            if (!grouped[key]) grouped[key] = [];
-            grouped[key].push(item);
-        });
-        const keys = Object.keys(grouped).sort((a, b) => {
-            if (a === 'Unknown') return 1;
-            if (b === 'Unknown') return -1;
-            const maxA = Math.max(...grouped[a].map(i => i.timestamp ?? 0));
-            const maxB = Math.max(...grouped[b].map(i => i.timestamp ?? 0));
-            return maxB - maxA;
-        });
-        groups = keys.map(key => ({ key, label: key, items: grouped[key] }));
-
-    } else {
-        // prompt mode
-        const grouped: Record<string, FileDetails[]> = {};
-        const noMetaBucket: FileDetails[] = [];
-        sortedList.forEach(item => {
-            const fp = item.prompt_only_fp ?? '';
-            if (!fp) { noMetaBucket.push(item); return; }
-            if (!grouped[fp]) grouped[fp] = [];
-            grouped[fp].push(item);
-        });
-        // Sort by newest image in group
-        const keys = Object.keys(grouped).sort((a, b) => {
-            const maxA = Math.max(...grouped[a].map(i => i.timestamp ?? 0));
-            const maxB = Math.max(...grouped[b].map(i => i.timestamp ?? 0));
-            return maxB - maxA;
-        });
-        groups = keys.map(key => {
-            const items = grouped[key];
-            return { key, label: items[0]?.positive_prompt ?? '(no prompt)', items };
-        });
-        if (noMetaBucket.length > 0) {
-            groups.push({ key: '(no metadata)', label: '(no metadata)', items: noMetaBucket });
-        }
-    }
-
+    const groups = computeGroups(sortedList, mode, sortMethod);
     const result: FileDetails[] = [];
-    groups.forEach(({ key, label, items }) => {
-        const samplePaths = items
-            .filter(i => i.type === 'image' || i.type === 'media')
-            .slice(0, 4)
-            .map(i => i.rel_path!)
-            .filter(Boolean);
-
+    groups.forEach(({ key, label, items, samplePaths }) => {
         const divider: FileDetails = {
             name: label,
             url: '',
@@ -219,7 +240,8 @@ function injectDividers(
 }
 
 export function GalleryProvider({ children }: { children: React.ReactNode }) {
-    const [currentFolder, setCurrentFolder] = useState("");
+    const [groupFilter, setGroupFilter] = useState("");
+    const [gridView, setGridView] = useState<'detail' | 'overview'>('detail');
     const [searchFileName, setSearchFileName] = useState("");
     const [viewMode, setViewMode] = useState<ViewMode>('date');
     const [showSettings, setShowSettings] = useState(false);
@@ -349,9 +371,8 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
 
     // Memoized list of all images in the current folder
     const imagesDetailsList = useMemo(() => {
-        const allItems: FileDetails[] = currentFolder === ''
-            ? Object.values(data?.folders ?? {}).flatMap(folder => Object.values(folder as Record<string, FileDetails>))
-            : Object.values(data?.folders?.[currentFolder] ?? []);
+        const allItems: FileDetails[] = Object.values(data?.folders ?? {})
+            .flatMap(folder => Object.values(folder as Record<string, FileDetails>));
 
         let list = allItems;
 
@@ -360,7 +381,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
             list = list.filter(imageInfo => imageInfo.name.toLowerCase().includes(searchTerm));
         }
 
-        // Sort
+        // Sort items
         switch (sortMethod) {
             case 'Newest':
                 list = list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
@@ -376,8 +397,20 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
                 break;
         }
 
-        return injectDividers(list, viewMode, Math.max(1, gridSize.columnCount || 1));
-    }, [currentFolder, data, sortMethod, searchFileName, gridSize.columnCount, viewMode]);
+        // Filter by group
+        if (groupFilter !== '') {
+            list = list.filter(item => getGroupKey(item, viewMode) === groupFilter);
+        }
+
+        return injectDividers(list, viewMode, Math.max(1, gridSize.columnCount || 1), sortMethod);
+    }, [data, sortMethod, searchFileName, gridSize.columnCount, viewMode, groupFilter]);
+
+    const groupValues = useMemo<{ key: string; label: string }[]>(() => {
+        const allItems: FileDetails[] = Object.values(data?.folders ?? {})
+            .flatMap(folder => Object.values(folder as Record<string, FileDetails>));
+        return computeGroups(allItems, viewMode, sortMethod)
+            .map(({ key, label }) => ({ key, label }));
+    }, [data, viewMode, sortMethod]);
 
     // Memoized autocomplete options for image names
     const imagesAutoCompleteNames = useMemo<AutoCompleteOption[]>(() => {
@@ -458,7 +491,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     }, [imagesDetailsList]);
     useEffect(() => {
         setFolders(document.querySelectorAll('[role="treeitem"], .folder'));
-    }, [imagesDetailsList, currentFolder]);
+    }, [imagesDetailsList]);
     useEffect(() => {
         setSelectedImagesActionButtons(document.querySelectorAll(".selectedImagesActionButton"));
     }, [selectedImages]);
@@ -497,7 +530,9 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     }, [setImageInfoName, setPreviewingVideo, setShowMetadataPanel, setShowRawMetadata]);
 
     const value = useMemo(() => ({
-        currentFolder, setCurrentFolder,
+        groupFilter, setGroupFilter,
+        gridView, setGridView,
+        groupValues,
         searchFileName, setSearchFileName,
         viewMode, setViewMode,
         showSettings, setShowSettings,
@@ -528,7 +563,9 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         showMetadataPanel,
         setShowMetadataPanel,
     }), [
-        currentFolder, 
+        groupFilter,
+        gridView,
+        groupValues,
         searchFileName, 
         viewMode,
         showSettings, 

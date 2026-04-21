@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
-    X, Settings, Sun, Moon, Loader2, Folder, Palette,
+    X, Settings, Sun, Moon, Loader2, Palette, LayoutGrid, AlignJustify,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -11,7 +11,6 @@ import {
     AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -24,10 +23,11 @@ import FileSaver from 'file-saver';
 import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
 import { BASE_THEMES, ACCENT_THEMES } from './themes';
 
-const VIEW_MODE_OPTIONS: { label: string; value: ViewMode }[] = [
-    { label: 'By Date', value: 'date' },
-    { label: 'By Model', value: 'model' },
-    { label: 'By Prompt', value: 'prompt' },
+const GROUP_MODE_OPTIONS: { label: string; value: ViewMode }[] = [
+    { label: 'Date', value: 'date' },
+    { label: 'Model', value: 'model' },
+    { label: 'Prompt', value: 'prompt' },
+    { label: 'Folder', value: 'folder' },
 ];
 
 function SearchAutocomplete({
@@ -127,23 +127,6 @@ function SearchAutocomplete({
     );
 }
 
-function ViewModeSelector({ value, onChange }: { value: ViewMode; onChange: (v: ViewMode) => void }) {
-    return (
-        <ToggleGroup
-            type="single"
-            value={value}
-            onValueChange={v => v && onChange(v as ViewMode)}
-            variant="outline"
-            className="shrink-0 h-9"
-        >
-            {VIEW_MODE_OPTIONS.map(opt => (
-                <ToggleGroupItem key={opt.value} value={opt.value} className="text-sm px-3 h-9">
-                    {opt.label}
-                </ToggleGroupItem>
-            ))}
-        </ToggleGroup>
-    );
-}
 
 const GalleryHeader = () => {
     const {
@@ -151,13 +134,14 @@ const GalleryHeader = () => {
         setSearchFileName,
         sortMethod, setSortMethod,
         viewMode, setViewMode,
+        groupFilter, setGroupFilter,
+        groupValues,
+        gridView, setGridView,
         imagesAutoCompleteNames,
         autoCompleteOptions, setAutoCompleteOptions,
         setOpen,
         selectedImages, setSelectedImages,
         mutate,
-        currentFolder, setCurrentFolder,
-        data,
         settings, setSettings,
     } = useGalleryContext();
 
@@ -246,39 +230,46 @@ const GalleryHeader = () => {
     }, [selectedImages, mutate, setSelectedImages]);
 
     // Build folder options from data for the toolbar dropdown
-    const ALL_FOLDERS = '__all__';
-
-    const folderOptions = useMemo(() => {
-        if (!data?.folders) return [{ value: ALL_FOLDERS, label: 'All' }];
-        const paths = Object.keys(data.folders).sort();
-        const root = paths[0]?.split('/')[0] ?? '';
-        const totalCount = paths.reduce((acc, p) => acc + Object.keys(data.folders![p] ?? {}).length, 0);
-        const options = [{ value: ALL_FOLDERS, label: `All (${totalCount})` }];
-        for (const p of paths) {
-            const stripped = root && p.startsWith(root) ? p.slice(root.length + 1) : p;
-            const count = Object.keys(data.folders[p] ?? {}).length;
-            options.push({ value: p, label: `${stripped || '(root)'} (${count})` });
-        }
-        return options;
-    }, [data]);
+    const ALL_GROUPS = '';
 
     return (
         <div className="flex items-center justify-between w-full gap-2">
 
-            {/* Left zone: folder selector + bulk actions + active filter tag */}
+            {/* Left zone: group mode + group filter + bulk actions */}
             <div className="flex items-center gap-2 shrink-0">
+                {/* Group mode selector */}
                 <Select
-                    value={currentFolder === '' ? ALL_FOLDERS : currentFolder}
-                    onValueChange={v => setCurrentFolder(v === ALL_FOLDERS ? '' : v)}
+                    value={viewMode}
+                    onValueChange={v => {
+                        setViewMode(v as ViewMode);
+                        setGroupFilter('');
+                        setGridView('detail');
+                    }}
                 >
-                    <SelectTrigger className="h-9 min-w-[140px] max-w-[220px] shrink-0">
-                        <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <SelectTrigger className="h-9 w-[100px] shrink-0">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="z-[var(--cg-z-popup)]">
-                        {folderOptions.map(opt => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
+                        {GROUP_MODE_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+
+                {/* Group filter */}
+                <Select
+                    value={groupFilter === '' ? ALL_GROUPS : groupFilter}
+                    onValueChange={v => setGroupFilter(v === ALL_GROUPS ? '' : v)}
+                    disabled={gridView === 'overview'}
+                >
+                    <SelectTrigger className="h-9 min-w-[140px] max-w-[200px] shrink-0">
+                        <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[var(--cg-z-popup)]">
+                        <SelectItem value={ALL_GROUPS}>All</SelectItem>
+                        {groupValues.map(({ key, label }) => (
+                            <SelectItem key={key || '__root__'} value={key || '__root__'}>
+                                <span className="truncate max-w-[180px] block">{label}</span>
                             </SelectItem>
                         ))}
                     </SelectContent>
@@ -348,10 +339,21 @@ const GalleryHeader = () => {
                     placeholder="Search…"
                 />
 
-                <ViewModeSelector
-                    value={viewMode}
-                    onChange={v => setViewMode(v)}
-                />
+                {/* View toggle: Overview / Detail */}
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            size="icon"
+                            variant={gridView === 'overview' ? 'secondary' : 'ghost'}
+                            className="comfy-gallery-icon-btn shrink-0"
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => setGridView(gridView === 'overview' ? 'detail' : 'overview')}
+                        >
+                            {gridView === 'overview' ? <AlignJustify className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{gridView === 'overview' ? 'Detail view' : 'Overview'}</TooltipContent>
+                </Tooltip>
 
                 {/* Sort select */}
                 <Select
