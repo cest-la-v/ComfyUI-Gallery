@@ -64,8 +64,20 @@ function RawJsonSkeleton() {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function SubSectionLabel({ children }: { children: React.ReactNode }) {
-    return <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">{children}</p>;
+function SubSection({ label, action, children }: {
+    label: string;
+    action?: React.ReactNode;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+                {action}
+            </div>
+            {children}
+        </div>
+    );
 }
 
 /** Copy icon button — used inside PromptBlock. */
@@ -140,11 +152,7 @@ function PromptBlock({ label, text }: { label: string; text: string }) {
         : {};
 
     return (
-        <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-                <CopyButton text={text} />
-            </div>
+        <SubSection label={label} action={<CopyButton text={text} />}>
             <div className="text-sm break-words whitespace-pre-line"
                 style={clampStyle}>
                 {text}
@@ -158,7 +166,7 @@ function PromptBlock({ label, text }: { label: string; text: string }) {
                     {expanded ? 'Show less' : 'Show more'}
                 </button>
             )}
-        </div>
+        </SubSection>
     );
 }
 
@@ -231,10 +239,7 @@ function ResourcesSubSection({ params }: { params: ImageParams }) {
 
     if (rows.length === 0) return null;
     return (
-        <div className="flex flex-col">
-            <SubSectionLabel>Resources</SubSectionLabel>
-            <ItemGroup>{rows}</ItemGroup>
-        </div>
+        <SubSection label="Resources"><ItemGroup>{rows}</ItemGroup></SubSection>
     );
 }
 
@@ -269,10 +274,9 @@ function SamplingSubSection({ params }: { params: ImageParams }) {
 
     if (chips.length === 0) return null;
     return (
-        <div className="flex flex-col">
-            <SubSectionLabel>Sampling</SubSectionLabel>
+        <SubSection label="Sampling">
             <div className="flex flex-wrap gap-1.5">{chips}</div>
-        </div>
+        </SubSection>
     );
 }
 
@@ -282,15 +286,14 @@ function UpscaleSubSection({ params }: { params: ImageParams }) {
         || params.hires_upscaler != null || upscaleFactor != null;
     if (!hasHires) return null;
     return (
-        <div className="flex flex-col">
-            <SubSectionLabel>Hires</SubSectionLabel>
+        <SubSection label="Hires">
             <div className="flex flex-wrap gap-1.5">
                 {upscaleFactor && <ParamChip label="upscale factor" value={upscaleFactor} />}
                 {params.hires_upscaler && <ParamChip label="upscaler" value={params.hires_upscaler} />}
                 {params.hires_steps != null && <ParamChip label="steps" value={String(params.hires_steps)} />}
                 {params.hires_denoise != null && <ParamChip label="denoising" value={String(params.hires_denoise)} />}
             </div>
-        </div>
+        </SubSection>
     );
 }
 
@@ -304,14 +307,13 @@ function ADetailerSubSection({ extras }: { extras: Record<string, string> | null
     const rows = Object.entries(extras ?? {}).filter(([k]) => k.toLowerCase().startsWith('adetailer'));
     if (rows.length === 0) return null;
     return (
-        <div className="flex flex-col">
-            <SubSectionLabel>ADetailer</SubSectionLabel>
+        <SubSection label="ADetailer">
             <div className="flex flex-wrap gap-1.5">
                 {rows.map(([k, v]) => (
                     <ParamChip key={k} label={k.slice('adetailer'.length).trimStart()} value={v} />
                 ))}
             </div>
-        </div>
+        </SubSection>
     );
 }
 
@@ -322,12 +324,11 @@ function ExtrasSubSection({ extras }: { extras: Record<string, string> | null | 
     });
     if (visible.length === 0) return null;
     return (
-        <div className="flex flex-col">
-            <SubSectionLabel>Extras</SubSectionLabel>
+        <SubSection label="Extras">
             <div className="flex flex-wrap gap-1.5">
                 {visible.map(([k, v]) => <ParamChip key={k} label={k} value={v} />)}
             </div>
-        </div>
+        </SubSection>
     );
 }
 
