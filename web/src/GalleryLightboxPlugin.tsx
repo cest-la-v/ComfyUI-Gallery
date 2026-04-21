@@ -101,7 +101,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                 position: 'absolute', bottom: 24, left: '50%',
                                 transform: 'translateX(-50%)',
                                 // eslint-disable-next-line no-restricted-syntax -- local stacking within yarl carousel area, not gallery-level z-index
-                                zIndex: 10,
+                                zIndex: 'var(--cg-z-lb-local)',
                                 pointerEvents: 'auto',
                             }}>
                                 {confirmingDelete ? (

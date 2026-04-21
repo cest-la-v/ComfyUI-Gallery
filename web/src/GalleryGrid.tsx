@@ -92,7 +92,7 @@ const GalleryGrid = () => {
                         paddingTop: 16,
                         position: 'absolute',
                         // eslint-disable-next-line no-restricted-syntax -- local stacking within divider row, not gallery-level z-index
-                        zIndex: 2,
+                        zIndex: 'var(--cg-z-divider-label)',
                         gap: hasThumbs ? 0 : 8,
                     }}
                 >
@@ -146,7 +146,7 @@ const GalleryGrid = () => {
     return (
         <>
             {loading && (
-                <div className="absolute inset-0 bg-background/50 z-[100] flex items-center justify-center">
+                <div className="absolute inset-0 bg-background/50 z-[var(--cg-z-grid-loading)] flex items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
             )}

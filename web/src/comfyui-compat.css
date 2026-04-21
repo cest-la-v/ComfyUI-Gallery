@@ -48,20 +48,27 @@
 
 
 /* ─── Z-index layer system ──────────────────────────────────────────────────
-   All gallery stacking values live here. Reference via var(--cg-z-*)
-   everywhere: CSS files, Tailwind z-[var(--cg-z-*)], inline style={{ zIndex: 'var(--cg-z-*)' }}.
-   Defined on :root so both #comfy-gallery-root AND #comfy-gallery-yarl-root
-   (which are siblings, not parent/child) can inherit the same values. */
+   Four tiers: floating (1000), modal (3000), popup (3200), tooltip (3400).
+   Global stacking vars (page-level) and local stacking vars (within-component).
+   Defined on :root so both gallery roots (siblings at document.body) inherit. */
 :root {
+    /* Global stacking — page-level positioning contexts */
     --cg-z-floating-btn:  1000; /* GalleryOpenButton draggable button */
     --cg-z-overlay:       3000; /* DialogOverlay backdrop */
-    --cg-z-content:       3001; /* DialogContent, header dropdowns */
+    --cg-z-content:       3001; /* DialogContent */
     --cg-z-settings-ov:   3002; /* Settings DialogOverlay */
     --cg-z-settings:      3003; /* Settings DialogContent */
-    --cg-z-tooltip:       3210; /* Tooltip — must be above popup/popover */
     --cg-z-lightbox:      3100; /* yarl Lightbox portal */
-    --cg-z-popup:         3200; /* Select content, AlertDialog overlay */
+    --cg-z-popup:         3200; /* Select/DropdownMenu content */
     --cg-z-alert:         3201; /* AlertDialog content */
+    --cg-z-tooltip:       3400; /* Tooltip — above popup */
+
+    /* Local stacking — within-component, relative to parent stacking context */
+    --cg-z-card-overlay:    3; /* delete/badge overlays within ImageCard */
+    --cg-z-divider-label:   2; /* divider label row within GalleryGrid */
+    --cg-z-grid-loading:  100; /* loading spinner overlay within GalleryGrid */
+    --cg-z-focus-sibling:  10; /* focused toggle above its siblings */
+    --cg-z-lb-local:       10; /* local stacking within lightbox carousel */
 }
 
 /* Ensure yarl lightbox portal sits above the gallery modal */

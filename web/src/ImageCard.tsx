@@ -91,7 +91,7 @@ function ImageCard({
             >
                 {/* Delete button (hover) */}
                 <div className={cn(
-                    "absolute top-2 right-2 z-[3] transition-opacity",
+                    "absolute top-2 right-2 z-[var(--cg-z-card-overlay)] transition-opacity",
                     deleteConfirmOpen ? "opacity-100" : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
                 )}>
                     <Button
@@ -106,7 +106,7 @@ function ImageCard({
 
                 {/* Model badge overlay (prompt mode only) */}
                 {showModelBadge && image.model && (
-                    <Badge className="absolute top-2 left-2 z-[3] max-w-[160px] bg-background/60 text-foreground/80 border-0 font-normal text-[11px] leading-[18px] flex">
+                    <Badge className="absolute top-2 left-2 z-[var(--cg-z-card-overlay)] max-w-[160px] bg-background/60 text-foreground/80 border-0 font-normal text-[11px] leading-[18px] flex">
                         <span className="truncate">{image.model}</span>
                     </Badge>
                 )}
