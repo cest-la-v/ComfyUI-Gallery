@@ -129,13 +129,13 @@ export type GroupEntry = {
 };
 
 function getFolderGroupKey(item: FileDetails): string {
-    if (!item.rel_path) return '';
+    if (!item.rel_path) return '__root__';
     const lastSlash = item.rel_path.lastIndexOf('/');
-    return lastSlash >= 0 ? item.rel_path.slice(0, lastSlash) : '';
+    return lastSlash >= 0 ? item.rel_path.slice(0, lastSlash) : '__root__';
 }
 
 function stripCommonFolderPrefix(keys: string[]): string {
-    const nonEmpty = keys.filter(k => k !== '');
+    const nonEmpty = keys.filter(k => k !== '__root__');
     if (nonEmpty.length === 0) return '';
     const firstPart = nonEmpty[0].split('/')[0];
     return nonEmpty.every(k => k.split('/')[0] === firstPart) ? firstPart : '';
@@ -145,7 +145,7 @@ export function getGroupKey(item: FileDetails, mode: ViewMode): string {
     switch (mode) {
         case 'date': return item.timestamp ? new Date(item.timestamp * 1000).toISOString().slice(0, 10) : 'Unknown';
         case 'model': return item.model ?? 'Unknown';
-        case 'prompt': return item.prompt_only_fp ?? '';
+        case 'prompt': return item.prompt_only_fp || '__noprompt__';
         case 'folder': return getFolderGroupKey(item);
     }
 }
@@ -171,7 +171,7 @@ export function computeGroups(
         } else if (mode === 'model') {
             label = key;
         } else if (mode === 'folder') {
-            label = key === '' ? '(root)' : (prefix ? key.slice(prefix.length + 1) || key : key);
+            label = key === '__root__' ? '(root)' : (prefix ? key.slice(prefix.length + 1) || key : key);
         } else {
             // prompt — key is prompt_only_fp fingerprint, label is the actual text
             const sample = items.find(i => i.positive_prompt);
@@ -203,7 +203,8 @@ export function computeGroups(
         if (idx > 0) entries.push(entries.splice(idx, 1)[0]);
     };
     if (mode === 'date' || mode === 'model') pushToEnd(e => e.key === 'Unknown');
-    if (mode === 'prompt') pushToEnd(e => e.key === '');
+    if (mode === 'prompt') pushToEnd(e => e.key === '__noprompt__');
+    if (mode === 'folder') pushToEnd(e => e.key === '__root__');
 
     return entries;
 }

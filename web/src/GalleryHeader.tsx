@@ -229,8 +229,8 @@ const GalleryHeader = () => {
         else toast.success(`Deleted ${deleted} image(s).`);
     }, [selectedImages, mutate, setSelectedImages]);
 
-    // Build folder options from data for the toolbar dropdown
-    const ALL_GROUPS = '';
+    // Sentinel for "show all groups" — Radix Select disallows empty string values
+    const ALL_GROUPS = '__all__';
 
     return (
         <div className="flex items-center justify-between w-full gap-2">
@@ -268,7 +268,7 @@ const GalleryHeader = () => {
                     <SelectContent className="z-[var(--cg-z-popup)]">
                         <SelectItem value={ALL_GROUPS}>All</SelectItem>
                         {groupValues.map(({ key, label }) => (
-                            <SelectItem key={key || '__root__'} value={key || '__root__'}>
+                            <SelectItem key={key} value={key}>
                                 <span className="truncate max-w-[180px] block">{label}</span>
                             </SelectItem>
                         ))}

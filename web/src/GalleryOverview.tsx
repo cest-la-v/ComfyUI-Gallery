@@ -46,7 +46,7 @@ export default function GalleryOverview() {
                     const totalCount = items.filter(i => i.type !== 'divider' && i.type !== 'empty-space').length;
 
                     return (
-                        <Card key={key || '__root__'} className="overflow-hidden flex flex-col">
+                        <Card key={key} className="overflow-hidden flex flex-col">
                             <CardHeader className="py-3 px-4 flex-row items-center justify-between gap-2 space-y-0">
                                 <p className="text-sm font-medium truncate leading-tight" title={displayLabel}>
                                     {displayLabel}
