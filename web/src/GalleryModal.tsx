@@ -33,13 +33,32 @@ const GalleryModal = () => {
                     data-gallery-root
                 >
                     <DialogTitle className="sr-only">Gallery</DialogTitle>
-                    <header className="px-3 py-2 border-b shrink-0">
-                        <GalleryHeader />
-                    </header>
-                    <main className="relative flex-1 min-h-0 min-w-0 overflow-hidden">
-                        <GalleryGrid />
-                        <GalleryLightbox />
-                    </main>
+
+                    {isBottom ? (
+                        <>
+                            {/* Drag handle — visual signal only, no swipe gesture */}
+                            <div className="flex justify-center pt-2 pb-1 shrink-0">
+                                <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+                            </div>
+                            <main className="relative flex-1 min-h-0 min-w-0 overflow-hidden">
+                                <GalleryGrid />
+                                <GalleryLightbox />
+                            </main>
+                            <footer className="px-3 py-2 border-t shrink-0">
+                                <GalleryHeader />
+                            </footer>
+                        </>
+                    ) : (
+                        <>
+                            <header className="px-3 py-2 border-b shrink-0">
+                                <GalleryHeader />
+                            </header>
+                            <main className="relative flex-1 min-h-0 min-w-0 overflow-hidden">
+                                <GalleryGrid />
+                                <GalleryLightbox />
+                            </main>
+                        </>
+                    )}
                 </DialogContent>
             </Dialog>
             {showSettings && <GallerySettingsModal />}
