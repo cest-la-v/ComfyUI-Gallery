@@ -261,8 +261,8 @@ function SamplingSubSection({ params }: { params: ImageParams }) {
 
     if (chips.length === 0) return null;
     return (
-        <SubSection label="Sampling" gap="gap-0.5">
-            <div className="flex flex-wrap gap-1.5">{chips}</div>
+        <SubSection label="Sampling" gap="gap-1">
+            <div className="flex flex-wrap gap-1.5 my-1">{chips}</div>
         </SubSection>
     );
 }
