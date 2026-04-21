@@ -46,13 +46,6 @@
     color: #4ade80; /* green-400 */
 }
 
-.lb-divider {
-    width: 1px;
-    height: 1.25rem;
-    background-color: rgb(255 255 255 / 0.25);
-    margin: 0 0.25rem;
-    flex-shrink: 0;
-}
 
 /* ─── Z-index layer system ──────────────────────────────────────────────────
    All gallery stacking values live here. Reference via var(--cg-z-*)

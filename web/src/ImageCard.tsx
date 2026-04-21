@@ -10,6 +10,7 @@ import {
     AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
     AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -105,9 +106,9 @@ function ImageCard({
 
                 {/* Model badge overlay (prompt mode only) */}
                 {showModelBadge && image.model && (
-                    <div className="absolute top-2 left-2 z-[3] max-w-[160px] truncate rounded-full bg-background/60 px-2 py-0.5 text-[11px] text-foreground/80 leading-[18px]">
+                    <Badge className="absolute top-2 left-2 z-[3] max-w-[160px] truncate bg-background/60 text-foreground/80 border-0 font-normal text-[11px] leading-[18px]">
                         {image.model}
-                    </div>
+                    </Badge>
                 )}
 
                 {/* Image content */}

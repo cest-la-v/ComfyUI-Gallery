@@ -11,6 +11,7 @@ import {
     Check, X, RotateCcw, RotateCw, FlipHorizontal, FlipVertical,
 } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Separator } from '@/components/ui/separator';
 import { PortalProvider } from './PortalContext';
 
 // Wrapper rendered inside yarl's portal (#comfy-gallery-yarl-root).
@@ -147,7 +148,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                             </TooltipTrigger>
                                             <TooltipContent>{showMetadataPanel && showRawMetadata ? 'Hide Raw JSON' : 'Raw JSON'}</TooltipContent>
                                         </Tooltip>
-                                        <div className="lb-divider" />
+                                        <Separator orientation="vertical" className="h-5 mx-1" />
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <button className={btnCls} onMouseDown={e => e.preventDefault()} onClick={() => setImageRotation(r => ((r - 90 + 360) % 360) as 0 | 90 | 180 | 270)}>
@@ -180,7 +181,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                             </TooltipTrigger>
                                             <TooltipContent>Flip Vertical</TooltipContent>
                                         </Tooltip>
-                                        <div className="lb-divider" />
+                                        <Separator orientation="vertical" className="h-5 mx-1" />
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <button
@@ -229,7 +230,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                             </TooltipTrigger>
                                             <TooltipContent>Download</TooltipContent>
                                         </Tooltip>
-                                        <div className="lb-divider" />
+                                        <Separator orientation="vertical" className="h-5 mx-1" />
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <button
