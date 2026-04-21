@@ -273,8 +273,8 @@ function UpscaleSubSection({ params }: { params: ImageParams }) {
         || params.hires_upscaler != null || upscaleFactor != null;
     if (!hasHires) return null;
     return (
-        <SubSection label="Hires" gap="gap-0.5">
-            <div className="flex flex-wrap gap-1.5">
+        <SubSection label="Hires" gap="gap-1">
+            <div className="flex flex-wrap gap-1.5 my-1">
                 {upscaleFactor && <ParamChip label="upscale factor" value={upscaleFactor} />}
                 {params.hires_upscaler && <ParamChip label="upscaler" value={params.hires_upscaler} />}
                 {params.hires_steps != null && <ParamChip label="steps" value={String(params.hires_steps)} />}
@@ -294,8 +294,8 @@ function ADetailerSubSection({ extras }: { extras: Record<string, string> | null
     const rows = Object.entries(extras ?? {}).filter(([k]) => k.toLowerCase().startsWith('adetailer'));
     if (rows.length === 0) return null;
     return (
-        <SubSection label="ADetailer" gap="gap-0.5">
-            <div className="flex flex-wrap gap-1.5">
+        <SubSection label="ADetailer" gap="gap-1">
+            <div className="flex flex-wrap gap-1.5 my-1">
                 {rows.map(([k, v]) => (
                     <ParamChip key={k} label={k.slice('adetailer'.length).trimStart()} value={v} />
                 ))}
@@ -311,8 +311,8 @@ function ExtrasSubSection({ extras }: { extras: Record<string, string> | null | 
     });
     if (visible.length === 0) return null;
     return (
-        <SubSection label="Extras" gap="gap-0.5">
-            <div className="flex flex-wrap gap-1.5">
+        <SubSection label="Extras" gap="gap-1">
+            <div className="flex flex-wrap gap-1.5 my-1">
                 {visible.map(([k, v]) => <ParamChip key={k} label={k} value={v} />)}
             </div>
         </SubSection>
