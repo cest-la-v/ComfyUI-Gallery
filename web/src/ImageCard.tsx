@@ -106,8 +106,8 @@ function ImageCard({
 
                 {/* Model badge overlay (prompt mode only) */}
                 {showModelBadge && image.model && (
-                    <Badge className="absolute top-2 left-2 z-[3] max-w-[160px] truncate bg-background/60 text-foreground/80 border-0 font-normal text-[11px] leading-[18px]">
-                        {image.model}
+                    <Badge className="absolute top-2 left-2 z-[3] max-w-[160px] bg-background/60 text-foreground/80 border-0 font-normal text-[11px] leading-[18px] flex">
+                        <span className="truncate">{image.model}</span>
                     </Badge>
                 )}
 
