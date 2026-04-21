@@ -348,6 +348,14 @@ const GallerySettingsModal = () => {
                                     : (ACCENT_THEMES.find(t => t.name === staged.themeAccent)?.label ?? staged.themeAccent)}
                             </span>
                         </div>
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-sm font-medium leading-tight">Gallery Layout</span>
+                            <SegmentedControl
+                                value={staged.galleryLayout ?? 'center'}
+                                options={[{ label: 'Centered', value: 'center' }, { label: 'Bottom sheet', value: 'bottom' }]}
+                                onChange={v => setStaged({ galleryLayout: v as 'center' | 'bottom' })}
+                            />
+                        </div>
                     </div>
 
                     <Separator />

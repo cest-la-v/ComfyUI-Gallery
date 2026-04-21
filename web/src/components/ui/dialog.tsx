@@ -26,16 +26,30 @@ DialogOverlay.displayName = "DialogOverlay"
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { showCloseButton?: boolean; overlayClassName?: string; onOverlayClick?: () => void }
->(({ className, overlayClassName, onOverlayClick, children, showCloseButton = true, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    showCloseButton?: boolean;
+    overlayClassName?: string;
+    onOverlayClick?: () => void;
+    variant?: 'default' | 'bottom-sheet';
+  }
+>(({ className, overlayClassName, onOverlayClick, children, showCloseButton = true, variant = 'default', ...props }, ref) => {
   const portalTarget = usePortal();
+  const isBottomSheet = variant === 'bottom-sheet';
   return (
   <DialogPortal container={portalTarget}>
-    <DialogOverlay className={overlayClassName} onClick={onOverlayClick} />
+    <DialogOverlay
+      className={cn(isBottomSheet ? "bg-black/40" : undefined, overlayClassName)}
+      onClick={onOverlayClick}
+    />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-[var(--cg-z-content)] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background text-foreground p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg overflow-y-auto max-h-[90vh]",
+        // shared
+        "fixed z-[var(--cg-z-content)] grid border border-border bg-background text-foreground gap-4 p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        // variant-specific
+        isBottomSheet
+          ? "bottom-0 left-0 right-0 top-auto w-full translate-x-0 translate-y-0 rounded-t-2xl data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom"
+          : "left-[50%] top-[50%] w-full max-w-lg translate-x-[-50%] translate-y-[-50%] sm:rounded-lg data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 overflow-y-auto max-h-[90vh]",
         className
       )}
       {...props}

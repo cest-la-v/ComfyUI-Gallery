@@ -36,6 +36,7 @@ export interface SettingsState {
     scanExtensions: string[];
     themeBase: string;
     themeAccent: string;
+    galleryLayout: 'center' | 'bottom';
     /** Incremented when we need to migrate stored settings to new defaults. */
     _settingsVersion?: number;
 }
@@ -52,7 +53,8 @@ export const DEFAULT_SETTINGS: SettingsState = {
     scanExtensions: ['png', 'jpg', 'jpeg', 'webp', 'mp4', 'gif', 'webm', 'mov', 'wav', 'mp3', 'm4a', 'flac'],
     themeBase: 'default',
     themeAccent: 'default',
-    _settingsVersion: 4,
+    galleryLayout: 'center',
+    _settingsVersion: 5,
 };
 export const STORAGE_KEY = 'comfy-ui-gallery-settings';
 
@@ -320,14 +322,16 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     // v1→v2: darkMode was false by default, force true.
     // v2→v3: hideOpenButton removed — no conversion needed, unknown fields are ignored.
     // v3→v4: themeBase + themeAccent added (both default to 'default').
+    // v4→v5: galleryLayout added (defaults to 'center').
     useEffect(() => {
-        if (settingsState && (settingsState._settingsVersion ?? 1) < 4) {
+        if (settingsState && (settingsState._settingsVersion ?? 1) < 5) {
             setSettings({
                 ...settingsState,
                 darkMode: true,
                 themeBase: settingsState.themeBase ?? 'default',
                 themeAccent: settingsState.themeAccent ?? 'default',
-                _settingsVersion: 4,
+                galleryLayout: settingsState.galleryLayout ?? 'center',
+                _settingsVersion: 5,
             });
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
