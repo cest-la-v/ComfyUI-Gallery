@@ -424,7 +424,7 @@ const GalleryHeader = () => {
                         </TooltipTrigger>
                         <TooltipContent>Theme</TooltipContent>
                     </Tooltip>
-                    <PopoverContent align="end" className="w-64 p-3 flex flex-col gap-3">
+                    <PopoverContent align="end" className="w-64 p-3 flex flex-col gap-3" onOpenAutoFocus={e => e.preventDefault()}>
                         <div className="flex flex-col gap-1.5">
                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Base Color</span>
                             <div className="flex flex-wrap gap-2">
