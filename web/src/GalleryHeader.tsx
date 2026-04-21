@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
-    X, Settings, Sun, Moon, Loader2, Palette, LayoutGrid, AlignJustify,
+    X, Settings, Sun, Moon, Loader2, Palette, LayoutGrid, AlignJustify, ArrowUpDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -14,6 +14,11 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+    DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+    DropdownMenuLabel, DropdownMenuSeparator,
+    DropdownMenuRadioGroup, DropdownMenuRadioItem,
+} from '@/components/ui/dropdown-menu';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { useGalleryContext } from './GalleryContext';
 import type { ViewMode } from './GalleryContext';
@@ -355,22 +360,38 @@ const GalleryHeader = () => {
                     <TooltipContent>{gridView === 'overview' ? 'Detail view' : 'Overview'}</TooltipContent>
                 </Tooltip>
 
-                {/* Sort select */}
-                <Select
-                    value={sortMethod}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    onValueChange={v => setSortMethod(v as any)}
-                >
-                    <SelectTrigger className="h-9 min-w-[130px] shrink-0">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="z-[var(--cg-z-popup)]">
-                        <SelectItem value="Newest">Newest</SelectItem>
-                        <SelectItem value="Oldest">Oldest</SelectItem>
-                        <SelectItem value="Name ↑">A → Z</SelectItem>
-                        <SelectItem value="Name ↓">Z → A</SelectItem>
-                    </SelectContent>
-                </Select>
+                {/* Sort button */}
+                <DropdownMenu>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="comfy-gallery-icon-btn shrink-0"
+                                    onMouseDown={e => e.preventDefault()}
+                                >
+                                    <ArrowUpDown className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Sort</TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent align="end" className="z-[var(--cg-z-popup)]">
+                        <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuRadioGroup
+                            value={sortMethod}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            onValueChange={v => setSortMethod(v as any)}
+                        >
+                            <DropdownMenuRadioItem value="Newest">Newest first</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="Oldest">Oldest first</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="Name ↑">Name A → Z</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="Name ↓">Name Z → A</DropdownMenuRadioItem>
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
 
                 <Tooltip>
                     <TooltipTrigger asChild>
