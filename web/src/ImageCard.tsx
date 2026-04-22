@@ -29,7 +29,7 @@ function formatShortDate(timestamp: number): string {
 
 function fileExt(name: string): string {
     const dot = name.lastIndexOf('.');
-    return dot >= 0 ? name.slice(dot).toLowerCase() : '';
+    return dot >= 0 ? name.slice(dot + 1).toUpperCase() : '';
 }
 
 function ImageCard({
