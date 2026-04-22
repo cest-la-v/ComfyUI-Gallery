@@ -1,12 +1,20 @@
 import { useMemo } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, CalendarDays, Box, MessageSquare, FolderOpen } from 'lucide-react';
 import { BASE_PATH } from './ComfyAppApi';
 import { useGalleryContext, computeGroups } from './GalleryContext';
+import type { ViewMode } from './GalleryContext';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+
+const MODE_ICON: Record<ViewMode, React.ElementType> = {
+    date: CalendarDays,
+    model: Box,
+    prompt: MessageSquare,
+    folder: FolderOpen,
+};
 
 function formatGroupLabel(key: string, mode: string, label: string): string {
     if (mode === 'date' && key && key !== 'Unknown') {
@@ -48,9 +56,12 @@ export default function GalleryOverview() {
                     return (
                         <Card key={key} className="overflow-hidden flex flex-col">
                             <CardHeader className="py-3 px-4 flex-row items-center justify-between gap-2 space-y-0">
-                                <p className="text-sm font-medium truncate leading-tight" title={displayLabel}>
-                                    {displayLabel}
-                                </p>
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                    {(() => { const Icon = MODE_ICON[viewMode]; return <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />; })()}
+                                    <p className="text-sm font-medium truncate leading-tight" title={displayLabel}>
+                                        {displayLabel}
+                                    </p>
+                                </div>
                                 <Badge variant="secondary" className="shrink-0 text-xs">
                                     {totalCount}
                                 </Badge>

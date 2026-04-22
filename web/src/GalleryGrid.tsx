@@ -5,13 +5,15 @@ import ImageCard, { ImageCardHeight, ImageCardWidth } from './ImageCard';
 import { useGalleryContext } from './GalleryContext';
 import { Loader2 } from 'lucide-react';
 import { BASE_PATH } from './ComfyAppApi';
+import { Badge } from '@/components/ui/badge';
 
 const THUMB_SIZE = 64;
 const FALLBACK_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 const DIVIDER_HEIGHT: Record<string, number> = {
     date: 56,
-    model: 96,
+    model: 56,
+    folder: 56,
     prompt: 128,
 };
 
@@ -76,35 +78,24 @@ const GalleryGrid = () => {
             const divMode = image.divider_mode ?? 'date';
             const isPrompt = divMode === 'prompt';
             const hasThumbs = isPrompt && image.sample_paths && image.sample_paths.length > 0;
-            const centered = divMode === 'date' || divMode === 'model';
             return (
                 <div
                     style={{
                         ...style,
                         width: `calc(${gridSize.columnCount} * ${ImageCardWidth + 16}px)`,
-                        background: 'transparent',
-                        display: 'flex',
-                        flexDirection: hasThumbs ? 'column' : 'row',
-                        alignItems: centered ? 'center' : hasThumbs ? 'flex-start' : 'flex-end',
-                        justifyContent: centered ? 'center' : undefined,
-                        paddingLeft: centered ? undefined : 16,
-                        paddingBottom: 8,
-                        paddingTop: 16,
-                        position: 'absolute',
                         // eslint-disable-next-line no-restricted-syntax -- local stacking within divider row, not gallery-level z-index
                         zIndex: 'var(--cg-z-divider-label)',
-                        gap: hasThumbs ? 0 : 8,
                     }}
+                    className="absolute flex flex-col justify-start pl-4 pt-4 pb-2 bg-transparent"
                 >
                     <div className="flex items-center gap-2 flex-wrap">
-                        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--muted-foreground)', letterSpacing: '0.01em' }}
-                              className={divMode === 'prompt' ? 'line-clamp-2' : ''}>
+                        <span className={`text-sm font-bold tracking-wide text-muted-foreground${isPrompt ? ' line-clamp-2' : ''}`}>
                             {image.name}
                         </span>
                         {image.count != null && (
-                            <span style={{ fontSize: 11, lineHeight: '18px', padding: '0 6px', borderRadius: 10, background: 'color-mix(in oklch, var(--foreground) 8%, transparent)', color: 'var(--muted-foreground)' }}>
+                            <Badge variant="secondary" className="text-xs px-1.5 py-0 h-[18px]">
                                 {image.count}
-                            </span>
+                            </Badge>
                         )}
                     </div>
                     {hasThumbs && <ThumbnailStrip samplePaths={image.sample_paths!} />}
