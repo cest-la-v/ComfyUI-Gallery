@@ -1,6 +1,6 @@
 import { toast } from 'sonner';
 import type { FileDetails } from './types';
-import { Info, Trash2, Music } from 'lucide-react';
+import { Trash2, Music } from 'lucide-react';
 import React, { useRef, useState } from 'react';
 import { useDrag } from 'ahooks';
 import { useGalleryContext } from './GalleryContext';
@@ -28,7 +28,7 @@ function ImageCard({
     onOpenLightbox: () => void;
     showModelBadge?: boolean;
 }) {
-    const { settings, selectedImages, setSelectedImages, setShowMetadataPanel } = useGalleryContext();
+    const { settings, selectedImages, setSelectedImages } = useGalleryContext();
     const dragRef = useRef<HTMLDivElement>(null);
     const [dragging, setDragging] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -148,7 +148,7 @@ function ImageCard({
                     />
                 )}
 
-                {/* Bottom bar: filename + info button */}
+                {/* Bottom bar: filename */}
                 <div
                     style={{
                         position: 'absolute',
@@ -158,27 +158,14 @@ function ImageCard({
                         bottom: 0,
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
                     }}
                 >
                     <span
-                        className="font-semibold text-foreground text-sm truncate mr-2"
+                        className="font-semibold text-foreground text-sm truncate"
                         style={{ margin: 0 }}
                     >
                         {image.name}
                     </span>
-                    <Button
-                        size="icon"
-                        className="h-8 w-8 shrink-0 bg-primary/80 hover:bg-primary text-primary-foreground border-none"
-                        onClick={e => {
-                            e.stopPropagation();
-                            onInfoClick(image.name);
-                            setShowMetadataPanel(true);
-                            onOpenLightbox();
-                        }}
-                    >
-                        <Info className="h-4 w-4" />
-                    </Button>
                 </div>
             </div>
 

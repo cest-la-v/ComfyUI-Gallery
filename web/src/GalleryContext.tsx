@@ -516,8 +516,8 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const openLightbox = useCallback((url: string) => {
         const previewable = imagesDetailsList.filter(img => img.type === 'image' || img.type === 'media' || img.type === 'audio');
         const idx = previewable.findIndex(img => img.url === url);
-        if (idx >= 0) { setLightboxIndex(idx); setLightboxOpen(true); }
-    }, [imagesDetailsList]);
+        if (idx >= 0) { setLightboxIndex(idx); setLightboxOpen(true); setShowMetadataPanel(true); }
+    }, [imagesDetailsList, setShowMetadataPanel]);
 
     const closeLightbox = useCallback(() => {
         setLightboxOpen(false);
