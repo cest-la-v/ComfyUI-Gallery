@@ -7,31 +7,9 @@ import { Loader2 } from 'lucide-react';
 import { BASE_PATH } from './ComfyAppApi';
 import { Badge } from '@/components/ui/badge';
 
-const THUMB_SIZE = 64;
-const FALLBACK_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+const DIVIDER_HEIGHT = 56;
 
-const DIVIDER_HEIGHT: Record<string, number> = {
-    date: 56,
-    model: 56,
-    folder: 56,
-    prompt: 128,
-};
 
-function ThumbnailStrip({ samplePaths }: { samplePaths: string[] }) {
-    return (
-        <div className="flex gap-1 mt-2 overflow-hidden">
-            {samplePaths.slice(0, 4).map((rel, i) => (
-                <img
-                    key={i}
-                    src={`${BASE_PATH}/static_gallery/${rel}`}
-                    className="object-cover rounded shrink-0"
-                    style={{ width: THUMB_SIZE, height: THUMB_SIZE, minWidth: THUMB_SIZE }}
-                    onError={e => { (e.target as HTMLImageElement).src = FALLBACK_SRC; }}
-                />
-            ))}
-        </div>
-    );
-}
 
 const GalleryGrid = () => {
     const {
@@ -52,9 +30,7 @@ const GalleryGrid = () => {
 
     const getRowHeight = useCallback((rowIndex: number) => {
         const firstItem = imagesDetailsList[rowIndex * gridSize.columnCount];
-        if (firstItem?.type === 'divider') {
-            return DIVIDER_HEIGHT[firstItem.divider_mode ?? 'date'] ?? 56;
-        }
+        if (firstItem?.type === 'divider') return DIVIDER_HEIGHT;
         return ImageCardHeight + 16;
     }, [imagesDetailsList, gridSize.columnCount]);
 
@@ -75,9 +51,7 @@ const GalleryGrid = () => {
 
         if (image.type === 'divider') {
             if (columnIndex !== 0) return null;
-            const divMode = image.divider_mode ?? 'date';
-            const isPrompt = divMode === 'prompt';
-            const hasThumbs = isPrompt && image.sample_paths && image.sample_paths.length > 0;
+            const isPrompt = (image.divider_mode ?? 'date') === 'prompt';
             return (
                 <div
                     style={{
@@ -86,19 +60,16 @@ const GalleryGrid = () => {
                         // eslint-disable-next-line no-restricted-syntax -- local stacking within divider row, not gallery-level z-index
                         zIndex: 'var(--cg-z-divider-label)',
                     }}
-                    className="absolute flex flex-col justify-start pl-4 pt-4 pb-2 bg-transparent"
+                    className="absolute flex items-center gap-2 pl-4 pt-4 pb-2 bg-transparent flex-wrap"
                 >
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`text-sm font-bold tracking-wide text-muted-foreground${isPrompt ? ' line-clamp-2' : ''}`}>
-                            {image.name}
-                        </span>
-                        {image.count != null && (
-                            <Badge variant="secondary" className="text-xs px-1.5 py-0 h-[18px]">
-                                {image.count}
-                            </Badge>
-                        )}
-                    </div>
-                    {hasThumbs && <ThumbnailStrip samplePaths={image.sample_paths!} />}
+                    <span className={`text-sm font-bold tracking-wide text-muted-foreground${isPrompt ? ' line-clamp-2' : ''}`}>
+                        {image.name}
+                    </span>
+                    {image.count != null && (
+                        <Badge variant="secondary" className="text-xs px-1.5 py-0 h-[18px]">
+                            {image.count}
+                        </Badge>
+                    )}
                 </div>
             );
         }
