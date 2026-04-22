@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
     X, Settings, Sun, Moon, Loader2, Palette, LayoutGrid, AlignJustify, ArrowUpDown,
+    CalendarDays, Box, MessageSquare, FolderOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -40,6 +41,13 @@ function useHoverOpen() {
     }, []);
     return { open, setOpen, enter, leave };
 }
+
+export const GROUP_MODE_ICONS: Record<ViewMode, React.ElementType> = {
+    date: CalendarDays,
+    model: Box,
+    prompt: MessageSquare,
+    folder: FolderOpen,
+};
 
 const GROUP_MODE_OPTIONS: { label: string; value: ViewMode }[] = [
     { label: 'Date', value: 'date' },
@@ -279,9 +287,17 @@ const GalleryHeader = () => {
                         onMouseEnter={modeSelect.enter}
                         onMouseLeave={modeSelect.leave}
                     >
-                        {GROUP_MODE_OPTIONS.map(opt => (
-                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                        ))}
+                        {GROUP_MODE_OPTIONS.map(opt => {
+                            const Icon = GROUP_MODE_ICONS[opt.value];
+                            return (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                    <span className="flex items-center gap-1.5">
+                                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                                        {opt.label}
+                                    </span>
+                                </SelectItem>
+                            );
+                        })}
                     </SelectContent>
                 </Select>
 
