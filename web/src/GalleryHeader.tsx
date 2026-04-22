@@ -265,7 +265,6 @@ const GalleryHeader = () => {
                     onValueChange={v => {
                         setViewMode(v as ViewMode);
                         setGroupFilter('');
-                        setGridView('detail');
                     }}
                 >
                     <SelectTrigger
