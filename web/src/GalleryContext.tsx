@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useSize, useRequest, useAsyncEffect, useEventListener, useLocalStorageState, useClickAway } from 'ahooks';
 import type { FileDetails, FilesTree } from './types';
 import { useTheme } from './hooks/useTheme';
+import { normalizeModelName } from './metadata-parser/samplerNormalizer';
 type AutoCompleteOption = { value?: string; label?: React.ReactNode };
 import { ComfyAppApi, OPEN_BUTTON_ID } from './ComfyAppApi';
 
@@ -169,7 +170,7 @@ export function computeGroups(
         if (mode === 'date') {
             label = key;
         } else if (mode === 'model') {
-            label = key;
+            label = key === 'Unknown' ? key : (normalizeModelName(key) || key);
         } else if (mode === 'folder') {
             label = key === '__root__' ? '(root)' : (prefix ? key.slice(prefix.length + 1) || key : key);
         } else {
