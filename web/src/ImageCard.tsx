@@ -17,6 +17,21 @@ import { cn } from '@/lib/utils';
 export const ImageCardWidth = 350;
 export const ImageCardHeight = 450;
 
+function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatShortDate(timestamp: number): string {
+    return new Date(timestamp * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function fileExt(name: string): string {
+    const dot = name.lastIndexOf('.');
+    return dot >= 0 ? name.slice(dot).toLowerCase() : '';
+}
+
 function ImageCard({
     image,
     onInfoClick,
@@ -148,7 +163,7 @@ function ImageCard({
                     />
                 )}
 
-                {/* Bottom bar: filename */}
+                {/* Bottom bar: filename + file info */}
                 <div
                     style={{
                         position: 'absolute',
@@ -157,7 +172,8 @@ function ImageCard({
                         padding: '10px',
                         bottom: 0,
                         display: 'flex',
-                        alignItems: 'center',
+                        flexDirection: 'column',
+                        gap: 2,
                     }}
                 >
                     <span
@@ -165,6 +181,14 @@ function ImageCard({
                         style={{ margin: 0 }}
                     >
                         {image.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate">
+                        {[
+                            image.width && image.height ? `${image.width}×${image.height}` : null,
+                            image.file_size != null ? formatFileSize(image.file_size) : null,
+                            fileExt(image.name) || null,
+                            image.timestamp ? formatShortDate(image.timestamp) : null,
+                        ].filter(Boolean).join(' · ')}
                     </span>
                 </div>
             </div>

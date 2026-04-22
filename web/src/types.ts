@@ -20,6 +20,7 @@ export interface FileDetails {
     type: "image" | "media" | "audio" | "divider" | "empty-space";
     width?: number;
     height?: number;
+    file_size?: number;
     rel_path?: string;
     count?: number;
     /** Enriched from DB — present on media/image/audio items */
