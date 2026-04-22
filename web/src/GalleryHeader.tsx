@@ -276,7 +276,7 @@ const GalleryHeader = () => {
                     }}
                 >
                     <SelectTrigger
-                        className="h-9 w-[100px] shrink-0"
+                        className="h-9 w-[130px] shrink-0"
                         onMouseEnter={modeSelect.enter}
                         onMouseLeave={modeSelect.leave}
                     >
