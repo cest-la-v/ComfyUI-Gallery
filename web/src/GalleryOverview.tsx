@@ -36,7 +36,7 @@ export default function GalleryOverview() {
 
     if (loading) {
         return (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4 p-4 overflow-y-auto h-full">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4 p-4 overflow-y-auto h-full">
                 {Array.from({ length: 8 }).map((_, i) => (
                     <Skeleton key={i} className="h-48 rounded-lg" />
                 ))}
@@ -46,11 +46,11 @@ export default function GalleryOverview() {
 
     return (
         <ScrollArea className="h-full w-full">
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4 p-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4 p-4">
                 {groups.map(({ key, label, items, samplePaths }) => {
                     const displayLabel = formatGroupLabel(key, viewMode, label);
                     const previewable = items.filter(i => i.type === 'image' || i.type === 'media');
-                    const thumbs = previewable.slice(0, 5);
+                    const thumbs = previewable.slice(0, 4);
                     const totalCount = items.filter(i => i.type !== 'divider' && i.type !== 'empty-space').length;
 
                     return (
@@ -68,12 +68,12 @@ export default function GalleryOverview() {
                             </CardHeader>
                             <CardContent className="px-4 pb-3 flex flex-col gap-3">
                                 {/* Thumbnail strip */}
-                                <div className="flex gap-1">
+                                <div className="grid grid-cols-4 gap-1">
                                     {thumbs.length > 0 ? thumbs.map((item, idx) => (
                                         <button
                                             key={item.url ?? idx}
                                             type="button"
-                                            className="w-20 h-20 rounded overflow-hidden shrink-0 cursor-pointer border border-border hover:ring-2 hover:ring-primary transition-all"
+                                            className="aspect-square rounded overflow-hidden cursor-pointer border border-border hover:ring-2 hover:ring-primary transition-all"
                                             onClick={() => openLightbox(item.url)}
                                             onMouseDown={e => e.preventDefault()}
                                         >
@@ -85,7 +85,7 @@ export default function GalleryOverview() {
                                             />
                                         </button>
                                     )) : (
-                                        <div className="w-20 h-20 rounded bg-muted flex items-center justify-center text-muted-foreground text-xs">
+                                        <div className="col-span-4 h-16 rounded bg-muted flex items-center justify-center text-muted-foreground text-xs">
                                             No images
                                         </div>
                                     )}
