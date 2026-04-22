@@ -1,7 +1,7 @@
 import { toast } from 'sonner';
 import type { FileDetails } from './types';
 import { Trash2, Music } from 'lucide-react';
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { useDrag } from 'ahooks';
 import { useGalleryContext } from './GalleryContext';
 import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
@@ -43,10 +43,17 @@ function ImageCard({
     onOpenLightbox: () => void;
     showModelBadge?: boolean;
 }) {
-    const { settings, selectedImages, setSelectedImages } = useGalleryContext();
+    const { settings, selectedImages, setSelectedImages, pickMode, onPickImage, closePickMode } = useGalleryContext();
     const dragRef = useRef<HTMLDivElement>(null);
     const [dragging, setDragging] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+    const handlePickSelect = useCallback(async () => {
+        if (!image.rel_path || !onPickImage) return;
+        const result = await ComfyAppApi.imageAbsPath(image.rel_path);
+        if (result?.abs_path) onPickImage(result.abs_path);
+        closePickMode();
+    }, [image.rel_path, onPickImage, closePickMode]);
 
     useDrag(
         { name: image.name, folder: image.dragFolder || '', type: image.type, url: image.url },
@@ -55,6 +62,7 @@ function ImageCard({
     );
 
     const handleCardClick = (event: React.MouseEvent) => {
+        if (pickMode) { handlePickSelect(); return; }
         if (event.ctrlKey || event.metaKey) {
             event.stopPropagation();
             event.preventDefault();
@@ -79,7 +87,10 @@ function ImageCard({
         event.dataTransfer.setData('DownloadURL', `${mime}:${image.name}:${window.location.origin + BASE_PATH + image.url}`);
     };
 
-    const openLightbox = () => { onInfoClick(image.name); onOpenLightbox(); };
+    const openLightbox = () => {
+        if (pickMode) { handlePickSelect(); return; }
+        onInfoClick(image.name); onOpenLightbox();
+    };
 
     return (
         <>
@@ -92,18 +103,29 @@ function ImageCard({
                     borderRadius: 8,
                     overflow: 'hidden',
                     margin: '15px',
-                    border: dragging ? '2px solid var(--primary)' : '1px solid var(--border)',
+                    border: dragging ? '2px solid var(--primary)' : pickMode ? '2px solid var(--primary)' : '1px solid var(--border)',
                     opacity: dragging ? 0.5 : 1,
                     display: 'flex',
                     alignContent: 'center',
                     justifyContent: 'center',
                     alignItems: 'center',
                     position: 'relative',
-                    cursor: 'grab',
+                    cursor: pickMode ? 'pointer' : 'grab',
                     boxShadow: selectedImages.includes(image.url) ? '0 0 0 3px var(--primary)' : undefined,
                 }}
                 onClick={handleCardClick}
             >
+                {/* Pick mode hover overlay */}
+                {pickMode && (
+                    <div className="absolute inset-0 z-[var(--cg-z-card-overlay)] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ background: 'color-mix(in oklch, var(--primary) 30%, transparent)', pointerEvents: 'none' }}>
+                        <span className="text-white font-semibold text-sm px-3 py-1 rounded-full"
+                            style={{ background: 'var(--primary)' }}>
+                            ✓ Select
+                        </span>
+                    </div>
+                )}
+
                 {/* Delete button (hover) */}
                 <div className={cn(
                     "absolute top-2 right-2 z-[var(--cg-z-card-overlay)] transition-opacity",

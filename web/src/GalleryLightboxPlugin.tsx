@@ -8,7 +8,7 @@ import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 import {
     Info, FileText, Copy, Download, Trash2,
-    Check, X, RotateCcw, RotateCw, FlipHorizontal, FlipVertical,
+    Check, X, RotateCcw, RotateCw, FlipHorizontal, FlipVertical, Share2,
 } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
@@ -230,6 +230,42 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                             </TooltipTrigger>
                                             <TooltipContent>Download</TooltipContent>
                                         </Tooltip>
+                                        {currentImage?.rel_path && (
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <button
+                                                        className={btnCls}
+                                                        onMouseDown={e => e.preventDefault()}
+                                                        onClick={async () => {
+                                                            if (!currentImage?.rel_path) return;
+                                                            try {
+                                                                const result = await ComfyAppApi.imageAbsPath(currentImage.rel_path);
+                                                                if (!result?.abs_path) { toast.error('Could not resolve image path'); return; }
+                                                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                                const comfyApp = (window as any).comfyAPI?.app?.app;
+                                                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                                const nodes: any[] = comfyApp?.graph?._nodes?.filter(
+                                                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                                    (n: any) => n.comfyClass === 'GalleryMetadataExtractor'
+                                                                ) ?? [];
+                                                                if (nodes.length === 0) {
+                                                                    toast.error('No Gallery Metadata Extractor node on canvas');
+                                                                    return;
+                                                                }
+                                                                const target = nodes.find(n => n.is_selected) ?? nodes[0];
+                                                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                                const w = target.widgets?.find((w: any) => w.name === 'image_path');
+                                                                if (w) { w.value = result.abs_path; target.setDirtyCanvas?.(true, true); }
+                                                                toast.success(nodes.length > 1 ? `Sent to node #${target.id}` : 'Sent to node');
+                                                            } catch { toast.error('Failed to send to node'); }
+                                                        }}
+                                                    >
+                                                        <Share2 size={18} />
+                                                    </button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Send to Node</TooltipContent>
+                                            </Tooltip>
+                                        )}
                                         <Separator orientation="vertical" className="h-5 mx-1" />
                                         <Tooltip>
                                             <TooltipTrigger asChild>

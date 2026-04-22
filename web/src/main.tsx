@@ -3,11 +3,17 @@ import { createRoot, type Root } from 'react-dom/client'
 import { useState } from 'react';
 import Gallery from './Gallery.tsx'
 import { DEFAULT_SETTINGS, STORAGE_KEY, type SettingsState } from './GalleryContext.tsx';
+import { galleryBridge } from './galleryBridge.ts';
 import { ComfyAppApi, OPEN_BUTTON_ID, isComfyMode } from './ComfyAppApi.ts';
 import { useLocalStorageState } from 'ahooks';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { PortalProvider } from './PortalContext.tsx';
+
+// Expose the gallery bridge so node extensions can open pick mode.
+// galleryBridge.openPickMode is a stub until GalleryProvider mounts and updates it.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(window as any).__comfyGallery = galleryBridge;
 
 /*
  * DOM TOPOLOGY
@@ -130,6 +136,16 @@ ComfyAppApi.registerExtension({
                     } catch (error) {
 
                     }
+                });
+            }
+            if (node.comfyClass === "GalleryMetadataExtractor") {
+                node.addWidget("button", "📂 Pick from Gallery", null, () => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    (window as any).__comfyGallery?.openPickMode((absPath: string) => {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const w = node.widgets?.find((w: any) => w.name === 'image_path');
+                        if (w) { w.value = absPath; node.setDirtyCanvas?.(true, true); }
+                    });
                 });
             }
         } catch (error) {

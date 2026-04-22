@@ -117,9 +117,15 @@ export interface GalleryContextType {
     setSelectedImages: React.Dispatch<React.SetStateAction<string[]>>;
     showMetadataPanel: boolean;
     setShowMetadataPanel: React.Dispatch<React.SetStateAction<boolean>>;
+    pickMode: boolean;
+    onPickImage: ((absPath: string) => void) | null;
+    openPickMode: (callback: (absPath: string) => void) => void;
+    closePickMode: () => void;
 }
 
 const GalleryContext = createContext<GalleryContextType | undefined>(undefined);
+
+import { galleryBridge } from './galleryBridge';
 
 export type GroupEntry = {
     key: string;
@@ -260,6 +266,8 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const [imageFlipV, setImageFlipV] = useState(false);
     const [selectedImages, setSelectedImages] = useState<string[]>([]);
     const [showMetadataPanel, setShowMetadataPanel] = useState(false);
+    const [pickMode, setPickMode] = useState(false);
+    const [onPickImage, setOnPickImage] = useState<((absPath: string) => void) | null>(null);
     const size= useSize(document.querySelector('body'));
     const { data, error, loading, runAsync, mutate, refresh, refreshAsync } = useRequest(getImages, { manual: true });
     const [gridSize, setGridSize] = useState({ width: 1000, height: 600, columnCount: 1, rowCount: 1 });
@@ -531,6 +539,31 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         setPendingDeleteImage(null);
     }, [setImageInfoName, setPreviewingVideo, setShowMetadataPanel, setShowRawMetadata]);
 
+    const openPickMode = useCallback((cb: (absPath: string) => void) => {
+        setOnPickImage(() => cb);
+        setPickMode(true);
+        setOpen(true);
+    }, []);
+
+    const closePickMode = useCallback(() => {
+        setPickMode(false);
+        setOnPickImage(null);
+        setOpen(false);
+    }, []);
+
+    // Keep bridge in sync with the latest openPickMode reference.
+    useEffect(() => {
+        galleryBridge.openPickMode = openPickMode;
+    }, [openPickMode]);
+
+    // Clear pick mode when the gallery is closed externally (Esc, backdrop click, etc.).
+    useEffect(() => {
+        if (!open && pickMode) {
+            setPickMode(false);
+            setOnPickImage(null);
+        }
+    }, [open]); // intentionally omits pickMode to avoid re-running when we set it ourselves
+
     const value = useMemo(() => ({
         groupFilter, setGroupFilter,
         gridView, setGridView,
@@ -564,6 +597,10 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         setSelectedImages,
         showMetadataPanel,
         setShowMetadataPanel,
+        pickMode,
+        onPickImage,
+        openPickMode,
+        closePickMode,
     }), [
         groupFilter,
         gridView,
@@ -601,6 +638,10 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         setSelectedImages,
         showMetadataPanel,
         setShowMetadataPanel,
+        pickMode,
+        onPickImage,
+        openPickMode,
+        closePickMode,
     ]);
 
     return <GalleryContext.Provider 

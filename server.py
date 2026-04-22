@@ -244,6 +244,31 @@ async def resolve_path(request):
         headers=_NO_CACHE,
     )
 
+@PromptServer.instance.routes.get("/Gallery/image_abs_path")
+async def get_image_abs_path(request):
+    """Resolve a gallery rel_path to an absolute filesystem path.
+
+    Query params:
+      rel_path=<rel_path>  — path relative to the currently active gallery monitor root
+
+    Response: { "abs_path": "/abs/path/to/image.png", "exists": true }
+    """
+    rel_path = request.rel_url.query.get("rel_path", "").replace("\\", "/")
+    if not rel_path:
+        return web.json_response({"error": "rel_path is required"}, status=400, headers=_NO_CACHE)
+
+    gallery_root = _get_static_dir()
+    abs_path = os.path.normpath(os.path.join(gallery_root, rel_path))
+
+    if not _is_within_directory(abs_path, gallery_root):
+        return web.json_response({"error": "Path outside gallery root"}, status=400, headers=_NO_CACHE)
+
+    return web.json_response(
+        {"abs_path": abs_path, "exists": os.path.isfile(abs_path)},
+        headers=_NO_CACHE,
+    )
+
+
 @PromptServer.instance.routes.get("/Gallery/images")
 async def get_gallery_images(request):
     """Endpoint to get gallery images, accepts relative_path."""
