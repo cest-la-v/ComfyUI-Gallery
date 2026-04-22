@@ -28,6 +28,19 @@ import FileSaver from 'file-saver';
 import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
 import { BASE_THEMES, ACCENT_THEMES } from './themes';
 
+function useHoverOpen() {
+    const [open, setOpen] = useState(false);
+    const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const enter = useCallback(() => {
+        if (timer.current) clearTimeout(timer.current);
+        setOpen(true);
+    }, []);
+    const leave = useCallback(() => {
+        timer.current = setTimeout(() => setOpen(false), 120);
+    }, []);
+    return { open, setOpen, enter, leave };
+}
+
 const GROUP_MODE_OPTIONS: { label: string; value: ViewMode }[] = [
     { label: 'Date', value: 'date' },
     { label: 'Model', value: 'model' },
@@ -163,6 +176,8 @@ const GalleryHeader = () => {
     const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [themePickerOpen, setThemePickerOpen] = useState(false);
+    const modeSelect = useHoverOpen();
+    const filterSelect = useHoverOpen();
 
     useEffect(() => {
         const onDragStart = () => setShowClose(true);
@@ -244,6 +259,8 @@ const GalleryHeader = () => {
             <div className="flex items-center gap-2 shrink-0">
                 {/* Group mode selector */}
                 <Select
+                    open={modeSelect.open}
+                    onOpenChange={modeSelect.setOpen}
                     value={viewMode}
                     onValueChange={v => {
                         setViewMode(v as ViewMode);
@@ -251,10 +268,18 @@ const GalleryHeader = () => {
                         setGridView('detail');
                     }}
                 >
-                    <SelectTrigger className="h-9 w-[100px] shrink-0">
+                    <SelectTrigger
+                        className="h-9 w-[100px] shrink-0"
+                        onMouseEnter={modeSelect.enter}
+                        onMouseLeave={modeSelect.leave}
+                    >
                         <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="z-[var(--cg-z-popup)]">
+                    <SelectContent
+                        className="z-[var(--cg-z-popup)]"
+                        onMouseEnter={modeSelect.enter}
+                        onMouseLeave={modeSelect.leave}
+                    >
                         {GROUP_MODE_OPTIONS.map(opt => (
                             <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                         ))}
@@ -263,14 +288,24 @@ const GalleryHeader = () => {
 
                 {/* Group filter */}
                 <Select
+                    open={filterSelect.open}
+                    onOpenChange={filterSelect.setOpen}
                     value={groupFilter === '' ? ALL_GROUPS : groupFilter}
                     onValueChange={v => setGroupFilter(v === ALL_GROUPS ? '' : v)}
                     disabled={gridView === 'overview'}
                 >
-                    <SelectTrigger className="h-9 min-w-[140px] max-w-[200px] shrink-0">
+                    <SelectTrigger
+                        className="h-9 min-w-[140px] max-w-[200px] shrink-0"
+                        onMouseEnter={filterSelect.enter}
+                        onMouseLeave={filterSelect.leave}
+                    >
                         <SelectValue placeholder="All" />
                     </SelectTrigger>
-                    <SelectContent className="z-[var(--cg-z-popup)]">
+                    <SelectContent
+                        className="z-[var(--cg-z-popup)]"
+                        onMouseEnter={filterSelect.enter}
+                        onMouseLeave={filterSelect.leave}
+                    >
                         <SelectItem value={ALL_GROUPS}>All</SelectItem>
                         {groupValues.map(({ key, label }) => (
                             <SelectItem key={key} value={key}>
