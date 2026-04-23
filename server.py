@@ -448,7 +448,12 @@ async def copy_to_input(request):
     os.makedirs(input_dir, exist_ok=True)
     filename = os.path.basename(src)
     dest = os.path.join(input_dir, filename)
-    shutil.copy2(src, dest)
+
+    # Skip copy if src already resolves to dest (e.g. file is already in input/).
+    # Uses realpath comparison to handle symlinks; avoids os.path.samefile which
+    # relies on inodes that are unreliable on Windows/NTFS.
+    if os.path.realpath(src) != os.path.realpath(dest):
+        shutil.copy2(src, dest)
 
     return web.json_response({"filename": filename}, headers=_NO_CACHE)
 
