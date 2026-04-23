@@ -10,45 +10,7 @@ except ImportError:
 from .metadata_parser._extractor import buildMetadata
 from .metadata_parser import extract_params
 
-_SETTINGS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_settings.json")
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tiff", ".tif"}
-
-
-def _gallery_root() -> str:
-    """Return the current gallery monitor root from user_settings.json."""
-    base = folder_paths.get_output_directory() if folder_paths else ""
-    try:
-        with open(_SETTINGS_FILE, "r", encoding="utf-8") as f:
-            settings = json.load(f)
-        raw = settings.get("relativePath", "./")
-        if not raw or raw.strip() in ("", "null", "./", "."):
-            return base
-        if os.path.isabs(raw):
-            return os.path.normpath(raw)
-        return os.path.normpath(os.path.join(base, raw))
-    except Exception:
-        return base
-
-
-def _resolve_image_path(image_path: str) -> str | None:
-    """Resolve image_path to an absolute filesystem path, or None if not found.
-
-    Resolution order:
-      1. Already absolute — use directly.
-      2. Relative to output directory.
-      3. Relative to gallery monitor root (from user_settings.json relativePath).
-    """
-    if not image_path:
-        return None
-    if os.path.isabs(image_path):
-        return image_path if os.path.isfile(image_path) else None
-
-    output_dir = folder_paths.get_output_directory() if folder_paths else ""
-    for base in filter(None, [output_dir, _gallery_root()]):
-        candidate = os.path.normpath(os.path.join(base, image_path))
-        if os.path.isfile(candidate):
-            return candidate
-    return None
 
 
 def _empty_outputs() -> tuple:
@@ -107,33 +69,29 @@ class GalleryPromptReader:
 class GalleryMetadataExtractor:
     """Extract full generation metadata from a gallery or local image.
 
-    Accepts an image via the standard ComfyUI upload picker (``image`` widget) or
-    via a gallery-resolved absolute path (``image_path`` widget, populated by the
-    "Pick from Gallery" button or the "Send to Node" action in the lightbox).
-    ``image_path`` takes priority when non-empty.
+    Use the 'Pick from Gallery' button or 'Send to Node' in the lightbox to copy a gallery
+    image into ComfyUI's input directory and select it, or upload a file directly via the
+    image widget.
     """
 
     @classmethod
     def INPUT_TYPES(cls):
-        output_images = []
+        input_images: list[str] = []
         if folder_paths:
             try:
-                out_dir = folder_paths.get_output_directory()
-                files = [f for f in os.listdir(out_dir) if os.path.isfile(os.path.join(out_dir, f))]
+                in_dir = folder_paths.get_input_directory()
+                files = [f for f in os.listdir(in_dir) if os.path.isfile(os.path.join(in_dir, f))]
                 if hasattr(folder_paths, "filter_files_content_types"):
-                    output_images = folder_paths.filter_files_content_types(files, ["image"])
+                    input_images = folder_paths.filter_files_content_types(files, ["image"])
                 else:
-                    output_images = [f for f in files if os.path.splitext(f)[1].lower() in _IMAGE_EXTS]
+                    input_images = [f for f in files if os.path.splitext(f)[1].lower() in _IMAGE_EXTS]
             except Exception:
                 pass
 
         return {
             "required": {
-                "image_path": ("STRING", {"default": "", "multiline": False}),
-            },
-            "optional": {
-                "image": (sorted(output_images) if output_images else ["none"], {"image_upload": True}),
-            },
+                "image": (sorted(input_images) if input_images else ["none"], {"image_upload": True}),
+            }
         }
 
     RETURN_TYPES = (
@@ -156,12 +114,12 @@ class GalleryMetadataExtractor:
     CATEGORY = "ComfyUI Gallery"
     DESCRIPTION = (
         "Extract generation metadata (prompts, sampler, seed, model, …) from a gallery "
-        "or local image. Use the 'Pick from Gallery' button to select from the gallery, "
-        "or choose a local file with the image upload widget."
+        "or local image. Use the 'Pick from Gallery' button to copy a gallery image into "
+        "ComfyUI's input directory and select it, or upload a local file directly."
     )
 
-    def execute(self, image_path: str = "", image: str = ""):
-        full_path = self._resolve(image_path, image)
+    def execute(self, image: str = ""):
+        full_path = self._resolve(image)
         if not full_path:
             return _empty_outputs()
 
@@ -199,8 +157,8 @@ class GalleryMetadataExtractor:
         )
 
     @classmethod
-    def IS_CHANGED(cls, image_path: str = "", image: str = ""):
-        path = cls._resolve(image_path, image)
+    def IS_CHANGED(cls, image: str = ""):
+        path = cls._resolve(image)
         if not path:
             return ""
         m = hashlib.sha256()
@@ -209,26 +167,23 @@ class GalleryMetadataExtractor:
         return m.digest().hex()
 
     @classmethod
-    def VALIDATE_INPUTS(cls, image_path: str = "", image: str = ""):
-        if image_path.strip():
-            if not _resolve_image_path(image_path.strip()):
-                return f"Image not found: {image_path}"
-        elif image and image not in ("", "none"):
-            if folder_paths and not folder_paths.exists_annotated_filepath(image):
-                return f"Invalid image file: {image}"
+    def VALIDATE_INPUTS(cls, image: str = ""):
+        if not image or image in ("", "none"):
+            return True
+        if folder_paths and not folder_paths.exists_annotated_filepath(image):
+            return f"Invalid image file: {image}"
         return True
 
     @staticmethod
-    def _resolve(image_path: str, image: str) -> str | None:
-        if image_path.strip():
-            return _resolve_image_path(image_path.strip())
-        if image and image not in ("", "none"):
-            if folder_paths:
-                try:
-                    p = folder_paths.get_annotated_filepath(image)
-                    return p if os.path.isfile(p) else None
-                except Exception:
-                    pass
+    def _resolve(image: str) -> str | None:
+        if not image or image in ("", "none"):
+            return None
+        if folder_paths:
+            try:
+                p = folder_paths.get_annotated_filepath(image)
+                return p if os.path.isfile(p) else None
+            except Exception:
+                pass
         return None
 
 

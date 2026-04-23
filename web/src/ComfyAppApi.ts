@@ -148,4 +148,15 @@ export const ComfyAppApi = {
         } catch(e) { console.error(e); }
         return null;
     },
+    copyToInput: async (relPath: string): Promise<{ filename: string } | null> => {
+        try {
+            const res = await app.api.fetchApi('/Gallery/copy_to_input', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rel_path: relPath }),
+            });
+            if (res.ok) return await res.json();
+        } catch(e) { console.error(e); }
+        return null;
+    },
 };

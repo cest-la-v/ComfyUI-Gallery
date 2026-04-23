@@ -239,8 +239,8 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                                         onClick={async () => {
                                                             if (!currentImage?.rel_path) return;
                                                             try {
-                                                                const result = await ComfyAppApi.imageAbsPath(currentImage.rel_path);
-                                                                if (!result?.abs_path) { toast.error('Could not resolve image path'); return; }
+                                                                const result = await ComfyAppApi.copyToInput(currentImage.rel_path);
+                                                                if (!result?.filename) { toast.error('Could not copy image to input'); return; }
                                                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                                                 const comfyApp = (window as any).comfyAPI?.app?.app;
                                                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -254,8 +254,8 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                                                 }
                                                                 const target = nodes.find(n => n.is_selected) ?? nodes[0];
                                                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                                                const w = target.widgets?.find((w: any) => w.name === 'image_path');
-                                                                if (w) { w.value = result.abs_path; target.setDirtyCanvas?.(true, true); }
+                                                                const w = target.widgets?.find((w: any) => w.name === 'image');
+                                                                if (w) { w.value = result.filename; target.setDirtyCanvas?.(true, true); }
                                                                 toast.success(nodes.length > 1 ? `Sent to node #${target.id}` : 'Sent to node');
                                                             } catch { toast.error('Failed to send to node'); }
                                                         }}

@@ -50,8 +50,8 @@ function ImageCard({
 
     const handlePickSelect = useCallback(async () => {
         if (!image.rel_path || !onPickImage) return;
-        const result = await ComfyAppApi.imageAbsPath(image.rel_path);
-        if (result?.abs_path) onPickImage(result.abs_path);
+        const result = await ComfyAppApi.copyToInput(image.rel_path);
+        if (result?.filename) onPickImage(result.filename);
         closePickMode();
     }, [image.rel_path, onPickImage, closePickMode]);
 

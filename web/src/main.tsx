@@ -141,10 +141,10 @@ ComfyAppApi.registerExtension({
             if (node.comfyClass === "GalleryMetadataExtractor") {
                 node.addWidget("button", "📂 Pick from Gallery", null, () => {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    (window as any).__comfyGallery?.openPickMode((absPath: string) => {
+                    (window as any).__comfyGallery?.openPickMode((filename: string) => {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const w = node.widgets?.find((w: any) => w.name === 'image_path');
-                        if (w) { w.value = absPath; node.setDirtyCanvas?.(true, true); }
+                        const w = node.widgets?.find((w: any) => w.name === 'image');
+                        if (w) { w.value = filename; node.setDirtyCanvas?.(true, true); }
                     });
                 });
             }

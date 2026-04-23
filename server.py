@@ -244,29 +244,45 @@ async def resolve_path(request):
         headers=_NO_CACHE,
     )
 
-@PromptServer.instance.routes.get("/Gallery/image_abs_path")
-async def get_image_abs_path(request):
-    """Resolve a gallery rel_path to an absolute filesystem path.
+@PromptServer.instance.routes.post("/Gallery/copy_to_input")
+async def copy_to_input(request):
+    """Copy a gallery image into ComfyUI's input directory.
 
-    Query params:
-      rel_path=<rel_path>  — path relative to the currently active gallery monitor root
+    Mirrors what the native image upload widget does, making the file a valid
+    COMBO option that ComfyUI can resolve via get_annotated_filepath().
 
-    Response: { "abs_path": "/abs/path/to/image.png", "exists": true }
+    Body JSON:
+      rel_path — path relative to the currently active gallery monitor root
+
+    Response: { "filename": "image.png" }
     """
-    rel_path = request.rel_url.query.get("rel_path", "").replace("\\", "/")
+    if _folder_paths is None:
+        return web.json_response({"error": "folder_paths not available"}, status=503, headers=_NO_CACHE)
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON body"}, status=400, headers=_NO_CACHE)
+
+    rel_path = (data.get("rel_path") or "").replace("\\", "/")
     if not rel_path:
         return web.json_response({"error": "rel_path is required"}, status=400, headers=_NO_CACHE)
 
     gallery_root = _get_static_dir()
-    abs_path = os.path.normpath(os.path.join(gallery_root, rel_path))
+    src = os.path.normpath(os.path.join(gallery_root, rel_path))
 
-    if not _is_within_directory(abs_path, gallery_root):
+    if not _is_within_directory(src, gallery_root):
         return web.json_response({"error": "Path outside gallery root"}, status=400, headers=_NO_CACHE)
+    if not os.path.isfile(src):
+        return web.json_response({"error": "File not found"}, status=404, headers=_NO_CACHE)
 
-    return web.json_response(
-        {"abs_path": abs_path, "exists": os.path.isfile(abs_path)},
-        headers=_NO_CACHE,
-    )
+    input_dir = _folder_paths.get_input_directory()
+    os.makedirs(input_dir, exist_ok=True)
+    filename = os.path.basename(src)
+    dest = os.path.join(input_dir, filename)
+    shutil.copy2(src, dest)
+
+    return web.json_response({"filename": filename}, headers=_NO_CACHE)
 
 
 @PromptServer.instance.routes.get("/Gallery/images")
