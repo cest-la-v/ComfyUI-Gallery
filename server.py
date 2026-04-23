@@ -445,12 +445,13 @@ async def copy_to_input(request):
         return web.json_response({"error": "File not found"}, status=404, headers=_NO_CACHE)
 
     input_dir = _folder_paths.get_input_directory()
+    real_input_dir = os.path.realpath(input_dir)
     os.makedirs(input_dir, exist_ok=True)
 
     # If file is already in input/ (same realpath), return as-is — no copy.
     if _is_within_directory(src, input_dir):
         try:
-            file_rel = os.path.relpath(src, input_dir).replace("\\", "/")
+            file_rel = os.path.relpath(src, real_input_dir).replace("\\", "/")
             return web.json_response({"filename": file_rel}, headers=_NO_CACHE)
         except ValueError:
             pass
@@ -461,7 +462,7 @@ async def copy_to_input(request):
     out_dir = _folder_paths.get_output_directory()
     if _is_within_directory(src, out_dir):
         try:
-            file_rel = os.path.relpath(src, out_dir).replace("\\", "/")
+            file_rel = os.path.relpath(src, os.path.realpath(out_dir)).replace("\\", "/")
             return web.json_response({"filename": f"{file_rel} [output]"}, headers=_NO_CACHE)
         except ValueError:
             pass  # Different drives (Windows) — fall through to copy

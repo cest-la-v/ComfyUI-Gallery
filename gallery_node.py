@@ -27,10 +27,11 @@ def _image_combo_input() -> dict:
     if folder_paths:
         def _collect(base_dir: str, annotation: str = "") -> None:
             try:
+                real_base = os.path.realpath(base_dir)
                 files: list[str] = []
-                for dirpath, _, filenames in os.walk(base_dir):
+                for dirpath, _, filenames in os.walk(real_base):
                     for f in filenames:
-                        rel = os.path.relpath(os.path.join(dirpath, f), base_dir).replace("\\", "/")
+                        rel = os.path.relpath(os.path.join(dirpath, f), real_base).replace("\\", "/")
                         files.append(rel)
                 if hasattr(folder_paths, "filter_files_content_types"):
                     matched = folder_paths.filter_files_content_types(files, ["image"])
