@@ -18,23 +18,33 @@ def _empty_outputs() -> tuple:
 
 
 def _image_combo_input() -> dict:
-    """Return the INPUT_TYPES 'required' block for an image COMBO widget."""
-    input_images: list[str] = []
+    """Return the INPUT_TYPES 'required' block for an image COMBO widget.
+
+    Lists files from both input/ (plain) and output/ (annotated as 'file [output]')
+    so that gallery picks from output/ don't require a copy into input/.
+    """
+    images: list[str] = []
     if folder_paths:
-        try:
-            in_dir = folder_paths.get_input_directory()
-            files: list[str] = []
-            for dirpath, _, filenames in os.walk(in_dir):
-                for f in filenames:
-                    rel = os.path.relpath(os.path.join(dirpath, f), in_dir)
-                    files.append(rel.replace("\\", "/"))
-            if hasattr(folder_paths, "filter_files_content_types"):
-                input_images = folder_paths.filter_files_content_types(files, ["image"])
-            else:
-                input_images = [f for f in files if os.path.splitext(f)[1].lower() in _IMAGE_EXTS]
-        except Exception:
-            pass
-    return {"image": (sorted(input_images) if input_images else ["none"], {"image_upload": True})}
+        def _collect(base_dir: str, annotation: str = "") -> None:
+            try:
+                files: list[str] = []
+                for dirpath, _, filenames in os.walk(base_dir):
+                    for f in filenames:
+                        rel = os.path.relpath(os.path.join(dirpath, f), base_dir).replace("\\", "/")
+                        files.append(rel)
+                if hasattr(folder_paths, "filter_files_content_types"):
+                    matched = folder_paths.filter_files_content_types(files, ["image"])
+                else:
+                    matched = [f for f in files if os.path.splitext(f)[1].lower() in _IMAGE_EXTS]
+                suffix = f" [{annotation}]" if annotation else ""
+                images.extend(f"{f}{suffix}" for f in matched)
+            except Exception:
+                pass
+
+        _collect(folder_paths.get_input_directory())
+        _collect(folder_paths.get_output_directory(), "output")
+
+    return {"image": (sorted(images) if images else ["none"], {"image_upload": True})}
 
 
 def _resolve_image(image: str) -> str | None:

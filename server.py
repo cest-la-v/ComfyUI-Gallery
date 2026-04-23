@@ -446,13 +446,30 @@ async def copy_to_input(request):
 
     input_dir = _folder_paths.get_input_directory()
     os.makedirs(input_dir, exist_ok=True)
+
+    # If file is already in input/ (same realpath), return as-is — no copy.
+    if _is_within_directory(src, input_dir):
+        try:
+            file_rel = os.path.relpath(src, input_dir).replace("\\", "/")
+            return web.json_response({"filename": file_rel}, headers=_NO_CACHE)
+        except ValueError:
+            pass
+
+    # If file is in output/, return annotated reference ("file [output]") — no copy.
+    # The node resolves this via folder_paths.get_annotated_filepath without needing
+    # a copy, and the COMBO widget lists output files with [output] annotation.
+    out_dir = _folder_paths.get_output_directory()
+    if _is_within_directory(src, out_dir):
+        try:
+            file_rel = os.path.relpath(src, out_dir).replace("\\", "/")
+            return web.json_response({"filename": f"{file_rel} [output]"}, headers=_NO_CACHE)
+        except ValueError:
+            pass  # Different drives (Windows) — fall through to copy
+
+    # Custom source: copy to input/ (skip if same-named file already exists there).
     filename = os.path.basename(src)
     dest = os.path.join(input_dir, filename)
-
-    # Skip copy if src already resolves to dest (e.g. file is already in input/).
-    # Uses realpath comparison to handle symlinks; avoids os.path.samefile which
-    # relies on inodes that are unreliable on Windows/NTFS.
-    if os.path.realpath(src) != os.path.realpath(dest):
+    if os.path.realpath(src) != os.path.realpath(dest) and not os.path.exists(dest):
         shutil.copy2(src, dest)
 
     return web.json_response({"filename": filename}, headers=_NO_CACHE)
