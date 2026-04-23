@@ -17,6 +17,39 @@ def _empty_outputs() -> tuple:
     return ("", "", 0, 0, 0.0, "", "", "", "", 0, 0, 0.0, 0, "[]")
 
 
+def _image_combo_input() -> dict:
+    """Return the INPUT_TYPES 'required' block for an image COMBO widget."""
+    input_images: list[str] = []
+    if folder_paths:
+        try:
+            in_dir = folder_paths.get_input_directory()
+            files: list[str] = []
+            for dirpath, _, filenames in os.walk(in_dir):
+                for f in filenames:
+                    rel = os.path.relpath(os.path.join(dirpath, f), in_dir)
+                    files.append(rel.replace("\\", "/"))
+            if hasattr(folder_paths, "filter_files_content_types"):
+                input_images = folder_paths.filter_files_content_types(files, ["image"])
+            else:
+                input_images = [f for f in files if os.path.splitext(f)[1].lower() in _IMAGE_EXTS]
+        except Exception:
+            pass
+    return {"image": (sorted(input_images) if input_images else ["none"], {"image_upload": True})}
+
+
+def _resolve_image(image: str) -> str | None:
+    """Resolve an image COMBO value to an absolute path, or None if not found."""
+    if not image or image in ("", "none"):
+        return None
+    if folder_paths:
+        try:
+            p = folder_paths.get_annotated_filepath(image)
+            return p if os.path.isfile(p) else None
+        except Exception:
+            pass
+    return None
+
+
 class GalleryNode:
 
     def __init__(self):
@@ -36,26 +69,30 @@ class GalleryNode:
 
 
 class GalleryPromptReader:
-    """Read positive and negative prompts from an image in the gallery."""
+    """Read positive and negative prompts from an image in the gallery.
+
+    Use the 'Pick from Gallery' button to copy a gallery image into ComfyUI's
+    input directory and select it, or upload a file directly via the image widget.
+    """
 
     @classmethod
     def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "image_path": ("STRING", {"default": "", "multiline": False}),
-            }
-        }
+        return {"required": _image_combo_input()}
 
     RETURN_TYPES = ("STRING", "STRING")
     RETURN_NAMES = ("positive_prompt", "negative_prompt")
     FUNCTION = "execute"
     CATEGORY = "ComfyUI Gallery"
+    DESCRIPTION = (
+        "Read positive and negative prompts from a gallery or local image. "
+        "Use the 'Pick from Gallery' button to copy a gallery image into "
+        "ComfyUI's input directory and select it, or upload a local file directly."
+    )
 
-    def execute(self, image_path: str):
-        if not image_path:
+    def execute(self, image: str = ""):
+        full_path = _resolve_image(image)
+        if not full_path:
             return ("", "")
-        output_dir = folder_paths.get_output_directory() if folder_paths else ""
-        full_path = os.path.join(output_dir, image_path) if not os.path.isabs(image_path) else image_path
         try:
             _, _, metadata = buildMetadata(full_path)
         except Exception:
@@ -64,6 +101,24 @@ class GalleryPromptReader:
         if not params:
             return ("", "")
         return (params.get("positive_prompt") or "", params.get("negative_prompt") or "")
+
+    @classmethod
+    def IS_CHANGED(cls, image: str = ""):
+        path = _resolve_image(image)
+        if not path:
+            return ""
+        m = hashlib.sha256()
+        with open(path, "rb") as f:
+            m.update(f.read())
+        return m.digest().hex()
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, image: str = ""):
+        if not image or image in ("", "none"):
+            return True
+        if folder_paths and not folder_paths.exists_annotated_filepath(image):
+            return f"Invalid image file: {image}"
+        return True
 
 
 class GalleryMetadataExtractor:
@@ -76,27 +131,7 @@ class GalleryMetadataExtractor:
 
     @classmethod
     def INPUT_TYPES(cls):
-        input_images: list[str] = []
-        if folder_paths:
-            try:
-                in_dir = folder_paths.get_input_directory()
-                files: list[str] = []
-                for dirpath, _, filenames in os.walk(in_dir):
-                    for f in filenames:
-                        rel = os.path.relpath(os.path.join(dirpath, f), in_dir)
-                        files.append(rel.replace("\\", "/"))
-                if hasattr(folder_paths, "filter_files_content_types"):
-                    input_images = folder_paths.filter_files_content_types(files, ["image"])
-                else:
-                    input_images = [f for f in files if os.path.splitext(f)[1].lower() in _IMAGE_EXTS]
-            except Exception:
-                pass
-
-        return {
-            "required": {
-                "image": (sorted(input_images) if input_images else ["none"], {"image_upload": True}),
-            }
-        }
+        return {"required": _image_combo_input()}
 
     RETURN_TYPES = (
         "STRING", "STRING",
@@ -123,7 +158,7 @@ class GalleryMetadataExtractor:
     )
 
     def execute(self, image: str = ""):
-        full_path = self._resolve(image)
+        full_path = _resolve_image(image)
         if not full_path:
             return _empty_outputs()
 
@@ -162,7 +197,7 @@ class GalleryMetadataExtractor:
 
     @classmethod
     def IS_CHANGED(cls, image: str = ""):
-        path = cls._resolve(image)
+        path = _resolve_image(image)
         if not path:
             return ""
         m = hashlib.sha256()
@@ -177,18 +212,6 @@ class GalleryMetadataExtractor:
         if folder_paths and not folder_paths.exists_annotated_filepath(image):
             return f"Invalid image file: {image}"
         return True
-
-    @staticmethod
-    def _resolve(image: str) -> str | None:
-        if not image or image in ("", "none"):
-            return None
-        if folder_paths:
-            try:
-                p = folder_paths.get_annotated_filepath(image)
-                return p if os.path.isfile(p) else None
-            except Exception:
-                pass
-        return None
 
 
 NODE_CLASS_MAPPINGS = {

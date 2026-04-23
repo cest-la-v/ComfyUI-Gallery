@@ -138,7 +138,7 @@ ComfyAppApi.registerExtension({
                     }
                 });
             }
-            if (node.comfyClass === "GalleryMetadataExtractor") {
+            if (node.comfyClass === "GalleryMetadataExtractor" || node.comfyClass === "GalleryPromptReader") {
                 node.addWidget("button", "📂 Pick from Gallery", null, () => {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     (window as any).__comfyGallery?.openPickMode((filename: string) => {
