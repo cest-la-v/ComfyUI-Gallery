@@ -161,6 +161,77 @@ wins for normal declarations. Defence:
 
 ---
 
+## Architecture: Multi-Source Monitoring
+
+The gallery monitors **multiple source paths** simultaneously. Each source is identified by a
+stable `source_id` slug and a filesystem path (may include magic tokens).
+
+### SourcePath schema (`user_settings.json`)
+
+```json
+{
+  "sourcePaths": [
+    { "source_id": "output", "path": "{output}", "label": "Output",  "enabled": true },
+    { "source_id": "input",  "path": "{input}",  "label": "Input",   "enabled": true }
+  ]
+}
+```
+
+- `source_id` — immutable URL-safe slug (`[a-z0-9][a-z0-9\-_]*`). Renaming the `label` is safe;
+  changing `source_id` clears the DB cache for that source.
+- `path` — filesystem path or magic token. Supported tokens: `{output}`, `{input}` (resolved via
+  ComfyUI's `folder_paths`).
+- `label` — display name only (shown in settings UI, not used in DB keys or URLs).
+- `enabled` — if false, the source is skipped during monitoring.
+
+Default sources (`DEFAULT_SOURCE_PATHS` in `GalleryContext.tsx`): `output` and `input`.
+
+### `rel_path` format
+
+All DB entries use `{source_id}/{file_rel}` as the global identity key (e.g.
+`output/2025-01/image.png`). This is stable across folder renames and avoids cross-source
+collisions without any DB schema change.
+
+Folder keys in the folder dict follow the same pattern: `{source_id}/{folder_rel}`.
+
+### File serving
+
+`GET /Gallery/file/{source_id}/{path:.*}` — serves files from any active source using
+`web.FileResponse` (supports range requests). The legacy `/static_gallery` static route is still
+registered (required at module load time) but no longer updated; it serves a PLACEHOLDER_DIR.
+
+### DB auto-clear on source change
+
+On `POST /Gallery/monitor/start`, `server.py` computes a SHA-256 hash of the `{source_id: realpath}`
+mapping and stores it in the `_metadata` KV table. If the hash changes (source added, removed, or
+path changed), all `files` rows are cleared and the DB is rebuilt from scratch.
+
+### Settings migration
+
+Settings schema is at **v6** (was v5 before multi-source). The v5→v6 migration in both
+`GalleryContext.tsx` and `server.py` preserves a non-default old `relativePath` value as a custom
+source entry; default paths are silently replaced with the `sourcePaths` array.
+
+### `copy_to_input` annotated path logic
+
+`POST /Gallery/copy_to_input` decides what to return based on where the source file lives:
+
+| Source location | Action | Return value |
+|---|---|---|
+| Inside `input/` dir | No copy | plain filename (e.g. `"foo.png"`) |
+| Inside `output/` dir | No copy | annotated ref (e.g. `"foo.png [output]"`) |
+| Custom source | Copy to `input/` (skip if dest exists) | plain filename |
+
+ComfyUI's `get_annotated_filepath("foo.png [output]")` resolves the annotated ref to
+`output_dir/foo.png`. The `[output]` suffix is the standard ComfyUI COMBO widget annotation —
+no copy is needed for output files, and the COMBO widget previews them correctly.
+
+**Always use `os.path.realpath()` before any `relpath` or containment check** — `input/` and
+`output/` may be symlinks. Use `real_input_dir = os.path.realpath(input_dir)` as the relpath base.
+See the Symlinks gotcha below.
+
+---
+
 ## Architecture: Metadata Extraction Pipeline
 
 Metadata is extracted in four passes (first non-null value wins per field):
@@ -197,29 +268,32 @@ A1111 writes one combined field: `Sampler: DPM++ 3M SDE Karras`.
 | File | Purpose |
 |---|---|
 | `__init__.py` | Python entry point; sets `WEB_DIRECTORY = "./web/dist/assets"` |
-| `server.py` | All aiohttp route handlers (`/gallery/images`, `/gallery/move`, etc.) |
+| `server.py` | All aiohttp route handlers (`/Gallery/images`, `/Gallery/file/`, `/Gallery/monitor/start`, etc.) |
+| `gallery_db.py` | SQLite cache; `files` table + `_metadata` KV table (survives schema wipes) |
 | `folder_monitor.py` | `watchdog`-based file watcher; emits `gallery_image_added` events |
-| `folder_scanner.py` | Recursive scan for images/video/audio by extension |
+| `folder_scanner.py` | Recursive scan for images/video/audio by extension; `source_id` param prefixes `rel_path` and `url` |
 | `metadata_extractor.py` | Reads PNG text chunks (`parameters`, `prompt`, `workflow`) |
-| `gallery_node.py` | ComfyUI node declaration |
+| `gallery_node.py` | ComfyUI node declaration; `_image_combo_input()` lists both input/ and output/ files |
 | `gallery_config.py` | `disable_logs` flag + `gallery_log()` |
 | `user_settings.json` | Persisted user settings (read/written at runtime) |
-| `web/src/types.ts` | All shared TypeScript types |
+| `user_settings-example.json` | Reference for available settings fields |
+| `web/src/types.ts` | All shared TypeScript types including `SourcePath` |
 | `web/src/main.tsx` | Entry point; mounts React root + yarl root; DOM topology documented here |
 | `web/src/globals.css` | Tailwind entry; CSS variables; `--cg-z-*` z-index system; CSS isolation |
 | `web/src/Gallery.tsx` | Top-level React wrapper; `<GalleryProvider>` + entry buttons + modal |
-| `web/src/GalleryContext.tsx` | Central state context (30+ fields: open, viewMode, data, settings, …) |
+| `web/src/GalleryContext.tsx` | Central state context; `SettingsState.sourcePaths`, `DEFAULT_SOURCE_PATHS`, v5→v6 migration |
 | `web/src/GalleryModal.tsx` | Radix Dialog shell; renders GalleryHeader + GalleryGrid + GalleryLightbox (as siblings) or GroupView |
 | `web/src/GalleryHeader.tsx` | Toolbar: search, folder select, view modes, sort, bulk actions |
 | `web/src/GalleryGrid.tsx` | Virtualized image grid (react-window); pure display, calls `context.openLightbox()` |
 | `web/src/GalleryLightbox.tsx` | yarl `<Lightbox>` wrapper; uses context lightbox state; includes `GalleryOverlayPlugin` |
 | `web/src/GalleryLightboxPlugin.tsx` | yarl plugin: `GalleryOverlayWrapper` wraps `MODULE_CONTROLLER`; renders split-panel layout (carousel left, MetadataPanel right), bottom toolbar with inline delete confirm, PortalContext override for Tooltips |
 | `web/src/GalleryOpenButton.tsx` | Floating draggable button (position:fixed) or hidden embedded trigger |
-| `web/src/GallerySettingsModal.tsx` | Settings dialog (path, dark mode, extensions, polling, …) |
+| `web/src/GallerySettingsModal.tsx` | Settings dialog; `SourcePathList` component for multi-source paths; dark mode, extensions, polling |
 | `web/src/GroupView.tsx` | Model/Prompt group browsing tabs |
 | `web/src/ImageCard.tsx` | Grid cell: thumbnail, drag, ctrl-click select, delete confirm |
-| `web/src/MetadataPanel.tsx` | Side panel: parsed metadata table, raw JSON, copy/download/delete. Renders in-place (normal flow) inside yarl plugin's right section. Accepts `onDeleteRequest` prop; when provided, calls it instead of opening its own AlertDialog |
+| `web/src/MetadataPanel.tsx` | Side panel: parsed metadata table, raw JSON, copy/download/delete. Uses `image.rel_path` directly (not URL parsing) |
 | `web/src/PortalContext.tsx` | Context providing `#comfy-gallery-portals` to all Radix portals |
+| `web/src/ComfyAppApi.ts` | API client; `startMonitoring(sourcePaths: SourcePath[])`, `fetchImages()`, `resolveSourcePath()` |
 | `web/src/hooks/useModalDismiss.ts` | Encapsulates Radix dialog dismiss: prevent auto-close, explicit handlers |
 | `web/src/hooks/useGalleryGroups.ts` | Fetches/processes model + prompt groups |
 | `web/src/metadata-parser/metadataParser.ts` | Orchestrates extraction passes (public API) |
@@ -291,6 +365,27 @@ A1111 writes one combined field: `Sampler: DPM++ 3M SDE Karras`.
   focus, yarl loses arrow-key navigation. Use `onMouseDown={e => e.preventDefault()}` on
   toolbar/panel buttons that should not hold focus, or call `.blur()` immediately after
   the click handler. Existing toggle buttons already do this.
+
+- **`source_id` is immutable.** Changing a `source_id` in settings drops all cached DB entries
+  for that source (hash mismatch triggers full clear). Only change `label` when renaming a source
+  in the UI — never change `source_id`.
+- **`rel_path` encodes the source.** It is always `{source_id}/{file_rel}` (forward slashes, even
+  on Windows). Never strip or reparse the `source_id` prefix — use it as an opaque key. For
+  display, split on the first `/` to get source_id and file_rel.
+- **Symlinks in `input/` or `output/` break `relpath`.** `_resolve_rel_path` always returns a
+  `realpath`-resolved path. If you compute `os.path.relpath(src, input_dir)` and `input_dir` is a
+  symlink, the result is wrong (e.g. `../../real/input/foo.png` instead of `foo.png`). Always use
+  `os.path.realpath(input_dir)` as the base for `relpath`. Same applies to `_image_combo_input()`
+  in `gallery_node.py`.
+- **`_is_within_directory()` is the only safe containment check.** Uses `os.path.commonpath()` on
+  both `realpath`-resolved sides. Never use `startswith()` or manual path prefix checks.
+- **`output/` files in the COMBO widget use `[output]` annotation.** `_image_combo_input()` lists
+  output files as `"rel_path [output]"`. ComfyUI resolves these via `get_annotated_filepath()`.
+  Do not strip the annotation before passing to execution — `_resolve_image()` calls
+  `get_annotated_filepath()` which handles both forms.
+- **`_metadata` table is outside the schema wipe block.** It stores KV pairs (settings hash,
+  schema version markers) that must survive DB resets. Do not add it inside the schema wipe
+  `CREATE TABLE` block — it is created unconditionally at import time alongside `schema_version`.
 
 ### Cross-platform (macOS / Linux / Windows)
 
