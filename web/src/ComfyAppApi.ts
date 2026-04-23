@@ -141,13 +141,6 @@ export const ComfyAppApi = {
             });
         } catch(e) { console.error(e); }
     },
-    imageAbsPath: async (relPath: string): Promise<{ abs_path: string; exists: boolean } | null> => {
-        try {
-            const res = await app.api.fetchApi(`/Gallery/image_abs_path?rel_path=${encodeURIComponent(relPath)}`, { cache: 'no-store' });
-            if (res.ok) return await res.json();
-        } catch(e) { console.error(e); }
-        return null;
-    },
     copyToInput: async (relPath: string): Promise<{ filename: string } | null> => {
         try {
             const res = await app.api.fetchApi('/Gallery/copy_to_input', {
