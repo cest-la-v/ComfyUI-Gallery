@@ -79,11 +79,15 @@ class GalleryMetadataExtractor:
         input_images: list[str] = []
         if folder_paths:
             try:
-                in_dir = folder_paths.get_input_directory()
-                files = [f for f in os.listdir(in_dir) if os.path.isfile(os.path.join(in_dir, f))]
-                if hasattr(folder_paths, "filter_files_content_types"):
-                    input_images = folder_paths.filter_files_content_types(files, ["image"])
+                if hasattr(folder_paths, "get_filename_list"):
+                    files = folder_paths.get_filename_list("input")
+                    if hasattr(folder_paths, "filter_files_content_types"):
+                        input_images = folder_paths.filter_files_content_types(files, ["image"])
+                    else:
+                        input_images = [f for f in files if os.path.splitext(f)[1].lower() in _IMAGE_EXTS]
                 else:
+                    in_dir = folder_paths.get_input_directory()
+                    files = [f for f in os.listdir(in_dir) if os.path.isfile(os.path.join(in_dir, f))]
                     input_images = [f for f in files if os.path.splitext(f)[1].lower() in _IMAGE_EXTS]
             except Exception:
                 pass
