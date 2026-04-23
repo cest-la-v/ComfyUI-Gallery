@@ -255,7 +255,16 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                                                 const target = nodes.find(n => n.is_selected) ?? nodes[0];
                                                                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                                                 const w = target.widgets?.find((w: any) => w.name === 'image');
-                                                                if (w) { w.value = result.filename; target.setDirtyCanvas?.(true, true); }
+                                                                if (w) {
+                                                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                                    if (w.options?.values && !(w.options.values as any[]).includes(result.filename)) {
+                                                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                                        (w.options.values as any[]).push(result.filename);
+                                                                    }
+                                                                    w.value = result.filename;
+                                                                    w.callback?.(result.filename);
+                                                                    target.setDirtyCanvas?.(true, true);
+                                                                }
                                                                 toast.success(nodes.length > 1 ? `Sent to node #${target.id}` : 'Sent to node');
                                                             } catch { toast.error('Failed to send to node'); }
                                                         }}

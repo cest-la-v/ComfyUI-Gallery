@@ -144,7 +144,19 @@ ComfyAppApi.registerExtension({
                     (window as any).__comfyGallery?.openPickMode((filename: string) => {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const w = node.widgets?.find((w: any) => w.name === 'image');
-                        if (w) { w.value = filename; node.setDirtyCanvas?.(true, true); }
+                        if (w) {
+                            // Mirror what ComfyUI's upload widget does: add to options list
+                            // so the COMBO knows about the file, then fire callback to trigger
+                            // nodeOutputStore.setNodeOutputs() → loads the image preview
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            if (w.options?.values && !(w.options.values as any[]).includes(filename)) {
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                (w.options.values as any[]).push(filename);
+                            }
+                            w.value = filename;
+                            w.callback?.(filename);
+                            node.setDirtyCanvas?.(true, true);
+                        }
                     });
                 });
             }
