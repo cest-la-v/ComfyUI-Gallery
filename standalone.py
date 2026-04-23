@@ -5,7 +5,7 @@ Runs the gallery API server without ComfyUI, for development and testing:
 
     python standalone.py [--port 8188] [--output ./output] [--host 127.0.0.1]
 
-The Vite dev server (bun run dev) proxies /Gallery/* and /static_gallery/* to
+The Vite dev server (bun run dev) proxies /Gallery/* to
 this server so the frontend talks to a real backend without ComfyUI running.
 
 Environment variables:
@@ -102,7 +102,7 @@ def main() -> None:
     print(f"ComfyUI Gallery standalone backend")
     print(f"  http://{args.host}:{args.port}")
     print(f"  Output dir: {output_dir}")
-    print(f"  Proxy tip: add /Gallery/* and /static_gallery/* → :{args.port} in your dev server")
+    print(f"  Proxy tip: add /Gallery/* → :{args.port} in your dev server")
 
     web.run_app(app, host=args.host, port=args.port, print=None)
 

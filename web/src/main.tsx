@@ -2,7 +2,7 @@ import './globals.css';
 import { createRoot, type Root } from 'react-dom/client'
 import { useState } from 'react';
 import Gallery from './Gallery.tsx'
-import { DEFAULT_SETTINGS, STORAGE_KEY, type SettingsState } from './GalleryContext.tsx';
+import { DEFAULT_SETTINGS, DEFAULT_SOURCE_PATHS, STORAGE_KEY, type SettingsState } from './GalleryContext.tsx';
 import { galleryBridge } from './galleryBridge.ts';
 import { ComfyAppApi, OPEN_BUTTON_ID, isComfyMode } from './ComfyAppApi.ts';
 import { useLocalStorageState } from 'ahooks';
@@ -117,7 +117,7 @@ ComfyAppApi.registerExtension({
             _galleryRoot = createRoot(box);
             _galleryRoot.render(<Main />);
 
-            ComfyAppApi.startMonitoring(settings.relativePath);
+            ComfyAppApi.startMonitoring(settings.sourcePaths ?? DEFAULT_SOURCE_PATHS);
         })();
     },
     async nodeCreated(node: any) {

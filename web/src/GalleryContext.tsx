@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useSize, useRequest, useAsyncEffect, useEventListener, useLocalStorageState, useClickAway } from 'ahooks';
-import type { FileDetails, FilesTree } from './types';
+import type { FileDetails, FilesTree, SourcePath } from './types';
 import { useTheme } from './hooks/useTheme';
 import { normalizeModelName } from './metadata-parser/samplerNormalizer';
 type AutoCompleteOption = { value?: string; label?: React.ReactNode };
@@ -9,14 +9,8 @@ import { ComfyAppApi, OPEN_BUTTON_ID } from './ComfyAppApi';
 
 function getImages(): Promise<FilesTree> {
     return new Promise(async (resolve, reject) => {
-            try {
-                let settings = DEFAULT_SETTINGS;
-            try {
-                const raw = localStorage.getItem('comfy-ui-gallery-settings');
-                if (raw) settings = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-            } catch {}
-            
-            let request = await ComfyAppApi.fetchImages(settings.relativePath); 
+        try {
+            let request = await ComfyAppApi.fetchImages();
             let json: FilesTree = await request.json();
             resolve(json);
         } catch (error) {
@@ -26,7 +20,9 @@ function getImages(): Promise<FilesTree> {
 }
 
 export interface SettingsState {
-    relativePath: string;
+    /** @deprecated Use sourcePaths instead. Kept for v5→v6 migration. */
+    relativePath?: string;
+    sourcePaths?: SourcePath[];
     buttonLabel: string;
     floatingButton: boolean;
     autoPlayVideos: boolean;
@@ -42,8 +38,13 @@ export interface SettingsState {
     _settingsVersion?: number;
 }
 
+export const DEFAULT_SOURCE_PATHS: SourcePath[] = [
+    { source_id: 'output', path: '{output}', label: 'Output', enabled: true },
+    { source_id: 'input',  path: '{input}',  label: 'Input',  enabled: true },
+];
+
 export const DEFAULT_SETTINGS: SettingsState = {
-    relativePath: './',
+    sourcePaths: DEFAULT_SOURCE_PATHS,
     buttonLabel: 'Open Gallery',
     floatingButton: true,
     autoPlayVideos: true,
@@ -55,7 +56,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
     themeBase: 'default',
     themeAccent: 'default',
     galleryLayout: 'center',
-    _settingsVersion: 5,
+    _settingsVersion: 6,
 };
 export const STORAGE_KEY = 'comfy-ui-gallery-settings';
 
@@ -310,33 +311,34 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         });
     }, []);
 
-    // Watch for changes to settingsState.relativePath, disableLogs, usePollingObserver and update monitoring and data
-    // Start monitoring when settings change
     const saveSettings = (newSettings: SettingsState) => {
         setSettings(newSettings);
         ComfyAppApi.saveSettings(newSettings);
     };
 
+    // Watch for changes to sourcePaths / disableLogs / usePollingObserver — restart monitor
     useEffect(() => {
-        if (settingsState?.relativePath) {
+        const paths = settingsState?.sourcePaths;
+        if (paths && paths.length > 0) {
             ComfyAppApi.startMonitoring(
-                settingsState.relativePath, 
-                settingsState.disableLogs, 
+                paths,
+                settingsState.disableLogs,
                 settingsState.usePollingObserver,
-                settingsState.scanExtensions // Pass extensions here
+                settingsState.scanExtensions,
             );
             runAsync();
         }
-    }, [settingsState?.relativePath, settingsState?.disableLogs, settingsState?.usePollingObserver, JSON.stringify(settingsState?.scanExtensions)]);
+    }, [JSON.stringify(settingsState?.sourcePaths), settingsState?.disableLogs, settingsState?.usePollingObserver, JSON.stringify(settingsState?.scanExtensions)]);
 
     // Recovery B: when gallery is opened, restart monitoring if dead and refresh image list
     useEffect(() => {
-        if (open && settingsState?.relativePath) {
+        const paths = settingsState?.sourcePaths;
+        if (open && paths && paths.length > 0) {
             ComfyAppApi.startMonitoring(
-                settingsState.relativePath,
+                paths,
                 settingsState.disableLogs,
                 settingsState.usePollingObserver,
-                settingsState.scanExtensions
+                settingsState.scanExtensions,
             );
             runAsync();
         }
@@ -355,15 +357,27 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     // v2→v3: hideOpenButton removed — no conversion needed, unknown fields are ignored.
     // v3→v4: themeBase + themeAccent added (both default to 'default').
     // v4→v5: galleryLayout added (defaults to 'center').
+    // v5→v6: relativePath → sourcePaths (multi-source). Old relativePath preserved as custom
+    //        source if it was non-default, alongside the built-in output+input defaults.
     useEffect(() => {
-        if (settingsState && (settingsState._settingsVersion ?? 1) < 5) {
+        if (!settingsState) return;
+        const v = settingsState._settingsVersion ?? 1;
+        if (v < 6) {
+            const defaultPaths = [...DEFAULT_SOURCE_PATHS];
+            // Preserve a custom relativePath from pre-v6 settings as a third source.
+            const oldPath = settingsState.relativePath;
+            const isDefault = !oldPath || oldPath === './' || oldPath === '.' || oldPath === 'null' || oldPath === '';
+            const sourcePaths: SourcePath[] = isDefault
+                ? defaultPaths
+                : [...defaultPaths, { source_id: 'custom', path: oldPath, label: 'Custom', enabled: true }];
             setSettings({
                 ...settingsState,
-                darkMode: true,
+                darkMode: settingsState.darkMode ?? true,
                 themeBase: settingsState.themeBase ?? 'default',
                 themeAccent: settingsState.themeAccent ?? 'default',
                 galleryLayout: settingsState.galleryLayout ?? 'center',
-                _settingsVersion: 5,
+                sourcePaths,
+                _settingsVersion: 6,
             });
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps

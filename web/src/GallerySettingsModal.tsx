@@ -13,8 +13,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { buttonVariants } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { useGalleryContext, type SettingsState } from './GalleryContext';
+import { CheckCircle2, XCircle, Loader2, Plus, Trash2 } from 'lucide-react';
+import { useGalleryContext, type SettingsState, DEFAULT_SOURCE_PATHS } from './GalleryContext';
 import { useSetState } from 'ahooks';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useDebounceFn } from 'ahooks';
@@ -22,6 +22,7 @@ import { ComfyAppApi, isComfyMode } from './ComfyAppApi';
 import { cn } from '@/lib/utils';
 import { useModalDismiss } from './hooks/useModalDismiss';
 import { BASE_THEMES, ACCENT_THEMES } from './themes';
+import type { SourcePath } from './types';
 
 interface DbStatus {
     schema_version: number;
@@ -147,13 +148,127 @@ function DefaultSwatch({ selected, onClick, label }: { selected: boolean; onClic
     );
 }
 
+/** A single source-path row: enable toggle, label, path, resolve preview, delete. */
+function SourcePathRow({
+    sp, onChange, onDelete, canDelete,
+}: {
+    sp: SourcePath;
+    onChange: (sp: SourcePath) => void;
+    onDelete: () => void;
+    canDelete: boolean;
+}) {
+    const [resolved, setResolved] = useState<ResolvedPath | null>(null);
+    const [resolving, setResolving] = useState(false);
+
+    const doResolve = useCallback(async (path: string) => {
+        if (!path) { setResolved(null); return; }
+        setResolving(true);
+        const result = await ComfyAppApi.resolveSourcePath(path);
+        setResolved(result);
+        setResolving(false);
+    }, []);
+
+    const { run: debouncedResolve } = useDebounceFn(doResolve, { wait: 400 });
+
+    useEffect(() => { debouncedResolve(sp.path); }, [sp.path]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    return (
+        <div className="flex flex-col gap-1 p-2 rounded-md border border-border bg-muted/30">
+            <div className="flex items-center gap-2">
+                <Switch
+                    checked={sp.enabled}
+                    onCheckedChange={v => onChange({ ...sp, enabled: v })}
+                />
+                <Input
+                    className="h-7 text-sm flex-1 min-w-0"
+                    value={sp.label}
+                    onChange={e => onChange({ ...sp, label: e.target.value })}
+                    placeholder="Label"
+                />
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={onDelete}
+                    disabled={!canDelete}
+                    onMouseDown={e => e.preventDefault()}
+                >
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            </div>
+            <Input
+                className="h-7 text-sm font-mono"
+                value={sp.path}
+                onChange={e => onChange({ ...sp, path: e.target.value })}
+                placeholder="{output}, {input}, or /absolute/path"
+            />
+            <div className="min-h-[1.25rem] flex items-center gap-1.5">
+                {resolving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                {!resolving && resolved && (
+                    <>
+                        {resolved.exists
+                            ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                            : <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                        }
+                        <span className={cn(
+                            "text-xs font-mono truncate",
+                            resolved.exists ? "text-muted-foreground" : "text-destructive"
+                        )}>
+                            {resolved.resolved}{!resolved.exists && " (not found)"}
+                        </span>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/** List of source paths with add/remove controls. */
+function SourcePathList({
+    sourcePaths, onChange,
+}: {
+    sourcePaths: SourcePath[];
+    onChange: (paths: SourcePath[]) => void;
+}) {
+    const add = () => {
+        const id = `custom-${Date.now()}`;
+        onChange([...sourcePaths, { source_id: id, path: '', label: 'Custom', enabled: true }]);
+    };
+    return (
+        <div className="flex flex-col gap-2">
+            {sourcePaths.map((sp, i) => (
+                <SourcePathRow
+                    key={sp.source_id}
+                    sp={sp}
+                    onChange={updated => {
+                        const next = [...sourcePaths];
+                        next[i] = updated;
+                        onChange(next);
+                    }}
+                    onDelete={() => onChange(sourcePaths.filter((_, j) => j !== i))}
+                    canDelete={sourcePaths.length > 1}
+                />
+            ))}
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full text-xs"
+                onClick={add}
+                onMouseDown={e => e.preventDefault()}
+            >
+                <Plus className="h-3.5 w-3.5 mr-1" /> Add Source
+            </Button>
+        </div>
+    );
+}
+
 const GallerySettingsModal = () => {
     const { showSettings, setShowSettings, settings, setSettings, runAsync } = useGalleryContext();
     const [staged, setStaged] = useSetState<SettingsState>(settings);
     const [extInput, setExtInput] = useState("");
     const [dbStatus, setDbStatus] = useState<DbStatus | null>(null);
-    const [resolvedPath, setResolvedPath] = useState<ResolvedPath | null>(null);
-    const [resolving, setResolving] = useState(false);
     // Store settings at modal-open time so Cancel can revert live theme preview
     const openSettingsRef = useRef<SettingsState>(settings);
 
@@ -167,24 +282,6 @@ const GallerySettingsModal = () => {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showSettings]);
-
-    // Live path resolution — debounced 400ms
-    const doResolve = useCallback(async (path: string) => {
-        setResolving(true);
-        const result = await ComfyAppApi.resolvePath(path);
-        setResolvedPath(result);
-        setResolving(false);
-    }, []);
-
-    const { run: debouncedResolve } = useDebounceFn(doResolve, { wait: 400 });
-
-    // Resolve whenever staged path changes or modal opens
-    useEffect(() => {
-        if (showSettings) {
-            debouncedResolve(staged.relativePath);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [staged.relativePath, showSettings]);
 
     const handleSave = () => {
         const exts = extInput.split(',').map(s => s.trim().replace(/^\./, '')).filter(s => s);
@@ -219,32 +316,12 @@ const GallerySettingsModal = () => {
                     <div className="flex flex-col gap-2">
                         <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Source</span>
                         <div>
-                            <label className="text-sm font-medium">Source Path</label>
-                            <Input
-                                className="mt-1"
-                                value={staged.relativePath}
-                                onChange={e => setStaged({ relativePath: e.target.value })}
-                                placeholder="./ or /absolute/path"
+                            <label className="text-sm font-medium">Source Paths</label>
+                            <p className="text-xs text-muted-foreground mb-2">Folders to watch. Use <code className="text-xs">{'{output}'}</code> / <code className="text-xs">{'{input}'}</code> for ComfyUI defaults.</p>
+                            <SourcePathList
+                                sourcePaths={staged.sourcePaths ?? DEFAULT_SOURCE_PATHS}
+                                onChange={paths => setStaged({ sourcePaths: paths })}
                             />
-                            {/* Live resolved path display */}
-                            <div className="mt-1 min-h-[1.25rem] flex items-center gap-1.5">
-                                {resolving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                                {!resolving && resolvedPath && (
-                                    <>
-                                        {resolvedPath.exists
-                                            ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                                            : <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
-                                        }
-                                        <span className={cn(
-                                            "text-xs font-mono truncate",
-                                            resolvedPath.exists ? "text-muted-foreground" : "text-destructive"
-                                        )}>
-                                            {resolvedPath.resolved}
-                                            {!resolvedPath.exists && " (not found)"}
-                                        </span>
-                                    </>
-                                )}
-                            </div>
                         </div>
                         <SettingRow label="File Watcher" description="Polling works on network drives; native is more efficient">
                             <SegmentedControl

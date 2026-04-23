@@ -333,9 +333,11 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
 
     const { showRawMetadata, setShowRawMetadata, settings } = useGalleryContext();
 
-    const relPath = image.url.startsWith('/static_gallery/')
-        ? image.url.slice('/static_gallery/'.length)
-        : image.url;
+    const relPath = image.rel_path ?? (
+        image.url.startsWith('/static_gallery/')
+            ? image.url.slice('/static_gallery/'.length)
+            : image.url
+    );
 
     // Fetch parsed params on image change
     useEffect(() => {

@@ -1,6 +1,9 @@
 {
-    "_comment": "Values here override defaults.",
-    "relativePath": null,
+    "_comment": "Values here override defaults. Remove or null-out any field to use the built-in default.",
+    "sourcePaths": [
+        { "source_id": "output", "path": "{output}", "label": "Output", "enabled": true },
+        { "source_id": "input",  "path": "{input}",  "label": "Input",  "enabled": true }
+    ],
     "scanExtensions": null,
     "darkMode": null,
     "autoPlayVideos": null,

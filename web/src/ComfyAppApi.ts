@@ -5,6 +5,8 @@
 // Types for event callbacks
 type GalleryEventCallback = (event: any) => void;
 
+import type { SourcePath } from './types';
+
 export const BASE_PATH = getComfyApp() ? window.location.origin : "http://localhost:8188";
 export const OPEN_BUTTON_ID = "comfy-ui-gallery-open-button";
 export const BASE_Z_INDEX = 3000;
@@ -47,23 +49,23 @@ const comfyApp = getComfyApp();
 const app = comfyApp ? comfyApp : mockApi;
 
 export const ComfyAppApi = {
-    startMonitoring: (relativePath: string, disableLogs?: boolean, usePollingObserver?: boolean, scanExtensions?: string[]) =>
+    startMonitoring: (sourcePaths: SourcePath[], disableLogs?: boolean, usePollingObserver?: boolean, scanExtensions?: string[]) =>
         app.api.fetchApi("/Gallery/monitor/start", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                relative_path: relativePath,
+            body: JSON.stringify({
+                source_paths: sourcePaths,
                 disable_logs: disableLogs ?? false,
                 use_polling_observer: usePollingObserver ?? false,
-                scan_extensions: scanExtensions 
+                scan_extensions: scanExtensions,
             })
         }),
     stopMonitoring: () =>
         app.api.fetchApi("/Gallery/monitor/stop", {
             method: "POST"
         }),
-    fetchImages: (relativePath?: string) =>
-        app.api.fetchApi(`/Gallery/images?relative_path=${encodeURIComponent(relativePath ?? './')}`, { cache: 'no-store' }),
+    fetchImages: () =>
+        app.api.fetchApi(`/Gallery/images`, { cache: 'no-store' }),
     onFileChange: (cb: GalleryEventCallback) =>
         app.api.addEventListener("Gallery.file_change", cb),
     onUpdate: (cb: GalleryEventCallback) =>
@@ -128,6 +130,18 @@ export const ComfyAppApi = {
     resolvePath: async (path: string): Promise<{ resolved: string; exists: boolean } | null> => {
         try {
             const res = await app.api.fetchApi(`/Gallery/resolve_path?path=${encodeURIComponent(path)}`, { cache: 'no-store' });
+            if (res.ok) return await res.json();
+        } catch(e) { console.error(e); }
+        return null;
+    },
+    resolveSourcePath: async (path: string): Promise<{ resolved: string; exists: boolean } | null> => {
+        try {
+            const res = await app.api.fetchApi('/Gallery/resolve_source_path', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path }),
+                cache: 'no-store',
+            });
             if (res.ok) return await res.json();
         } catch(e) { console.error(e); }
         return null;

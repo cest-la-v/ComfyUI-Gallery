@@ -64,6 +64,16 @@ class GalleryDB:
             conn.execute("DELETE FROM schema_version")
             conn.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
 
+        # _metadata survives schema wipes — stores operational key/value pairs
+        # (e.g. source-hash for detecting source-list changes).
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS _metadata (
+                key   TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
+        conn.commit()
+
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS files (
                 id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -253,6 +263,50 @@ class GalleryDB:
             with conn:
                 conn.executemany("DELETE FROM files WHERE rel_path = ?", [(p,) for p in dead])
             gallery_log(f"Gallery DB: GC removed {len(dead)} stale entries")
+
+    def gc_dead_entries_for_source(self, source_id: str, current_rel_paths: set):
+        """Source-scoped GC — only removes entries belonging to source_id.
+
+        Avoids cross-source cache corruption: scanning source A then source B
+        with the global gc_dead_entries() would delete all of source A's rows.
+        Only entries whose rel_path starts with '{source_id}/' are considered.
+        """
+        conn = self._conn()
+        prefix = f"{source_id}/"
+        db_paths = {
+            row[0] for row in conn.execute(
+                "SELECT rel_path FROM files WHERE rel_path LIKE ?",
+                (prefix + "%",),
+            ).fetchall()
+        }
+        dead = db_paths - current_rel_paths
+        if dead:
+            with conn:
+                conn.executemany("DELETE FROM files WHERE rel_path = ?", [(p,) for p in dead])
+            gallery_log(f"Gallery DB: GC removed {len(dead)} stale entries for source '{source_id}'")
+
+    def clear_cache(self):
+        """Delete all file cache entries (used when source list changes)."""
+        conn = self._conn()
+        with conn:
+            conn.execute("DELETE FROM files")
+        gallery_log("Gallery DB: cache cleared")
+
+    def get_meta(self, key: str) -> str | None:
+        """Read a value from the _metadata table."""
+        row = self._conn().execute(
+            "SELECT value FROM _metadata WHERE key = ?", (key,)
+        ).fetchone()
+        return row["value"] if row else None
+
+    def set_meta(self, key: str, value: str):
+        """Write a value to the _metadata table (upsert)."""
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO _metadata (key, value) VALUES (?, ?)"
+                " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (key, value),
+            )
 
     def get_groups_by_model(self) -> list:
         """Image counts grouped by model, with up to 4 sample rel_paths each."""

@@ -32,12 +32,17 @@ def _file_type(ext: str) -> str:
     return "unknown"
 
 
-def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_extensions=None, db=None):
+def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_extensions=None, db=None, source_id: str = ""):
     """Scans directories for files matching allowed extensions.
 
     If db is provided, raw metadata for image files is cached in SQLite:
     buildMetadata() is only called for new or changed files (cache miss).
     os.scandir() is always called — it is the source of truth for file existence.
+
+    source_id — when set (multi-source mode):
+      • rel_path  is prefixed: "{source_id}/{file_rel}"
+      • url       becomes:     "/Gallery/file/{source_id}/{file_rel}"
+      • GC is source-scoped so sibling sources' DB rows are not touched
     """
     if allowed_extensions is None:
         allowed_extensions = DEFAULT_EXTENSIONS
@@ -79,13 +84,15 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
 
                 file_type = _file_type(ext)
 
-                # rel_path relative to full_base_path (DB identity key, always uses /)
+                # rel_path — DB identity key (always uses /)
+                # In multi-source mode prefix with source_id so keys are globally unique.
                 try:
-                    rel_path = os.path.relpath(entry.path, full_base_path).replace("\\", "/")
+                    file_rel = os.path.relpath(entry.path, full_base_path).replace("\\", "/")
                 except ValueError:
                     # Windows: raised when entry.path and full_base_path are on different drives
                     gallery_log(f"Skipping {entry.path}: on different drive from gallery root")
                     continue
+                rel_path = f"{source_id}/{file_rel}" if source_id else file_rel
                 current_rel_paths.add(rel_path)
 
                 try:
@@ -98,12 +105,16 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
 
                 date_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
 
-                # URL construction (rel_dir always uses / for URL compatibility)
+                # URL construction
                 try:
                     rel_dir = os.path.relpath(dir_path, full_base_path).replace("\\", "/")
                 except ValueError:
                     rel_dir = "."
-                if rel_dir == ".":
+                if source_id:
+                    # Multi-source: stable URL via dynamic file-serving endpoint
+                    file_rel_for_url = entry.name if rel_dir == "." else f"{rel_dir}/{entry.name}"
+                    url_path = f"/Gallery/file/{source_id}/{file_rel_for_url}"
+                elif rel_dir == ".":
                     url_path = f"/static_gallery/{entry.name}"
                 else:
                     url_path = f"/static_gallery/{rel_dir}/{entry.name}"
@@ -186,10 +197,13 @@ def _scan_for_images(full_base_path, base_path, include_subfolders, allowed_exte
         except Exception as e:
             gallery_log(f"Gallery DB: error upserting batch: {e}")
 
-    # GC dead entries (inverted diff: delete entries no longer on disk)
+    # GC dead entries — source-scoped in multi-source mode to avoid cross-source corruption
     if db is not None:
         try:
-            db.gc_dead_entries(current_rel_paths)
+            if source_id:
+                db.gc_dead_entries_for_source(source_id, current_rel_paths)
+            else:
+                db.gc_dead_entries(current_rel_paths)
         except Exception as e:
             gallery_log(f"Gallery DB: error in GC: {e}")
 

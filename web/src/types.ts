@@ -1,3 +1,13 @@
+export interface SourcePath {
+    /** Immutable URL-safe identifier (alphanumeric + dash/underscore). Generated once at creation. */
+    source_id: string;
+    /** Raw path string: absolute, relative to output dir, or "{output}" / "{input}" token. */
+    path: string;
+    /** Display label shown in folder groups and settings UI. */
+    label: string;
+    enabled: boolean;
+}
+
 export interface FileInfo {
     filename: string;
     resolution: string;

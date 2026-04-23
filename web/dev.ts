@@ -21,9 +21,8 @@ Bun.serve({
     "/api.json": () => new Response(Bun.file("./public/api.json"), {
       headers: { "Content-Type": "application/json" },
     }),
-    // Proxy gallery API and static images to the standalone Python backend
+    // Proxy gallery API to the standalone Python backend
     "/Gallery/*": (req) => proxyTo(req, BACKEND),
-    "/static_gallery/*": (req) => proxyTo(req, BACKEND),
   },
   development: {
     hmr: true,

@@ -1,7 +1,9 @@
 from aiohttp import web
 import os
 import sys
+import re
 import time
+import hashlib
 from datetime import datetime
 import json
 import math
@@ -57,13 +59,15 @@ def _get_output_directory() -> str:
     return default
 
 
-monitor = None
+monitor = None  # kept for legacy compat; multi-source uses _monitors below
+_monitors: dict = {}  # keyed by source_id
+_active_sources: list = []  # list of {source_id, abs_path, label}
+
 # Placeholder directory — must exist even if empty.
 PLACEHOLDER_DIR = _get_output_directory()
 os.makedirs(PLACEHOLDER_DIR, exist_ok=True)
 
-# Current gallery root directory — updated when monitor starts/stops.
-# This avoids reading the private aiohttp _directory attribute which can change across versions.
+# Current gallery root directory — legacy compat shim (first active source or PLACEHOLDER_DIR).
 _current_gallery_dir: str = PLACEHOLDER_DIR
 
 # Add a *placeholder* static route.  This gets modified later.
@@ -101,8 +105,112 @@ def _is_within_directory(file_path: str, base_dir: str) -> bool:
 
 
 def _get_static_dir() -> str:
-    """Return the current static gallery root directory."""
+    """Return the current static gallery root directory (legacy compat)."""
     return _current_gallery_dir
+
+
+# ---------------------------------------------------------------------------
+# Multi-source path helpers
+# ---------------------------------------------------------------------------
+
+_DEFAULT_SOURCE_PATHS = [
+    {"source_id": "output", "path": "{output}", "label": "Output", "enabled": True},
+    {"source_id": "input",  "path": "{input}",  "label": "Input",  "enabled": True},
+]
+
+
+def _resolve_token(raw: str) -> str:
+    """Resolve magic tokens and relative paths to absolute paths."""
+    if raw == "{output}":
+        return _get_output_directory()
+    if raw == "{input}":
+        if _folder_paths is not None:
+            return _folder_paths.get_input_directory()
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "input")
+    if not raw or raw.strip() in ("", "null"):
+        return _get_output_directory()
+    if os.path.isabs(raw):
+        return os.path.normpath(raw)
+    if raw in ("./", "."):
+        return _get_output_directory()
+    return os.path.normpath(os.path.join(_get_output_directory(), raw))
+
+
+def _generate_source_id(label: str) -> str:
+    """Slugify label to a URL-safe source_id ([a-z0-9][a-z0-9\\-_]*)."""
+    slug = re.sub(r'[^a-z0-9\-_]', '-', label.lower().strip())
+    slug = re.sub(r'-+', '-', slug).strip('-')
+    return slug or 'source'
+
+
+def _load_active_sources() -> list:
+    """Return validated list of {source_id, abs_path, label} for enabled sources."""
+    saved = load_settings()
+    source_paths = saved.get("sourcePaths") or _DEFAULT_SOURCE_PATHS
+    sources = []
+    seen_ids: set = set()
+    seen_realpaths: set = set()
+    for sp in source_paths:
+        if not sp.get("enabled", True):
+            continue
+        source_id = sp.get("source_id") or _generate_source_id(sp.get("label", "source"))
+        raw_path = sp.get("path", "")
+        abs_path = _resolve_token(raw_path)
+        if not abs_path or not os.path.isdir(abs_path):
+            gallery_log(f"Source '{source_id}' path '{raw_path}' not found, skipping")
+            continue
+        real = os.path.realpath(abs_path)
+        if source_id in seen_ids:
+            gallery_log(f"Duplicate source_id '{source_id}', skipping")
+            continue
+        if real in seen_realpaths:
+            gallery_log(f"Duplicate realpath '{real}' for source '{source_id}', skipping")
+            continue
+        # Check containment with already-registered sources
+        contained = False
+        for other_real in seen_realpaths:
+            if os.path.commonpath([real, other_real]) in (real, other_real):
+                gallery_log(f"Source '{source_id}' overlaps with existing source, skipping")
+                contained = True
+                break
+        if contained:
+            continue
+        seen_ids.add(source_id)
+        seen_realpaths.add(real)
+        sources.append({"source_id": source_id, "abs_path": abs_path, "label": sp.get("label", source_id)})
+    return sources
+
+
+def _get_source_dir(source_id: str) -> str | None:
+    """Return abs_path for a given source_id from the active sources list."""
+    for s in _active_sources:
+        if s["source_id"] == source_id:
+            return s["abs_path"]
+    return None
+
+
+def _resolve_rel_path(rel_path: str) -> str | None:
+    """Resolve a multi-source rel_path (source_id/file_rel) to an absolute path.
+
+    Returns None if source not found, path doesn't exist, or it's a path traversal.
+    """
+    if not rel_path or "/" not in rel_path:
+        return None
+    source_id, _, file_rel = rel_path.partition("/")
+    abs_source = _get_source_dir(source_id)
+    if abs_source is None:
+        return None
+    full_path = os.path.realpath(os.path.join(abs_source, file_rel))
+    if not _is_within_directory(full_path, abs_source):
+        return None
+    return full_path
+
+
+def _compute_source_hash(sources: list) -> str:
+    """Stable sha256 hash of the {source_id: realpath} mapping."""
+    mapping = {s["source_id"]: os.path.realpath(s["abs_path"]) for s in sources}
+    payload = json.dumps(sorted(mapping.items()), sort_keys=True)
+    return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def _build_civitai_text(params: dict) -> str:
@@ -170,11 +278,32 @@ def load_settings() -> dict:
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                settings = json.load(f)
         except Exception as e:
             gallery_log(f"Error loading settings: {e}")
             return {}
-    return {}
+    else:
+        return {}
+
+    # v5 → v6 migration: convert relativePath to sourcePaths
+    version = settings.get("_settingsVersion", 1)
+    if version <= 5 and "sourcePaths" not in settings:
+        source_paths = list(_DEFAULT_SOURCE_PATHS)
+        old_rel = settings.get("relativePath")
+        if old_rel and str(old_rel).lower() not in ("", "null", "./", "."):
+            resolved = _resolve_path(old_rel)
+            if resolved != _get_output_directory():
+                source_paths.append({
+                    "source_id": _generate_source_id("custom"),
+                    "path": resolved,
+                    "label": "Custom",
+                    "enabled": True,
+                })
+        settings["sourcePaths"] = source_paths
+        settings["_settingsVersion"] = 6
+        save_settings_to_file(settings)
+
+    return settings
 
 
 def save_settings_to_file(settings):
@@ -244,6 +373,47 @@ async def resolve_path(request):
         headers=_NO_CACHE,
     )
 
+
+@PromptServer.instance.routes.post("/Gallery/resolve_source_path")
+async def resolve_source_path(request):
+    """Resolve a source path string (may include tokens) to an absolute path.
+
+    Body JSON:
+      path — raw path string (e.g. "{output}", "/abs/path", "relative/path")
+
+    Response: { "resolved": "/abs/path", "exists": true|false }
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+    raw = data.get("path", "")
+    resolved = _resolve_token(raw)
+    return web.json_response(
+        {"resolved": resolved, "exists": os.path.isdir(resolved)},
+        headers=_NO_CACHE,
+    )
+
+
+@PromptServer.instance.routes.get("/Gallery/file/{source_id}/{path:.*}")
+async def serve_gallery_file(request):
+    """Serve a file from a gallery source directory.
+
+    Security: resolved path must be within the source's abs_path.
+    Uses web.FileResponse to support range requests (video/audio seeking).
+    """
+    source_id = request.match_info["source_id"]
+    file_rel = request.match_info["path"].replace("\\", "/")
+    abs_source = _get_source_dir(source_id)
+    if abs_source is None:
+        return web.Response(status=404, text=f"Source '{source_id}' not found")
+    full_path = os.path.realpath(os.path.join(abs_source, file_rel))
+    if not _is_within_directory(full_path, abs_source):
+        return web.Response(status=403, text="Access denied")
+    if not os.path.isfile(full_path):
+        return web.Response(status=404, text="File not found")
+    return web.FileResponse(full_path)
+
 @PromptServer.instance.routes.post("/Gallery/copy_to_input")
 async def copy_to_input(request):
     """Copy a gallery image into ComfyUI's input directory.
@@ -252,7 +422,7 @@ async def copy_to_input(request):
     COMBO option that ComfyUI can resolve via get_annotated_filepath().
 
     Body JSON:
-      rel_path — path relative to the currently active gallery monitor root
+      rel_path — multi-source rel_path (source_id/file_rel)
 
     Response: { "filename": "image.png" }
     """
@@ -268,11 +438,9 @@ async def copy_to_input(request):
     if not rel_path:
         return web.json_response({"error": "rel_path is required"}, status=400, headers=_NO_CACHE)
 
-    gallery_root = _get_static_dir()
-    src = os.path.normpath(os.path.join(gallery_root, rel_path))
-
-    if not _is_within_directory(src, gallery_root):
-        return web.json_response({"error": "Path outside gallery root"}, status=400, headers=_NO_CACHE)
+    src = _resolve_rel_path(rel_path)
+    if src is None:
+        return web.json_response({"error": "Path outside all gallery sources"}, status=400, headers=_NO_CACHE)
     if not os.path.isfile(src):
         return web.json_response({"error": "File not found"}, status=404, headers=_NO_CACHE)
 
@@ -287,16 +455,7 @@ async def copy_to_input(request):
 
 @PromptServer.instance.routes.get("/Gallery/images")
 async def get_gallery_images(request):
-    """Endpoint to get gallery images, accepts relative_path."""
-    raw_rel = request.rel_url.query.get("relative_path", "./")
-    # Normalize query value: treat null/None/empty as root
-    if raw_rel is None or str(raw_rel).lower() == 'null' or str(raw_rel).strip() == "":
-        relative_path = "./"
-    else:
-        relative_path = raw_rel
-
-    full_monitor_path = _resolve_path(relative_path)
-
+    """Scan all active sources and return merged folder tree."""
     # Use a thread-safe queue to communicate between threads.
     result_queue = queue.Queue()
 
@@ -304,17 +463,21 @@ async def get_gallery_images(request):
         """Target function for the scanning thread."""
         with PromptServer.instance.scan_lock:
             try:
-                # Load saved settings to determine extensions
                 saved = load_settings()
                 scan_extensions = saved.get('scanExtensions', DEFAULT_EXTENSIONS)
-                # Use the actual folder name as the root key
-                folder_name = os.path.basename(full_monitor_path)
-                folders_with_metadata, _ = _scan_for_images(
-                    full_monitor_path, folder_name, True, scan_extensions, db=_gallery_db
-                )
-                result_queue.put(folders_with_metadata)  # Put the result in the queue
+                sources = _active_sources if _active_sources else _load_active_sources()
+                merged_folders: dict = {}
+                for source in sources:
+                    sid = source["source_id"]
+                    abs_path = source["abs_path"]
+                    folders, _ = _scan_for_images(
+                        abs_path, sid, True, scan_extensions,
+                        db=_gallery_db, source_id=sid,
+                    )
+                    merged_folders.update(folders)
+                result_queue.put(merged_folders)
             except Exception as e:
-                result_queue.put(e)  # Put the exception in the queue
+                result_queue.put(e)
 
     def on_scan_complete(folders_with_metadata):
             """Callback executed in the main thread to send the response."""
@@ -373,14 +536,9 @@ async def get_file_metadata(request):
     rel_path = request.match_info["path"].replace("\\", "/")
     fmt = request.rel_url.query.get("format", "parsed")
 
-    static_dir = _get_static_dir()
-    full_path = os.path.realpath(os.path.join(static_dir, rel_path))
-
-    if not _is_within_directory(full_path, static_dir):
-        return web.Response(status=403, text="Access denied: path outside gallery root")
-
     if fmt == "raw":
-        if not os.path.isfile(full_path):
+        full_path = _resolve_rel_path(rel_path)
+        if not full_path or not os.path.isfile(full_path):
             return web.Response(status=404, text=f"File not found: {rel_path}")
         try:
             _, _, metadata = buildMetadata(full_path)
@@ -471,51 +629,76 @@ async def get_gallery_db_status(request):
 
 @PromptServer.instance.routes.post("/Gallery/monitor/start")
 async def start_gallery_monitor(request):
-    """Endpoint to start gallery monitoring, accepts relative_path."""
-    global monitor
+    """Start file system monitors for all active sources.
+
+    Body JSON:
+      source_paths    — array of SourcePath objects from frontend settings
+      disable_logs    — bool
+      use_polling_observer — bool
+      scan_extensions — list[str] | null
+    """
+    global _monitors, _active_sources, _current_gallery_dir
     from . import gallery_config
     try:
         data = await request.json()
-        # Normalize relative_path: if missing, null, or literal 'null', treat as root
-        relative_path = data.get("relative_path", "./")
-        if relative_path is None or str(relative_path).lower() == 'null' or str(relative_path).strip() == "":
-            relative_path = "./"
         gallery_config.disable_logs = data.get("disable_logs", False)
         gallery_config.use_polling_observer = data.get("use_polling_observer", False)
         scan_extensions = data.get("scan_extensions", DEFAULT_EXTENSIONS)
-        disable_logs = gallery_config.disable_logs
         use_polling_observer = gallery_config.use_polling_observer
-        # Build full monitor path using shared helper
-        full_monitor_path = _resolve_path(relative_path)
-        gallery_log("disable_logs", disable_logs)
-        gallery_log("use_polling_observer", use_polling_observer)
-        if monitor and monitor.thread and monitor.thread.is_alive():
-            # Monitor is healthy — only restart if the path or settings changed.
-            current_path = os.path.normpath(str(monitor.base_path)) if monitor else None
-            settings_unchanged = (
-                current_path == full_monitor_path
-                and gallery_config.disable_logs == disable_logs
-                and gallery_config.use_polling_observer == use_polling_observer
+
+        # Persist incoming source_paths so load_settings() sees them immediately
+        incoming_source_paths = data.get("source_paths")
+        if incoming_source_paths is not None:
+            saved = load_settings()
+            saved["sourcePaths"] = incoming_source_paths
+            saved["_settingsVersion"] = 6
+            save_settings_to_file(saved)
+
+        new_sources = _load_active_sources()
+        if not new_sources:
+            gallery_log("No valid source paths configured")
+            return web.Response(status=400, text="No valid source paths configured")
+
+        # Source-hash check — clear DB if source list changed
+        new_hash = _compute_source_hash(new_sources)
+        stored_hash = _gallery_db.get_meta("source_hash") if _gallery_db else None
+        if stored_hash != new_hash:
+            gallery_log("Gallery DB: source list changed, clearing cache")
+            if _gallery_db:
+                _gallery_db.clear_cache()
+                _gallery_db.set_meta("source_hash", new_hash)
+
+        _active_sources = new_sources
+        # Update legacy compat shim
+        _current_gallery_dir = new_sources[0]["abs_path"] if new_sources else PLACEHOLDER_DIR
+
+        new_source_ids = {s["source_id"] for s in new_sources}
+        old_source_ids = set(_monitors.keys())
+
+        # Stop monitors for removed sources
+        for sid in old_source_ids - new_source_ids:
+            m = _monitors.pop(sid, None)
+            if m and m.thread and m.thread.is_alive():
+                m.stop_monitoring()
+
+        # Start new monitors / restart changed ones
+        for source in new_sources:
+            sid = source["source_id"]
+            abs_path = source["abs_path"]
+            existing = _monitors.get(sid)
+            if existing and existing.thread and existing.thread.is_alive():
+                if os.path.normpath(str(existing.base_path)) == abs_path:
+                    continue  # unchanged path — keep running
+                existing.stop_monitoring()
+            new_monitor = FileSystemMonitor(
+                abs_path, interval=1.0,
+                use_polling_observer=use_polling_observer,
+                extensions=scan_extensions,
             )
-            if settings_unchanged:
-                gallery_log("FileSystemMonitor: Monitor already running with same settings, skipping restart.")
-                return web.Response(text="Gallery monitor already running", content_type="text/plain")
-            gallery_log("FileSystemMonitor: Settings changed, stopping previous monitor.")
-            monitor.stop_monitoring()
-        if not os.path.isdir(full_monitor_path):
-            return web.Response(status=400, text=f"Invalid relative_path: {relative_path}, path not found")
-        for route in PromptServer.instance.app.router.routes():
-            if route.name == 'static_gallery_placeholder':
-                route.resource._directory = pathlib.Path(full_monitor_path)
-                gallery_log(f"Serving static files from {full_monitor_path} at /static_gallery")
-                break
-        else:
-            gallery_log("Error: Placeholder static route not found!")
-            return web.Response(status=500, text="Placeholder route not found.")
-        global _current_gallery_dir
-        _current_gallery_dir = full_monitor_path
-        monitor = FileSystemMonitor(full_monitor_path, interval=1.0, use_polling_observer=use_polling_observer, extensions=scan_extensions)
-        monitor.start_monitoring()
+            new_monitor.start_monitoring()
+            _monitors[sid] = new_monitor
+
+        gallery_log(f"Gallery monitors active for: {list(_monitors.keys())}")
         return web.Response(text="Gallery monitor started", content_type="text/plain")
     except Exception as e:
         gallery_log(f"Error starting gallery monitor: {e}")
@@ -525,18 +708,15 @@ async def start_gallery_monitor(request):
 
 @PromptServer.instance.routes.post("/Gallery/monitor/stop")
 async def stop_gallery_monitor(request):
-    """Endpoint to stop gallery monitoring."""
-    global monitor, _current_gallery_dir
+    """Stop all active gallery monitors."""
+    global _monitors, _active_sources, _current_gallery_dir
     from .gallery_config import gallery_log
-    if monitor and monitor.thread and monitor.thread.is_alive():
-        monitor.stop_monitoring()
-        monitor = None
+    for m in _monitors.values():
+        if m and m.thread and m.thread.is_alive():
+            m.stop_monitoring()
+    _monitors = {}
+    _active_sources = []
     _current_gallery_dir = PLACEHOLDER_DIR
-    for route in PromptServer.instance.app.router.routes():
-        if route.name == 'static_gallery_placeholder':
-            route.resource._directory = pathlib.Path(PLACEHOLDER_DIR)
-            gallery_log(f"Serving static files from {PLACEHOLDER_DIR} at /static_gallery")
-            break
     return web.Response(text="Gallery monitor stopped", content_type="text/plain")
 
 @PromptServer.instance.routes.patch("/Gallery/updateImages")
@@ -553,17 +733,27 @@ async def delete_image(request):
         image_url = data.get("image_path")
         if not image_url:
             return web.Response(status=400, text="image_path is required")
-        if image_url.startswith("/static_gallery/"):
-            relative_path = image_url[len("/static_gallery/"):]
 
+        _FILE_PREFIX = "/Gallery/file/"
+        full_image_path: str | None = None
+
+        if image_url.startswith(_FILE_PREFIX):
+            # Multi-source format: /Gallery/file/{source_id}/{rel_path}
+            rel_path = image_url[len(_FILE_PREFIX):]
+            full_image_path = _resolve_rel_path(rel_path)
+        elif image_url.startswith("/static_gallery/"):
+            # Legacy single-source format
+            relative_path = image_url[len("/static_gallery/"):]
+            static_dir = _get_static_dir()
+            candidate = os.path.realpath(os.path.join(static_dir, relative_path))
+            if _is_within_directory(candidate, static_dir):
+                full_image_path = candidate
         else:
             return web.Response(status=400, text="Invalid image_path format")
-        static_dir = _get_static_dir()
-        full_image_path = os.path.realpath(os.path.join(static_dir, relative_path))
-        if not os.path.exists(full_image_path):
-            return web.Response(status=404, text=f"File not found: {full_image_path}")
-        if not _is_within_directory(full_image_path, static_dir):
-            return web.Response(status=403, text="Access denied: File outside of static directory")
+
+        if not full_image_path or not os.path.exists(full_image_path):
+            return web.Response(status=404, text=f"File not found: {image_url}")
+
         try:
             from send2trash import send2trash
             send2trash(full_image_path)
@@ -580,42 +770,43 @@ async def delete_image(request):
 
 @PromptServer.instance.routes.post("/Gallery/move")
 async def move_image(request):
-    """Endpoint to move an image to a new location, relative to the current gallery root (current_path)."""
+    """Move an image to a new location within the same source.
+
+    Body JSON:
+      source_path — multi-source rel_path of the file to move (source_id/file_rel)
+      target_path — destination rel_path (source_id/new_rel or absolute path within source)
+    """
     from .gallery_config import disable_logs, gallery_log
     try:
         data = await request.json()
         source_path = data.get("source_path")
         target_path = data.get("target_path")
-        current_path = data.get("current_path") or data.get("relative_path") or "./"
         gallery_log(f"source_path: {source_path}")
         gallery_log(f"target_path: {target_path}")
-        gallery_log(f"current_path: {current_path}")
         if not source_path or not target_path:
             return web.Response(status=400, text="source_path and target_path are required")
-        static_dir = _get_static_dir()
-        static_dir_basename = os.path.basename(os.path.normpath(static_dir))
-        def make_path(p):
-            # Normalize separators first so both / and \ are handled on Windows
-            p = p.replace("/", os.sep).replace("\\", os.sep)
-            if os.path.isabs(p):
-                return os.path.normpath(p)
-            prefix = static_dir_basename + os.sep
-            if p.startswith(prefix):
-                p = p[len(prefix):]
-            return os.path.normpath(os.path.join(static_dir, p))
-        full_source_path = make_path(source_path)
-        full_target_path = make_path(target_path)
-        gallery_log(f"static_dir: {static_dir}")
+
+        # Resolve source via multi-source rel_path
+        full_source_path = _resolve_rel_path(source_path)
+        if not full_source_path or not os.path.exists(full_source_path):
+            return web.Response(status=404, text=f"Source file not found: {source_path}")
+
+        # Target may be a rel_path within the same source, or an absolute path
+        full_target_path = _resolve_rel_path(target_path)
+        if full_target_path is None:
+            # Try as absolute path within any active source
+            if os.path.isabs(target_path):
+                candidate = os.path.normpath(target_path)
+                for s in _active_sources:
+                    if _is_within_directory(candidate, s["abs_path"]):
+                        full_target_path = candidate
+                        break
+            if full_target_path is None:
+                return web.Response(status=400, text=f"Invalid target_path: {target_path}")
+
         gallery_log(f"full_source_path: {full_source_path}")
         gallery_log(f"full_target_path: {full_target_path}")
-        if not os.path.exists(full_source_path):
-            return web.Response(status=404, text=f"Source file not found: {full_source_path}")
-        if not _is_within_directory(full_source_path, static_dir) or \
-            not _is_within_directory(full_target_path, static_dir) or \
-            (not _IS_STANDALONE and (
-                not _is_within_directory(full_source_path, comfy_path) or
-                not _is_within_directory(full_target_path, comfy_path))):
-            return web.Response(status=403, text="Access denied: File outside of allowed directory")
+
         if os.path.isdir(full_target_path):
             full_target_path = os.path.join(full_target_path, os.path.basename(full_source_path))
         target_dir = os.path.dirname(full_target_path)
