@@ -43,7 +43,6 @@ def _image_combo_input() -> dict:
                 pass
 
         _collect(folder_paths.get_input_directory())
-        _collect(folder_paths.get_output_directory(), "output")
 
     return {"image": (sorted(images) if images else ["none"], {"image_upload": True})}
 
