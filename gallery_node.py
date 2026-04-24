@@ -2,13 +2,24 @@ import hashlib
 import json
 import os
 
+import numpy as np
+from PIL import Image
+from PIL.PngImagePlugin import PngInfo
+
 try:
     import folder_paths
 except ImportError:
     folder_paths = None  # type: ignore[assignment]
 
+try:
+    from comfy.cli_args import args as _comfy_args
+except ImportError:
+    _comfy_args = None  # type: ignore[assignment]
+
 from .metadata_parser._extractor import buildMetadata
 from .metadata_parser import extract_params
+from .metadata_parser import comfyui_prompt as _prompt
+from .metadata_parser._writer import params_to_a1111_string
 
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tiff", ".tif"}
 
@@ -224,13 +235,163 @@ class GalleryMetadataExtractor:
         return True
 
 
+class GallerySaveImage:
+    """Save images with enriched metadata using Gallery's BFS parser.
+
+    Combines runtime-accurate values from ComfyUI's GENERATION_METADATA
+    with richer prompt/LoRA extraction from our 3-pass BFS algorithm.
+    Supports A1111, ComfyUI JSON, both, or no metadata output.
+    """
+
+    def __init__(self):
+        self.output_dir = folder_paths.get_output_directory() if folder_paths else "output"
+        self.type = "output"
+        self.compress_level = 4
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "images": ("IMAGE", {"tooltip": "The images to save."}),
+                "filename_prefix": ("STRING", {
+                    "default": "ComfyUI",
+                    "tooltip": "Filename prefix. Supports ComfyUI formatting like %date:yyyy-MM-dd%.",
+                }),
+                "metadata_format": (
+                    ["a1111", "comfyui", "both", "none"],
+                    {
+                        "default": "both",
+                        "tooltip": (
+                            "a1111: human-readable 'parameters' text chunk. "
+                            "comfyui: prompt + workflow JSON chunks. "
+                            "both: all chunks. none: no metadata."
+                        ),
+                    },
+                ),
+            },
+            "hidden": {
+                "prompt": "PROMPT",
+                "extra_pnginfo": "EXTRA_PNGINFO",
+                "generation_metadata": "GENERATION_METADATA",
+            },
+        }
+
+    RETURN_TYPES = ()
+    FUNCTION = "save_images"
+    OUTPUT_NODE = True
+    CATEGORY = "ComfyUI Gallery"
+    DESCRIPTION = (
+        "Save images with enriched metadata. Combines ComfyUI's runtime "
+        "GENERATION_METADATA (accurate sampling params) with Gallery's BFS "
+        "parser (richer prompt and LoRA extraction). Supports A1111 and/or "
+        "ComfyUI JSON metadata formats."
+    )
+
+    def save_images(
+        self,
+        images,
+        filename_prefix: str = "ComfyUI",
+        metadata_format: str = "both",
+        prompt=None,
+        extra_pnginfo=None,
+        generation_metadata=None,
+    ):
+        disable_meta = _comfy_args is not None and getattr(_comfy_args, "disable_metadata", False)
+
+        full_output_folder, filename, counter, subfolder, filename_prefix = (
+            folder_paths.get_save_image_path(
+                filename_prefix, self.output_dir,
+                images[0].shape[1], images[0].shape[0],
+            )
+        )
+
+        results = []
+        for batch_number, image in enumerate(images):
+            i = 255.0 * image.cpu().numpy()
+            img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
+
+            pnginfo = None
+            if not disable_meta and metadata_format != "none":
+                pnginfo = PngInfo()
+                merged = self._build_merged_params(prompt, generation_metadata)
+
+                if metadata_format in ("a1111", "both") and merged:
+                    a1111_str = params_to_a1111_string(merged)
+                    if a1111_str:
+                        pnginfo.add_text("parameters", a1111_str)
+
+                if metadata_format in ("comfyui", "both"):
+                    if prompt is not None:
+                        pnginfo.add_text("prompt", json.dumps(prompt))
+                    if extra_pnginfo is not None:
+                        for k, v in extra_pnginfo.items():
+                            pnginfo.add_text(k, json.dumps(v))
+
+            filename_with_batch = filename.replace("%batch_num%", str(batch_number))
+            file = f"{filename_with_batch}_{counter:05}_.png"
+            img.save(
+                os.path.join(full_output_folder, file),
+                pnginfo=pnginfo,
+                compress_level=self.compress_level,
+            )
+            results.append({"filename": file, "subfolder": subfolder, "type": self.type})
+            counter += 1
+
+        return {"ui": {"images": results}}
+
+    def _build_merged_params(self, prompt, gm) -> dict:
+        """Merge BFS-extracted params with GENERATION_METADATA.
+
+        GM wins for execution-derived fields (steps, cfg, sampler, scheduler,
+        seed, model). BFS provides richer prompts and LoRA detail, and fills
+        any fields GM left None.
+        """
+        # BFS enrichment from original prompt graph
+        bfs_params: dict = {}
+        if prompt:
+            parsed = _prompt.parse(prompt)
+            if parsed:
+                bfs_params = parsed
+
+        merged = dict(bfs_params)
+
+        # GM overlay: runtime-derived fields win
+        if gm is not None:
+            try:
+                is_empty = gm.is_empty()
+            except Exception:
+                is_empty = True
+
+            if not is_empty:
+                for field in ("steps", "cfg_scale", "sampler", "scheduler", "seed", "model"):
+                    val = getattr(gm, field, None)
+                    if val is not None:
+                        merged[field] = val
+
+                # Prompts: BFS first; fall back to GM if BFS found nothing
+                if not merged.get("positive_prompt") and getattr(gm, "positive_prompt", None):
+                    merged["positive_prompt"] = gm.positive_prompt
+                if not merged.get("negative_prompt") and getattr(gm, "negative_prompt", None):
+                    merged["negative_prompt"] = gm.negative_prompt
+
+                # LoRAs: BFS (dicts with name/strength) preferred; fall back to GM (strings)
+                if not merged.get("loras"):
+                    gm_loras = getattr(gm, "loras", None)
+                    if gm_loras:
+                        merged["loras"] = gm_loras
+
+        return merged
+
+
 NODE_CLASS_MAPPINGS = {
     "GalleryNode": GalleryNode,
     "GalleryPromptReader": GalleryPromptReader,
     "GalleryMetadataExtractor": GalleryMetadataExtractor,
+    "GallerySaveImage": GallerySaveImage,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "GalleryNode": "Gallery Button",
     "GalleryPromptReader": "Gallery Prompt Reader",
     "GalleryMetadataExtractor": "Gallery Metadata Extractor",
+    "GallerySaveImage": "Gallery Save Image",
 }
