@@ -132,7 +132,6 @@ const GalleryGrid = () => {
                                 width={width}
                                 height={height}
                                 className="grid-element"
-                                style={{ display: 'flex', alignContent: 'center', justifyContent: 'center' }}
                             >
                                 {Cell}
                             </VariableSizeGrid>
