@@ -43,7 +43,7 @@ function ImageCard({
     onOpenLightbox: () => void;
     showModelBadge?: boolean;
 }) {
-    const { settings, selectedImages, setSelectedImages, pickMode, onPickImage, closePickMode } = useGalleryContext();
+    const { settings, selectedImages, setSelectedImages, pickMode, onPickImage, closePickMode, mutate } = useGalleryContext();
     const dragRef = useRef<HTMLDivElement>(null);
     const [dragging, setDragging] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -230,8 +230,22 @@ function ImageCard({
                                 e.stopPropagation();
                                 setDeleteConfirmOpen(false);
                                 const success = await ComfyAppApi.deleteImage(image.url);
-                                if (success) toast.success('Image deleted');
-                                else toast.error('Failed to delete image');
+                                if (success) {
+                                    toast.success('Image deleted');
+                                    mutate((oldData) => {
+                                        if (!oldData?.folders) return oldData;
+                                        const folders = { ...oldData.folders };
+                                        for (const folder of Object.keys(folders)) {
+                                            const files = { ...folders[folder] };
+                                            for (const filename of Object.keys(files)) {
+                                                if (files[filename].url === image.url) delete files[filename];
+                                            }
+                                            if (Object.keys(files).length === 0) delete folders[folder];
+                                            else folders[folder] = files;
+                                        }
+                                        return { ...oldData, folders };
+                                    });
+                                } else toast.error('Failed to delete image');
                             }}
                         >Yes</AlertDialogAction>
                     </AlertDialogFooter>
