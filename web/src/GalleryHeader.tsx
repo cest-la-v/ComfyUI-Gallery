@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
     X, Settings, Sun, Moon, Loader2, Palette, LayoutGrid, AlignJustify, ArrowUpDown,
@@ -23,7 +22,7 @@ import {
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { useGalleryContext } from './GalleryContext';
 import type { ViewMode } from './GalleryContext';
-import { useDebounce, useCountDown } from 'ahooks';
+import { useCountDown } from 'ahooks';
 import JSZip from 'jszip';
 import FileSaver from 'file-saver';
 import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
@@ -56,115 +55,14 @@ const GROUP_MODE_OPTIONS: { label: string; value: ViewMode }[] = [
     { label: 'Folder', value: 'folder' },
 ];
 
-function SearchAutocomplete({
-    value,
-    onChange,
-    options,
-    placeholder,
-}: {
-    value: string;
-    onChange: (v: string) => void;
-    options: { value?: string | number | null; label?: ReactNode }[];
-    placeholder?: string;
-}) {
-    const [open, setOpen] = useState(false);
-    const [highlightedIdx, setHighlightedIdx] = useState(-1);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
-
-    const visibleOptions = options.slice(0, 20);
-
-    useEffect(() => {
-        function handleClick(e: MouseEvent) {
-            if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
-        }
-        document.addEventListener('mousedown', handleClick);
-        return () => document.removeEventListener('mousedown', handleClick);
-    }, []);
-
-    // Reset highlight when options change or dropdown closes
-    useEffect(() => { setHighlightedIdx(-1); }, [open, options]);
-
-    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (!open) {
-            if (e.key === 'ArrowDown') { setOpen(true); e.preventDefault(); }
-            return;
-        }
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            setHighlightedIdx(i => Math.min(i + 1, visibleOptions.length - 1));
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            setHighlightedIdx(i => Math.max(i - 1, 0));
-        } else if (e.key === 'Enter') {
-            if (highlightedIdx >= 0 && highlightedIdx < visibleOptions.length) {
-                e.preventDefault();
-                onChange(String(visibleOptions[highlightedIdx].value ?? ''));
-                setOpen(false);
-            }
-        } else if (e.key === 'Escape') {
-            e.preventDefault();
-            setOpen(false);
-            setHighlightedIdx(-1);
-        }
-    }, [open, highlightedIdx, visibleOptions, onChange]);
-
-    return (
-        <div ref={containerRef} className="relative flex-1 min-w-[120px] max-w-[280px]">
-            <div className="relative flex items-center">
-                <input
-                    ref={inputRef}
-                    type="text"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm pr-8 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground"
-                    value={value}
-                    onChange={e => { onChange(e.target.value); setHighlightedIdx(-1); }}
-                    onFocus={() => setOpen(true)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={placeholder}
-                />
-                {value && (
-                    <button
-                        type="button"
-                        className="absolute right-2 text-muted-foreground hover:text-foreground transition-colors"
-                        tabIndex={-1}
-                        onMouseDown={e => { e.preventDefault(); onChange(''); inputRef.current?.focus(); }}
-                    >
-                        <X className="h-3.5 w-3.5" />
-                    </button>
-                )}
-            </div>
-            {open && visibleOptions.length > 0 && (
-                <div className="absolute top-full mt-1 w-full rounded-md border bg-popover shadow-md z-[var(--cg-z-content)] max-h-48 overflow-y-auto">
-                    {visibleOptions.map((opt, i) => (
-                        <div
-                            key={String(opt.value ?? i)}
-                            className={cn(
-                                "px-3 py-1.5 text-sm cursor-pointer truncate",
-                                i === highlightedIdx ? "bg-accent text-accent-foreground" : "hover:bg-accent"
-                            )}
-                            onMouseDown={e => { e.preventDefault(); onChange(String(opt.value ?? '')); setOpen(false); }}
-                        >
-                            {opt.label ?? opt.value}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-}
-
-
 const GalleryHeader = () => {
     const {
         setShowSettings,
-        setSearchFileName,
         sortMethod, setSortMethod,
         viewMode, setViewMode,
         groupFilter, setGroupFilter,
         groupValues,
         gridView, setGridView,
-        imagesAutoCompleteNames,
-        autoCompleteOptions, setAutoCompleteOptions,
         setOpen,
         selectedImages, setSelectedImages,
         mutate,
@@ -172,7 +70,6 @@ const GalleryHeader = () => {
         gallerySection,
     } = useGalleryContext();
 
-    const [search, setSearch] = useState("");
     const [showClose, setShowClose] = useState(false);
     const [targetDate, setTargetDate] = useState<number>();
     const [countdown] = useCountDown({
@@ -198,20 +95,6 @@ const GalleryHeader = () => {
             window.removeEventListener('dragend', onDragEnd);
         };
     }, []);
-
-    const debouncedSearch = useDebounce(search, { wait: 100 });
-    useEffect(() => {
-        setSearchFileName(debouncedSearch);
-        if (!debouncedSearch || debouncedSearch.length == 0) {
-            setAutoCompleteOptions(imagesAutoCompleteNames);
-        } else {
-            setAutoCompleteOptions(
-                imagesAutoCompleteNames.filter(opt =>
-                    typeof opt.value === 'string' && opt.value.toLowerCase().includes(debouncedSearch.toLowerCase())
-                )
-            );
-        }
-    }, [debouncedSearch, imagesAutoCompleteNames, setAutoCompleteOptions, setSearchFileName]);
 
     const handleBulkDownload = useCallback(async () => {
         setDownloading(true);
@@ -392,13 +275,6 @@ const GalleryHeader = () => {
             <div className="flex items-center gap-1 flex-1 justify-end min-w-0">
                 {gallerySection === 'assets' && (
                     <>
-                        <SearchAutocomplete
-                            value={search}
-                            onChange={val => setSearch(val)}
-                            options={autoCompleteOptions && autoCompleteOptions.length > 0 ? autoCompleteOptions : imagesAutoCompleteNames}
-                            placeholder="Search…"
-                        />
-
                         {/* View toggle: Overview / Detail */}
                         <Tooltip>
                             <TooltipTrigger asChild>
