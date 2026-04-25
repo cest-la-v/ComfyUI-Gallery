@@ -7,12 +7,32 @@ import GalleryLightbox from './GalleryLightbox';
 import GallerySettingsModal from './GallerySettingsModal';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useModalDismiss } from './hooks/useModalDismiss';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import GallerySidebar, { GallerySidebarTabStrip } from './GallerySidebar';
+import ModelsView from './ModelsView';
+import PromptsView from './PromptsView';
 
 const GalleryModal = () => {
-    const { open, setOpen, showSettings, lightboxOpen, settings, gridView } = useGalleryContext();
+    const { open, setOpen, showSettings, lightboxOpen, settings, gridView, gallerySection } = useGalleryContext();
     const isBottom = settings.galleryLayout === 'bottom';
 
     const dismiss = useModalDismiss(() => setOpen(false), { disabled: showSettings || lightboxOpen });
+
+    /** Renders the active section content (Assets grid/overview or Models/Prompts). */
+    const sectionContent = (
+        <main className="relative flex-1 min-h-0 min-w-0 overflow-hidden">
+            {gallerySection === 'assets' ? (
+                <>
+                    {gridView === 'overview' ? <GalleryOverview /> : <GalleryGrid />}
+                    <GalleryLightbox />
+                </>
+            ) : gallerySection === 'models' ? (
+                <ModelsView />
+            ) : (
+                <PromptsView />
+            )}
+        </main>
+    );
 
     return (
         <>
@@ -37,14 +57,11 @@ const GalleryModal = () => {
 
                     {isBottom ? (
                         <>
-                            {/* Drag handle — visual signal only, no swipe gesture */}
                             <div className="flex justify-center pt-2 pb-1 shrink-0">
                                 <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
                             </div>
-                            <main className="relative flex-1 min-h-0 min-w-0 overflow-hidden">
-                                {gridView === 'overview' ? <GalleryOverview /> : <GalleryGrid />}
-                                <GalleryLightbox />
-                            </main>
+                            <GallerySidebarTabStrip />
+                            {sectionContent}
                             <footer className="px-3 py-2 border-t shrink-0">
                                 <GalleryHeader />
                             </footer>
@@ -54,10 +71,10 @@ const GalleryModal = () => {
                             <header className="px-3 py-2 border-b shrink-0">
                                 <GalleryHeader />
                             </header>
-                            <main className="relative flex-1 min-h-0 min-w-0 overflow-hidden">
-                                {gridView === 'overview' ? <GalleryOverview /> : <GalleryGrid />}
-                                <GalleryLightbox />
-                            </main>
+                            <SidebarProvider className="flex-1 min-h-0" defaultOpen={false}>
+                                <GallerySidebar />
+                                {sectionContent}
+                            </SidebarProvider>
                         </>
                     )}
                 </DialogContent>

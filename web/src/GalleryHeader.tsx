@@ -169,6 +169,7 @@ const GalleryHeader = () => {
         selectedImages, setSelectedImages,
         mutate,
         settings, setSettings,
+        gallerySection,
     } = useGalleryContext();
 
     const [search, setSearch] = useState("");
@@ -263,7 +264,8 @@ const GalleryHeader = () => {
     return (
         <div className="flex items-center justify-between w-full gap-2">
 
-            {/* Left zone: group mode + group filter + bulk actions */}
+            {/* Left zone: group mode + group filter + bulk actions — assets only */}
+            {gallerySection === 'assets' && (
             <div className="flex items-center gap-2 shrink-0">
                 {/* Group mode selector */}
                 <Select
@@ -386,62 +388,67 @@ const GalleryHeader = () => {
                     </>
                 )}
             </div>
+            )}
             <div className="flex items-center gap-1 flex-1 justify-end min-w-0">
-                <SearchAutocomplete
-                    value={search}
-                    onChange={val => setSearch(val)}
-                    options={autoCompleteOptions && autoCompleteOptions.length > 0 ? autoCompleteOptions : imagesAutoCompleteNames}
-                    placeholder="Search…"
-                />
+                {gallerySection === 'assets' && (
+                    <>
+                        <SearchAutocomplete
+                            value={search}
+                            onChange={val => setSearch(val)}
+                            options={autoCompleteOptions && autoCompleteOptions.length > 0 ? autoCompleteOptions : imagesAutoCompleteNames}
+                            placeholder="Search…"
+                        />
 
-                {/* View toggle: Overview / Detail */}
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            size="icon"
-                            variant={gridView === 'overview' ? 'secondary' : 'ghost'}
-                            className="comfy-gallery-icon-btn shrink-0"
-                            onMouseDown={e => e.preventDefault()}
-                            onClick={() => setGridView(gridView === 'overview' ? 'detail' : 'overview')}
-                        >
-                            {gridView === 'overview' ? <AlignJustify className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{gridView === 'overview' ? 'Detail view' : 'Overview'}</TooltipContent>
-                </Tooltip>
-
-                {/* Sort button */}
-                <DropdownMenu>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <DropdownMenuTrigger asChild>
+                        {/* View toggle: Overview / Detail */}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
                                 <Button
                                     size="icon"
-                                    variant="ghost"
+                                    variant={gridView === 'overview' ? 'secondary' : 'ghost'}
                                     className="comfy-gallery-icon-btn shrink-0"
                                     onMouseDown={e => e.preventDefault()}
+                                    onClick={() => setGridView(gridView === 'overview' ? 'detail' : 'overview')}
                                 >
-                                    <ArrowUpDown className="h-4 w-4" />
+                                    {gridView === 'overview' ? <AlignJustify className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
                                 </Button>
-                            </DropdownMenuTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent>Sort</TooltipContent>
-                    </Tooltip>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuRadioGroup
-                            value={sortMethod}
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            onValueChange={v => setSortMethod(v as any)}
-                        >
-                            <DropdownMenuRadioItem value="Newest">Newest first</DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="Oldest">Oldest first</DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="Name ↑">Name A → Z</DropdownMenuRadioItem>
-                            <DropdownMenuRadioItem value="Name ↓">Name Z → A</DropdownMenuRadioItem>
-                        </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                            </TooltipTrigger>
+                            <TooltipContent>{gridView === 'overview' ? 'Detail view' : 'Overview'}</TooltipContent>
+                        </Tooltip>
+
+                        {/* Sort button */}
+                        <DropdownMenu>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            className="comfy-gallery-icon-btn shrink-0"
+                                            onMouseDown={e => e.preventDefault()}
+                                        >
+                                            <ArrowUpDown className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>Sort</TooltipContent>
+                            </Tooltip>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuRadioGroup
+                                    value={sortMethod}
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    onValueChange={v => setSortMethod(v as any)}
+                                >
+                                    <DropdownMenuRadioItem value="Newest">Newest first</DropdownMenuRadioItem>
+                                    <DropdownMenuRadioItem value="Oldest">Oldest first</DropdownMenuRadioItem>
+                                    <DropdownMenuRadioItem value="Name ↑">Name A → Z</DropdownMenuRadioItem>
+                                    <DropdownMenuRadioItem value="Name ↓">Name Z → A</DropdownMenuRadioItem>
+                                </DropdownMenuRadioGroup>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </>
+                )}
 
                 <Tooltip>
                     <TooltipTrigger asChild>

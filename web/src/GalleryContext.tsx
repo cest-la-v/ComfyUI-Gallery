@@ -61,8 +61,11 @@ export const DEFAULT_SETTINGS: SettingsState = {
 export const STORAGE_KEY = 'comfy-ui-gallery-settings';
 
 export type ViewMode = 'date' | 'model' | 'prompt' | 'folder';
+export type GallerySection = 'assets' | 'models' | 'prompts';
 
 export interface GalleryContextType {
+    gallerySection: GallerySection;
+    setGallerySection: Dispatch<SetStateAction<GallerySection>>;
     groupFilter: string;
     setGroupFilter: Dispatch<SetStateAction<string>>;
     gridView: 'detail' | 'overview';
@@ -249,6 +252,7 @@ function injectDividers(
 }
 
 export function GalleryProvider({ children }: { children: React.ReactNode }) {
+    const [gallerySection, setGallerySection] = useState<GallerySection>('assets');
     const [groupFilter, setGroupFilter] = useState("");
     const [gridView, setGridView] = useState<'detail' | 'overview'>('detail');
     const [searchFileName, setSearchFileName] = useState("");
@@ -579,6 +583,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     }, [open]); // intentionally omits pickMode to avoid re-running when we set it ourselves
 
     const value = useMemo(() => ({
+        gallerySection, setGallerySection,
         groupFilter, setGroupFilter,
         gridView, setGridView,
         groupValues,
@@ -616,6 +621,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         openPickMode,
         closePickMode,
     }), [
+        gallerySection,
         groupFilter,
         gridView,
         groupValues,
