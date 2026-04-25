@@ -118,3 +118,11 @@
     --sidebar-ring: var(--ring);
 }
 
+
+/* Prevent ComfyUI's global li styles (display:list-item, list bullets) from bleeding
+   into the sidebar menu. ComfyUI's unlayered CSS may set li { display: list-item }
+   with high specificity; override with !important scoped to our roots. */
+:is(#comfy-gallery-root, #comfy-gallery-yarl-root) [data-sidebar="menu"] > [data-sidebar="menu-item"] {
+    display: block !important;
+    list-style: none !important;
+}
