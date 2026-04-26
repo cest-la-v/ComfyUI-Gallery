@@ -16,6 +16,15 @@ try:
 except ImportError:
     _comfy_args = None  # type: ignore[assignment]
 
+try:
+    import comfy.samplers as _comfy_samplers
+    _SAMPLER_TYPE: object = _comfy_samplers.KSampler.SAMPLERS
+    _SCHEDULER_TYPE: object = _comfy_samplers.KSampler.SCHEDULERS
+except ImportError:
+    _comfy_samplers = None  # type: ignore[assignment]
+    _SAMPLER_TYPE = "STRING"
+    _SCHEDULER_TYPE = "STRING"
+
 from .metadata_parser._extractor import buildMetadata
 from .metadata_parser import extract_params
 from .metadata_parser import comfyui_prompt as _prompt
@@ -157,7 +166,7 @@ class GalleryMetadataExtractor:
     RETURN_TYPES = (
         "STRING", "STRING",
         "INT", "INT", "FLOAT",
-        "STRING", "STRING",
+        _SAMPLER_TYPE, _SCHEDULER_TYPE,
         "STRING", "STRING",
         "INT", "INT", "FLOAT", "INT",
         "STRING",
@@ -212,7 +221,7 @@ class GalleryMetadataExtractor:
             width,
             height,
             float(params.get("denoise_strength") or 0.0),
-            int(params.get("clip_skip") or 0),
+            -int(params.get("clip_skip") or 0),
             loras_json,
         )
 
