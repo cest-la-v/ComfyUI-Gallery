@@ -322,6 +322,16 @@ A1111 writes one combined field: `Sampler: DPM++ 3M SDE Karras`.
 - **Group filters span all folders.** When `filteredRelPaths` is active (group drill-down), search
   across `data.folders` (all subfolders), not just `data.folders[currentFolder]`. The DB returns
   rel_paths from every subfolder under the monitor root; scoping to one folder yields zero matches.
+- **Never call `gc_dead_entries()` (global GC) with a single-source scan result.** `gc_dead_entries`
+  removes ALL DB entries not in the provided set. Calling it with a partial (one-source) scan
+  deletes every entry from other sources. Always use `gc_dead_entries_for_source(source_id, paths)`
+  which scopes deletion to one source. The only safe caller of the global variant is a full
+  all-sources rescan.
+- **`FileSystemMonitor` must receive `source_id`.** When creating a `FileSystemMonitor` in
+  `server.py`, always pass `source_id=sid`. The `source_id` flows to `GalleryEventHandler` and
+  then to `_scan_for_images`, which uses it to (a) prefix `rel_path` values and (b) choose the
+  scoped `gc_dead_entries_for_source` path. Omitting it causes global GC to corrupt the DB on
+  every watchdog file event.
 - **`GROUP_CONCAT` for file paths: use `'|||'` separator, not `,`.** A1111-generated filenames
   embed the positive prompt (e.g. `00012-seed-ultra detailed, nsfw, best quality.png`), so commas
   appear inside rel_paths. Splitting `GROUP_CONCAT(rel_path)` on `,` shreds these into garbage paths.
@@ -365,6 +375,12 @@ A1111 writes one combined field: `Sampler: DPM++ 3M SDE Karras`.
   focus, yarl loses arrow-key navigation. Use `onMouseDown={e => e.preventDefault()}` on
   toolbar/panel buttons that should not hold focus, or call `.blur()` immediately after
   the click handler. Existing toggle buttons already do this.
+- **React components with async fetch: initialize loading state to `true`, not `false`.**
+  If `useState(false)` is used for a loading flag and a `useEffect` fires the fetch, the
+  component renders one frame with `loading=false, data=null` → shows the empty/error state
+  before the fetch starts. Initialize to `true` when a fetch is guaranteed on mount. Use a
+  `key` prop on the component to reset this state cleanly when the subject changes (e.g.
+  `<MetadataPanel key={image.url} image={image} />` so state doesn't carry over between images).
 
 - **`source_id` is immutable.** Changing a `source_id` in settings drops all cached DB entries
   for that source (hash mismatch triggers full clear). Only change `label` when renaming a source
