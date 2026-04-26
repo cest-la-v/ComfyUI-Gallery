@@ -91,6 +91,8 @@ const GalleryLightbox = () => {
     // When the sorted image list changes while the lightbox is open, keep the
     // displayed image stable by finding its new index via URL rather than
     // relying on the numeric index (which shifts when images are prepended).
+    // If the tracked image was deleted (not found), re-anchor the ref to whatever
+    // is now at lightboxIndex so future list updates don't drift to wrong images.
     useEffect(() => {
         if (!lightboxOpen) return;
         const trackedUrl = currentImageUrlRef.current ?? previewableImages[lightboxIndexRef.current]?.url;
@@ -98,6 +100,10 @@ const GalleryLightbox = () => {
         const newIdx = previewableImages.findIndex(img => img.url === trackedUrl);
         if (newIdx >= 0 && newIdx !== lightboxIndexRef.current) {
             setLightboxIndex(newIdx);
+        } else if (newIdx < 0) {
+            // The tracked image was removed (deleted). Re-anchor to whichever image
+            // is now at the current index so subsequent list changes stay stable.
+            currentImageUrlRef.current = previewableImages[lightboxIndexRef.current]?.url;
         }
     }, [previewableImages, lightboxOpen, setLightboxIndex]);
 
