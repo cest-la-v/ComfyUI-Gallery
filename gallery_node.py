@@ -343,7 +343,7 @@ class GallerySaveImage:
                 pnginfo=pnginfo,
                 compress_level=self.compress_level,
             )
-            results.append({"filename": file, "subfolder": subfolder, "type": self.type})
+            results.append({"filename": file, "subfolder": subfolder.replace("\\", "/"), "type": self.type})
             counter += 1
 
         return {"ui": {"images": results}}

@@ -235,5 +235,151 @@ class TestNoMetadata(unittest.TestCase):
         self.assertIsNone(extract_params("not a dict"))  # type: ignore[arg-type]
 
 
+
+# ---------------------------------------------------------------------------
+# BFS conditioning concat / combine tests
+# ---------------------------------------------------------------------------
+
+class _PromptBuilder:
+    """Minimal helper to build ComfyUI prompt-JSON dicts for BFS tests."""
+
+    def __init__(self):
+        self._nodes: dict = {}
+        self._next_id = 1
+
+    def _id(self) -> str:
+        nid = str(self._next_id)
+        self._next_id += 1
+        return nid
+
+    def clip_text(self, text: str) -> str:
+        nid = self._id()
+        self._nodes[nid] = {"class_type": "CLIPTextEncode", "inputs": {"text": text}}
+        return nid
+
+    def conditioning_concat(self, to_id: str, from_id: str) -> str:
+        nid = self._id()
+        self._nodes[nid] = {
+            "class_type": "ConditioningConcat",
+            "inputs": {
+                "conditioning_to": [to_id, 0],
+                "conditioning_from": [from_id, 0],
+            },
+        }
+        return nid
+
+    def conditioning_combine(self, c1_id: str, c2_id: str) -> str:
+        nid = self._id()
+        self._nodes[nid] = {
+            "class_type": "ConditioningCombine",
+            "inputs": {
+                "conditioning_1": [c1_id, 0],
+                "conditioning_2": [c2_id, 0],
+            },
+        }
+        return nid
+
+    def ksampler(self, positive_id: str, negative_id: str, model_id: str) -> str:
+        nid = self._id()
+        self._nodes[nid] = {
+            "class_type": "KSampler",
+            "inputs": {
+                "model": [model_id, 0],
+                "positive": [positive_id, 0],
+                "negative": [negative_id, 0],
+                "seed": 1,
+                "steps": 20,
+                "cfg": 7.0,
+                "sampler_name": "euler",
+                "scheduler": "normal",
+                "latent_image": ["latent", 0],
+            },
+        }
+        return nid
+
+    def checkpoint(self, name: str = "model.safetensors") -> str:
+        nid = self._id()
+        self._nodes[nid] = {
+            "class_type": "CheckpointLoaderSimple",
+            "inputs": {"ckpt_name": name},
+        }
+        return nid
+
+    def build(self) -> dict:
+        return dict(self._nodes)
+
+
+class TestConditioningConcatPrompt(unittest.TestCase):
+    """_resolve_text_link must combine both branches of ConditioningConcat."""
+
+    def _parse(self, prompt: dict):
+        from metadata_parser import comfyui_prompt as _cp
+        return _cp.parse(prompt)
+
+    def test_positive_combines_to_and_from(self):
+        b = _PromptBuilder()
+        model = b.checkpoint()
+        prefix = b.clip_text("quality_prefix")
+        content = b.clip_text("actual_content")
+        concat = b.conditioning_concat(to_id=prefix, from_id=content)
+        neg = b.clip_text("bad stuff")
+        b.ksampler(positive_id=concat, negative_id=neg, model_id=model)
+        params = self._parse(b.build())
+        positive = params.get("positive_prompt", "") or ""
+        self.assertIn("quality_prefix", positive, "prefix (conditioning_to) must be present")
+        self.assertIn("actual_content", positive, "content (conditioning_from) must be present")
+
+    def test_negative_not_contaminated_by_concat(self):
+        b = _PromptBuilder()
+        model = b.checkpoint()
+        prefix = b.clip_text("quality_prefix")
+        content = b.clip_text("actual_content")
+        concat = b.conditioning_concat(to_id=prefix, from_id=content)
+        neg = b.clip_text("negative_only")
+        b.ksampler(positive_id=concat, negative_id=neg, model_id=model)
+        params = self._parse(b.build())
+        negative = params.get("negative_prompt", "") or ""
+        self.assertEqual(negative, "negative_only")
+        self.assertNotIn("quality_prefix", negative)
+        self.assertNotIn("actual_content", negative)
+
+    def test_nested_concat(self):
+        """ConditioningConcat(ConditioningConcat(a, b), c) → a, b, c all present."""
+        b = _PromptBuilder()
+        model = b.checkpoint()
+        a = b.clip_text("part_a")
+        br = b.clip_text("part_b")
+        c = b.clip_text("part_c")
+        inner = b.conditioning_concat(to_id=a, from_id=br)
+        outer = b.conditioning_concat(to_id=inner, from_id=c)
+        neg = b.clip_text("neg")
+        b.ksampler(positive_id=outer, negative_id=neg, model_id=model)
+        params = self._parse(b.build())
+        positive = params.get("positive_prompt", "") or ""
+        for part in ("part_a", "part_b", "part_c"):
+            self.assertIn(part, positive, f"{part} missing from nested concat")
+
+
+class TestConditioningCombinePrompt(unittest.TestCase):
+    """_resolve_text_link must combine both branches of ConditioningCombine."""
+
+    def _parse(self, prompt: dict):
+        from metadata_parser import comfyui_prompt as _cp
+        return _cp.parse(prompt)
+
+    def test_positive_combines_both(self):
+        b = _PromptBuilder()
+        model = b.checkpoint()
+        c1 = b.clip_text("style_tags")
+        c2 = b.clip_text("subject_tags")
+        combined = b.conditioning_combine(c1_id=c1, c2_id=c2)
+        neg = b.clip_text("neg")
+        b.ksampler(positive_id=combined, negative_id=neg, model_id=model)
+        params = self._parse(b.build())
+        positive = params.get("positive_prompt", "") or ""
+        self.assertIn("style_tags", positive)
+        self.assertIn("subject_tags", positive)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

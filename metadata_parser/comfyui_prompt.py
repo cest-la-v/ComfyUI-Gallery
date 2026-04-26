@@ -241,6 +241,22 @@ def _resolve_text_link(
         parts = [x for x in (resolved_a, resolved_b) if x]
         if parts:
             return delim.join(parts)
+    # ConditioningConcat: token-concatenates conditioning_to with conditioning_from.
+    # Following only one branch loses the other half of the prompt.
+    # ComfyUI semantics: to first, then from — preserve that order.
+    if ct == "ConditioningConcat":
+        to = _resolve_text_link(nodes, inp.get("conditioning_to"), set(visited), polarity)
+        frm = _resolve_text_link(nodes, inp.get("conditioning_from"), set(visited), polarity)
+        parts_c = [x for x in (to, frm) if x]
+        if parts_c:
+            return ", ".join(parts_c)
+    # ConditioningCombine: appends two conditioning lists — treat both as equal contributors.
+    if ct == "ConditioningCombine":
+        c1 = _resolve_text_link(nodes, inp.get("conditioning_1"), set(visited), polarity)
+        c2 = _resolve_text_link(nodes, inp.get("conditioning_2"), set(visited), polarity)
+        parts_c = [x for x in (c1, c2) if x]
+        if parts_c:
+            return ", ".join(parts_c)
     # Polarity-specific keys first so Context nodes route to the correct branch.
     # ctx_02 before ctx_01 (conditioning override takes precedence in Context Merge Big).
     # conditioning/cond* keys let the resolver traverse ControlNetApply, ConditioningAverage,
