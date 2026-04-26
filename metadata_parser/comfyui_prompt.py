@@ -221,6 +221,31 @@ def _resolve_text_link(
         for key in ("populated_text", "wildcard_text"):
             if _is_plain_prompt(inp.get(key)):
                 return str(inp[key])
+    # ShowText|pysssss (and variants): `text_0` holds the last evaluated/stored text.
+    # Following `text` (the input link) leads to upstream nodes (e.g. GalleryMetadataExtractor)
+    # that have no text inputs — always a dead end. Read the stored value directly.
+    if ct in ("ShowText|pysssss", "ShowText") and _is_plain_prompt(inp.get("text_0")):
+        return str(inp["text_0"])
+    # StringConcatenate: must reconstruct the full concatenated string — following only one
+    # branch returns just the prefix (string_a) and loses the user's actual prompt (string_b).
+    if ct == "StringConcatenate":
+        delim = inp.get("delimiter", "")
+        if not isinstance(delim, str):
+            delim = ""
+        resolved_a: Optional[str] = None
+        resolved_b: Optional[str] = None
+        a, b = inp.get("string_a"), inp.get("string_b")
+        if _is_plain_prompt(a):
+            resolved_a = str(a)
+        elif _is_link(a):
+            resolved_a = _resolve_text_link(nodes, a, set(visited), polarity)
+        if _is_plain_prompt(b):
+            resolved_b = str(b)
+        elif _is_link(b):
+            resolved_b = _resolve_text_link(nodes, b, set(visited), polarity)
+        parts = [x for x in (resolved_a, resolved_b) if x]
+        if parts:
+            return delim.join(parts)
     # Polarity-specific keys first so Context nodes route to the correct branch.
     # ctx_02 before ctx_01 (conditioning override takes precedence in Context Merge Big).
     # conditioning/cond* keys let the resolver traverse ControlNetApply, ConditioningAverage,
