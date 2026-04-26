@@ -36,6 +36,7 @@ class GalleryEventHandler(PatternMatchingEventHandler):
         self.pending_rescan = False  # A scan was requested while running_scan was True
         self.extensions = extensions
         self.last_known_folders = {} # Ensure last_known_folders is initialized empty
+        self.file_mtimes: dict = {}  # Track mtime per path to skip atime-only "modified" events
 
     def on_any_event(self, event):
         """Handles events, including symlinks, with debouncing and duplicate prevention."""
@@ -62,6 +63,17 @@ class GalleryEventHandler(PatternMatchingEventHandler):
 
 
         if event.event_type in ('created', 'deleted', 'modified', 'moved'):
+            if event.event_type == 'modified':
+                # On Windows, NTFS fires "modified" for atime updates (file reads), not just writes.
+                # Guard against these spurious events by comparing mtime.
+                try:
+                    current_mtime = os.stat(real_path).st_mtime
+                except OSError:
+                    return
+                if self.file_mtimes.get(real_path) == current_mtime:
+                    return  # Only atime changed — skip
+                self.file_mtimes[real_path] = current_mtime
+
             gallery_log(f"Watchdog detected {event.event_type}: {event.src_path} (Real path: {real_path}) - debouncing")
             self.debounce_event()
 
