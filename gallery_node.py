@@ -164,10 +164,10 @@ class GalleryMetadataExtractor:
     )
     RETURN_NAMES = (
         "positive_prompt", "negative_prompt",
-        "seed", "steps", "cfg_scale",
-        "sampler", "scheduler",
+        "seed", "steps", "cfg",
+        "sampler_name", "scheduler",
         "model", "vae",
-        "width", "height", "denoise_strength", "clip_skip",
+        "width", "height", "denoise", "clip_skip",
         "loras",
     )
     FUNCTION = "execute"
