@@ -65,7 +65,7 @@ const GalleryHeader = () => {
         gridView, setGridView,
         setOpen,
         selectedImages, setSelectedImages,
-        mutate,
+        mutate, markDeleted,
         settings, setSettings,
         gallerySection,
     } = useGalleryContext();
@@ -119,6 +119,7 @@ const GalleryHeader = () => {
             try {
                 if (await ComfyAppApi.deleteImage(url)) {
                     deleted++;
+                    markDeleted(url);
                     mutate((oldData) => {
                         if (!oldData?.folders) return oldData;
                         const folders = { ...oldData.folders };
@@ -139,7 +140,7 @@ const GalleryHeader = () => {
         setSelectedImages([]);
         if (failed.length > 0) toast.warning(`Deleted ${deleted} image(s), ${failed.length} failed.`);
         else toast.success(`Deleted ${deleted} image(s).`);
-    }, [selectedImages, mutate, setSelectedImages]);
+    }, [selectedImages, mutate, markDeleted, setSelectedImages]);
 
     // Sentinel for "show all groups" — Radix Select disallows empty string values
     const ALL_GROUPS = '__all__';

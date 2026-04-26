@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useSize, useRequest, useAsyncEffect, useEventListener, useLocalStorageState, useClickAway } from 'ahooks';
 import type { FileDetails, FilesTree, SourcePath } from './types';
@@ -107,6 +107,7 @@ export interface GalleryContextType {
     loading: boolean;
     runAsync: () => Promise<any>;
     mutate: (data?: FilesTree | ((oldData?: FilesTree | undefined) => FilesTree | undefined) | undefined) => void;
+    markDeleted: (url: string) => void;
     gridSize: { width: number; height: number; columnCount: number; rowCount: number };
     setGridSize: Dispatch<SetStateAction<{ width: number; height: number; columnCount: number; rowCount: number }>>;
     autoSizer: { width: number; height: number };
@@ -275,6 +276,15 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const [onPickImage, setOnPickImage] = useState<((absPath: string) => void) | null>(null);
     const size= useSize(document.querySelector('body'));
     const { data, error, loading, runAsync, mutate, refresh, refreshAsync } = useRequest(getImages, { manual: true });
+
+    // Tracks URLs of images that were optimistically deleted by the user.
+    // Filters them out of imagesDetailsList even if runAsync/updateImages restores
+    // them from stale server data (DB GC runs asynchronously via watchdog, so the
+    // server may still return deleted files during the cleanup window).
+    // Entries are cleared only when the watchdog confirms the file via 'remove' or
+    // re-creates it via 'create' — so the filter is active for exactly the right window.
+    const deletedUrls = useRef<Set<string>>(new Set());
+    const markDeleted = useCallback((url: string) => { deletedUrls.current.add(url); }, []);
     const [gridSize, setGridSize] = useState({ width: 1000, height: 600, columnCount: 1, rowCount: 1 });
     const [autoSizer, setAutoSizer] = useState({ width: 1000, height: 600 });
     const [autoCompleteOptions, setAutoCompleteOptions] = useState<AutoCompleteOption[]>([]);
@@ -400,7 +410,8 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     // Memoized list of all images in the current folder
     const imagesDetailsList = useMemo(() => {
         const allItems: FileDetails[] = Object.values(data?.folders ?? {})
-            .flatMap(folder => Object.values(folder as Record<string, FileDetails>));
+            .flatMap(folder => Object.values(folder as Record<string, FileDetails>))
+            .filter(item => !deletedUrls.current.has(item.url));
 
         let list = allItems;
 
@@ -477,6 +488,8 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
                         switch (fileChange.action) {
                             case 'create':
                                 folders[folderName][filename] = { ...fileChange };
+                                // File (re-)appeared — no longer needs to be filtered
+                                deletedUrls.current.delete(fileChange.url);
                                 changed = true;
                                 break;
                             case 'update':
@@ -487,6 +500,8 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
                                 break;
                             case 'remove':
                                 if (folders[folderName][filename]) {
+                                    // Watchdog confirmed removal — filter entry no longer needed
+                                    deletedUrls.current.delete(folders[folderName][filename].url);
                                     delete folders[folderName][filename];
                                     changed = true;
                                     if (Object.keys(folders[folderName]).length === 0) {
@@ -604,6 +619,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         imageFlipV, setImageFlipV,
         size,
         data, error, loading, runAsync, mutate,
+        markDeleted,
         gridSize, setGridSize,
         autoSizer, setAutoSizer,
         imagesDetailsList,
@@ -647,6 +663,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         loading, 
         runAsync, 
         mutate,
+        markDeleted,
         gridSize, 
         autoSizer, 
         imagesDetailsList, 

@@ -43,7 +43,7 @@ function ImageCard({
     onOpenLightbox: () => void;
     showModelBadge?: boolean;
 }) {
-    const { settings, selectedImages, setSelectedImages, pickMode, onPickImage, closePickMode, mutate } = useGalleryContext();
+    const { settings, selectedImages, setSelectedImages, pickMode, onPickImage, closePickMode, mutate, markDeleted } = useGalleryContext();
     const dragRef = useRef<HTMLDivElement>(null);
     const [dragging, setDragging] = useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -232,6 +232,7 @@ function ImageCard({
                                 const success = await ComfyAppApi.deleteImage(image.url);
                                 if (success) {
                                     toast.success('Image deleted');
+                                    markDeleted(image.url);
                                     mutate((oldData) => {
                                         if (!oldData?.folders) return oldData;
                                         const folders = { ...oldData.folders };

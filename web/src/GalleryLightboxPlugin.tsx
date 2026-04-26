@@ -33,6 +33,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
         setImageInfoName,
         setLightboxIndex,
         mutate,
+        markDeleted,
     } = useGalleryContext();
 
     const { currentIndex } = useLightboxState();
@@ -80,6 +81,10 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
             // and bringing the deleted image back into the list.
             // The watchdog will resync naturally; updateImages() handles the
             // file_change event, but the file is already absent so it's a no-op.
+            // Mark the URL as deleted so it is filtered from imagesDetailsList even
+            // if runAsync or updateImages restores it from stale server data.
+            // The filter is cleared by the watchdog's 'remove'/'create' events.
+            markDeleted(currentImage.url);
             const deletedName = currentImage.name;
             mutate((oldData) => {
                 if (!oldData?.folders) return oldData;
@@ -97,7 +102,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
             toast.error('Failed to delete image');
         }
         setConfirmingDelete(false);
-    }, [currentImage, currentIndex, previewableImages, closeLightbox, setImageInfoName, setLightboxIndex, mutate]);
+    }, [currentImage, currentIndex, previewableImages, closeLightbox, setImageInfoName, setLightboxIndex, mutate, markDeleted]);
 
     const showToolbar = !!currentImage && currentImage.type !== 'media' && currentImage.type !== 'audio';
     const btnCls = 'lb-btn';
