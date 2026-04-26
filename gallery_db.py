@@ -26,7 +26,7 @@ from .gallery_config import gallery_log
 from .metadata_parser.fingerprint import prompt_only_fingerprint as _prompt_only_fp
 
 DB_FILENAME = "gallery_cache.db"
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7  # bumped: force re-extraction after ConditioningConcat prompt fix
 
 
 class GalleryDB:
