@@ -325,7 +325,7 @@ function ExtrasSubSection({ extras }: { extras: Record<string, string> | null | 
 
 export function MetadataPanel({ image }: { image: FileDetails }) {
     const [parsedParams, setParsedParams] = useState<ImageParams | null>(null);
-    const [parsedLoading, setParsedLoading] = useState(false);
+    const [parsedLoading, setParsedLoading] = useState(image.type === 'image');
     const [rawMetadata, setRawMetadata] = useState<Record<string, unknown> | null>(null);
     const [rawLoading, setRawLoading] = useState(false);
     const rawFetchedForRef = useRef<string | null>(null);
@@ -552,7 +552,6 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
 
                         {!parsedParams && !parsedLoading && (
                             <>
-                                {console.warn('[Gallery-NMA] No metadata available for', { url: image.url, relPath, type: image.type })}
                                 <p className="text-sm text-muted-foreground">No metadata available.</p>
                             </>
                         )}

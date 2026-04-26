@@ -57,7 +57,6 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
     );
 
     const currentImage = previewableImages[currentIndex];
-    console.log('[Gallery-LB] currentIndex:', currentIndex, 'currentImage:', currentImage?.url, 'total:', previewableImages.length);
 
     const handleDelete = useCallback(async () => {
         if (!currentImage) return;
@@ -341,7 +340,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                             }}
                             onKeyDown={handlePanelKeyDown}
                         >
-                            <MetadataPanel image={currentImage} />
+                            <MetadataPanel key={currentImage.url} image={currentImage} />
                         </div>
                     )}
                 </div>

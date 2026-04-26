@@ -285,7 +285,6 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     // re-creates it via 'create' — so the filter is active for exactly the right window.
     const deletedUrls = useRef<Set<string>>(new Set());
     const markDeleted = useCallback((url: string) => {
-        console.log('[Gallery-DELETE] markDeleted:', url);
         deletedUrls.current.add(url);
     }, []);
     const [gridSize, setGridSize] = useState({ width: 1000, height: 600, columnCount: 1, rowCount: 1 });
@@ -314,12 +313,10 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         runAsync(); 
 
         ComfyAppApi.onFileChange((event) => {
-            console.log("file_change:", event.detail);
             updateImages(event.detail);
         });
 
         ComfyAppApi.onUpdate((event) => {
-            console.log("update:", event.detail);
             updateImages(event.detail); // Pass the whole object, not event.detail.folders
         });
         
@@ -414,13 +411,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const imagesDetailsList = useMemo(() => {
         const allItems: FileDetails[] = Object.values(data?.folders ?? {})
             .flatMap(folder => Object.values(folder as Record<string, FileDetails>))
-            .filter(item => {
-                if (deletedUrls.current.has(item.url)) {
-                    console.log('[Gallery-DELETE] filter excluded zombie:', item.url);
-                    return false;
-                }
-                return true;
-            });
+            .filter(item => !deletedUrls.current.has(item.url));
 
         let list = allItems;
 

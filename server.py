@@ -717,6 +717,7 @@ async def start_gallery_monitor(request):
                 abs_path, interval=1.0,
                 use_polling_observer=use_polling_observer,
                 extensions=scan_extensions,
+                source_id=sid,
             )
             new_monitor.start_monitoring()
             _monitors[sid] = new_monitor

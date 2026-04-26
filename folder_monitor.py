@@ -23,9 +23,10 @@ def _get_gallery_db():
 class GalleryEventHandler(PatternMatchingEventHandler):
     """Handles file system events, including symlinks, recursively."""
 
-    def __init__(self, base_path, patterns=None, ignore_patterns=None, ignore_directories=False, case_sensitive=True, debounce_interval=0.5, extensions=None):
+    def __init__(self, base_path, patterns=None, ignore_patterns=None, ignore_directories=False, case_sensitive=True, debounce_interval=0.5, extensions=None, source_id=""):
         super().__init__(patterns=patterns, ignore_patterns=ignore_patterns, ignore_directories=ignore_directories, case_sensitive=case_sensitive)
         self.base_path = os.path.realpath(base_path)  # Use realpath for base_path
+        self.source_id = source_id
         self.debounce_timer = None
         self.debounce_interval = debounce_interval
         # Use a dictionary to track events, keyed by (event_type, real_path)
@@ -84,9 +85,14 @@ class GalleryEventHandler(PatternMatchingEventHandler):
             """Target function for the scanning thread."""
 
             try:
-                folder_name = os.path.basename(self.base_path)
-                # Pass configured extensions to the scanner
-                new_folders_data, _ = _scan_for_images(self.base_path, folder_name, True, self.extensions, db=_get_gallery_db())
+                # Use source_id as the scan key (consistent with /Gallery/images endpoint).
+                # Without source_id, rel_paths would be unprefixed and the global GC would
+                # delete all prefixed DB entries on every watchdog event.
+                scan_key = self.source_id if self.source_id else os.path.basename(self.base_path)
+                new_folders_data, _ = _scan_for_images(
+                    self.base_path, scan_key, True, self.extensions,
+                    db=_get_gallery_db(), source_id=self.source_id,
+                )
                 old_folders_data = self.last_known_folders
                 changes = detect_folder_changes(old_folders_data, new_folders_data)
 
@@ -144,8 +150,9 @@ class GalleryEventHandler(PatternMatchingEventHandler):
 class FileSystemMonitor:
     """Monitors the output directory, including symlinks, recursively."""
 
-    def __init__(self, base_path, interval=1.0, use_polling_observer=False, extensions=None):
+    def __init__(self, base_path, interval=1.0, use_polling_observer=False, extensions=None, source_id=""):
         self.base_path = base_path
+        self.source_id = source_id
         self.interval = interval
         self.use_polling_observer = use_polling_observer
         self.extensions = extensions
@@ -160,7 +167,7 @@ class FileSystemMonitor:
         else:
             patterns = ["*"]
 
-        self.event_handler = GalleryEventHandler(base_path=base_path, patterns=patterns, debounce_interval=0.5, extensions=self.extensions)
+        self.event_handler = GalleryEventHandler(base_path=base_path, patterns=patterns, debounce_interval=0.5, extensions=self.extensions, source_id=source_id)
 
         # Do NOT perform a blocking scan in __init__ to avoid startup freeze.
         # Initial scan will be performed in the observer thread.
@@ -178,9 +185,12 @@ class FileSystemMonitor:
     def _start_observer_thread(self):
         # Perform an initial background scan before scheduling the observer
         try:
-            folder_name = os.path.basename(self.base_path)
+            scan_key = self.source_id if self.source_id else os.path.basename(self.base_path)
             gallery_log("FileSystemMonitor: Starting initial background scan...")
-            initial_data, _ = _scan_for_images(self.base_path, folder_name, True, self.extensions, db=_get_gallery_db())
+            initial_data, _ = _scan_for_images(
+                self.base_path, scan_key, True, self.extensions,
+                db=_get_gallery_db(), source_id=self.source_id,
+            )
             self.event_handler.last_known_folders = initial_data
             gallery_log("FileSystemMonitor: Initial background scan complete.")
         except Exception as e:
