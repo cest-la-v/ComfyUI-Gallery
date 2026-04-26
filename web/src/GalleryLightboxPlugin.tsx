@@ -32,6 +32,8 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
         closeLightbox,
         setImageInfoName,
         setLightboxIndex,
+        mutate,
+        runAsync,
     } = useGalleryContext();
 
     const { currentIndex } = useLightboxState();
@@ -64,20 +66,35 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
             if (previewableImages.length <= 1) {
                 closeLightbox();
             } else if (currentIndex >= previewableImages.length - 1) {
-                // Deleted the last image — must go backwards (index will be out of bounds after refresh)
+                // Deleted the last image — must go backwards
                 setLightboxIndex(currentIndex - 1);
                 setImageInfoName(previewableImages[currentIndex - 1].name);
             } else {
-                // Non-last image: keep the same index — after data refresh previewableImages[currentIndex]
-                // will naturally be the next image. Manually updating the index causes a double-switch
-                // because on.view fires again once the slides array shrinks.
+                // Non-last image: keep the same index
                 setImageInfoName(previewableImages[currentIndex + 1].name);
             }
+            // Optimistically remove the deleted file from the local data so the
+            // frontend doesn't depend on a watchdog event to update — which can
+            // be delayed or skipped on Windows. Follow with a background resync.
+            const deletedName = currentImage.name;
+            mutate((oldData) => {
+                if (!oldData?.folders) return oldData;
+                const folders = { ...oldData.folders };
+                for (const folderKey of Object.keys(folders)) {
+                    if (folders[folderKey][deletedName]) {
+                        folders[folderKey] = { ...folders[folderKey] };
+                        delete folders[folderKey][deletedName];
+                        break;
+                    }
+                }
+                return { ...oldData, folders };
+            });
+            runAsync();
         } else {
             toast.error('Failed to delete image');
         }
         setConfirmingDelete(false);
-    }, [currentImage, currentIndex, previewableImages, closeLightbox, setImageInfoName, setLightboxIndex]);
+    }, [currentImage, currentIndex, previewableImages, closeLightbox, setImageInfoName, setLightboxIndex, mutate, runAsync]);
 
     const showToolbar = !!currentImage && currentImage.type !== 'media' && currentImage.type !== 'audio';
     const btnCls = 'lb-btn';
