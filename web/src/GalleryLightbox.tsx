@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useRef, useEffect } from 'react';
 import Lightbox from 'yet-another-react-lightbox';
 import type { Slide } from 'yet-another-react-lightbox';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
@@ -81,8 +81,29 @@ const GalleryLightbox = () => {
         [previewableImages]
     );
 
+    // Track the URL of the currently-displayed image so we can re-anchor
+    // lightboxIndex when previewableImages changes (e.g., new images arrive
+    // via watchdog and shift positions in "Newest first" sort order).
+    const currentImageUrlRef = useRef<string | undefined>(undefined);
+    const lightboxIndexRef = useRef(lightboxIndex);
+    useEffect(() => { lightboxIndexRef.current = lightboxIndex; }, [lightboxIndex]);
+
+    // When the sorted image list changes while the lightbox is open, keep the
+    // displayed image stable by finding its new index via URL rather than
+    // relying on the numeric index (which shifts when images are prepended).
+    useEffect(() => {
+        if (!lightboxOpen) return;
+        const trackedUrl = currentImageUrlRef.current ?? previewableImages[lightboxIndexRef.current]?.url;
+        if (!trackedUrl) return;
+        const newIdx = previewableImages.findIndex(img => img.url === trackedUrl);
+        if (newIdx >= 0 && newIdx !== lightboxIndexRef.current) {
+            setLightboxIndex(newIdx);
+        }
+    }, [previewableImages, lightboxOpen, setLightboxIndex]);
+
     const handleLightboxView = useCallback(({ index }: { index: number }) => {
         const img = previewableImages[index];
+        if (img) currentImageUrlRef.current = img.url;
         setLightboxIndex(index);
         setImageRotation(0);
         setImageFlipH(false);
@@ -95,6 +116,7 @@ const GalleryLightbox = () => {
     }, [previewableImages, setLightboxIndex, setImageRotation, setImageFlipH, setImageFlipV, setImageInfoName, setPreviewingVideo]);
 
     const handleLightboxClose = useCallback(() => {
+        currentImageUrlRef.current = undefined;
         closeLightbox();
     }, [closeLightbox]);
 
