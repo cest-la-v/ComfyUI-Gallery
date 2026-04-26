@@ -223,11 +223,17 @@ def _resolve_text_link(
                 return str(inp[key])
     # Polarity-specific keys first so Context nodes route to the correct branch.
     # ctx_02 before ctx_01 (conditioning override takes precedence in Context Merge Big).
+    # conditioning/cond* keys let the resolver traverse ControlNetApply, ConditioningAverage,
+    # and BasicGuider chains where the link is typed CONDITIONING rather than STRING.
     if polarity == "positive":
         relay_keys = ("text", "prompt", "value", "positive", "pos",
+                      "conditioning", "cond", "conditioning_to", "conditioning_from",
+                      "conditioning_1", "conditioning_2",
                       "ctx_02", "ctx_01", "string_b", "string_a", "string")
     else:
         relay_keys = ("text", "prompt", "value", "negative", "neg",
+                      "conditioning", "cond", "conditioning_to", "conditioning_from",
+                      "conditioning_1", "conditioning_2",
                       "ctx_02", "ctx_01", "string_b", "string_a", "string")
     for key in relay_keys:
         val = inp.get(key)
@@ -238,13 +244,38 @@ def _resolve_text_link(
     return None
 
 
+_CONDITIONING_INPUT_KEYS = frozenset({
+    "conditioning", "cond", "positive_cond", "negative_cond", "cond1", "cond2",
+})
+
+
 def _find_sampler_hub(nodes: dict) -> Optional[str]:
-    """Find the node that has both 'positive' and 'negative' as link inputs (type-agnostic)."""
+    """Find the sampler hub node (type-agnostic, three priority levels).
+
+    Priority 1 — standard KSampler: both 'positive' and 'negative' as link inputs.
+    Priority 2 — Flux SamplerCustomAdvanced: has 'guider' link input; upstream BFS
+                 covers guider→model, sigmas→steps/scheduler, sampler→sampler_name.
+    Priority 3 — Flux BasicGuider / CFGGuider: has 'model' link + conditioning link.
+    """
+    # Priority 1: standard KSampler pattern
     for node_id, node in nodes.items():
         if not isinstance(node, dict):
             continue
         inp = node.get("inputs", {})
         if _is_link(inp.get("positive")) and _is_link(inp.get("negative")):
+            return node_id
+    # Priority 2: Flux-style sampler — has 'guider' link input
+    for node_id, node in nodes.items():
+        if not isinstance(node, dict):
+            continue
+        if _is_link(node.get("inputs", {}).get("guider")):
+            return node_id
+    # Priority 3: guider node — has 'model' link + any conditioning link
+    for node_id, node in nodes.items():
+        if not isinstance(node, dict):
+            continue
+        inp = node.get("inputs", {})
+        if _is_link(inp.get("model")) and any(_is_link(inp.get(k)) for k in _CONDITIONING_INPUT_KEYS):
             return node_id
     return None
 
@@ -533,14 +564,48 @@ def parse(prompt_json: object) -> Optional[dict]:
                 result["sampler"] = normalize_sampler(result["sampler"])
             if "scheduler" in result:
                 result["scheduler"] = normalize_scheduler(result["scheduler"])
-            # Model via generic link traversal from hub's model input
+            # Model via generic link traversal from hub's model input.
+            # For Flux: hub is SamplerCustomAdvanced — follow guider → model.
             if "model" not in result:
                 hub_node = nodes.get(hub_id, {})
-                model_input = hub_node.get("inputs", {}).get("model")
+                hub_inp = hub_node.get("inputs", {})
+                model_input = hub_inp.get("model")
+                if not model_input and _is_link(hub_inp.get("guider")):
+                    guider_node = nodes.get(str(hub_inp["guider"][0]), {})
+                    model_input = guider_node.get("inputs", {}).get("model")
                 if model_input:
                     resolved = _resolve_model_link(nodes, model_input)
                     if resolved:
                         result["model"] = resolved
+
+            # Prompts from hub: standard positive/negative, or Flux guider conditioning.
+            if "positive_prompt" not in result or "negative_prompt" not in result:
+                hub_node = nodes.get(hub_id, {})
+                hub_inp = hub_node.get("inputs", {})
+                # Standard
+                if _is_link(hub_inp.get("positive")) and "positive_prompt" not in result:
+                    text = _resolve_text_link(nodes, hub_inp["positive"], polarity="positive")
+                    if text:
+                        result["positive_prompt"] = text
+                if _is_link(hub_inp.get("negative")) and "negative_prompt" not in result:
+                    text = _resolve_text_link(nodes, hub_inp["negative"], polarity="negative")
+                    if text:
+                        result["negative_prompt"] = text
+                # Flux: resolve through guider → conditioning
+                if _is_link(hub_inp.get("guider")) and "positive_prompt" not in result:
+                    guider_node = nodes.get(str(hub_inp["guider"][0]), {})
+                    g_inp = guider_node.get("inputs", {})
+                    for cond_key in _CONDITIONING_INPUT_KEYS:
+                        if _is_link(g_inp.get(cond_key)) and "positive_prompt" not in result:
+                            text = _resolve_text_link(nodes, g_inp[cond_key], polarity="positive")
+                            if text:
+                                result["positive_prompt"] = text
+                # Flux: guider node itself is hub (Priority 3)
+                for cond_key in _CONDITIONING_INPUT_KEYS:
+                    if _is_link(hub_inp.get(cond_key)) and "positive_prompt" not in result:
+                        text = _resolve_text_link(nodes, hub_inp[cond_key], polarity="positive")
+                        if text:
+                            result["positive_prompt"] = text
 
     # -----------------------------------------------------------------------
     # Pass 3 — global scored fallback
@@ -561,10 +626,12 @@ def parse(prompt_json: object) -> Optional[dict]:
         for node in nodes.values():
             if not isinstance(node, dict):
                 continue
-            ct = node.get("class_type", "")
-            # Any node with positive+negative inputs is likely a sampler hub
             inp = node.get("inputs", {})
-            if _is_link(inp.get("positive")) and _is_link(inp.get("negative")):
+            # Standard sampler hub: positive + negative
+            is_hub = _is_link(inp.get("positive")) and _is_link(inp.get("negative"))
+            # Flux guider: model + conditioning
+            is_guider = _is_link(inp.get("model")) and any(_is_link(inp.get(k)) for k in _CONDITIONING_INPUT_KEYS)
+            if is_hub or is_guider:
                 model_ref = inp.get("model")
                 if model_ref:
                     resolved = _resolve_model_link(nodes, model_ref)
