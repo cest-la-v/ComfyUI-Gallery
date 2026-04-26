@@ -284,7 +284,10 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     // Entries are cleared only when the watchdog confirms the file via 'remove' or
     // re-creates it via 'create' — so the filter is active for exactly the right window.
     const deletedUrls = useRef<Set<string>>(new Set());
-    const markDeleted = useCallback((url: string) => { deletedUrls.current.add(url); }, []);
+    const markDeleted = useCallback((url: string) => {
+        console.log('[Gallery-DELETE] markDeleted:', url);
+        deletedUrls.current.add(url);
+    }, []);
     const [gridSize, setGridSize] = useState({ width: 1000, height: 600, columnCount: 1, rowCount: 1 });
     const [autoSizer, setAutoSizer] = useState({ width: 1000, height: 600 });
     const [autoCompleteOptions, setAutoCompleteOptions] = useState<AutoCompleteOption[]>([]);
@@ -411,7 +414,13 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const imagesDetailsList = useMemo(() => {
         const allItems: FileDetails[] = Object.values(data?.folders ?? {})
             .flatMap(folder => Object.values(folder as Record<string, FileDetails>))
-            .filter(item => !deletedUrls.current.has(item.url));
+            .filter(item => {
+                if (deletedUrls.current.has(item.url)) {
+                    console.log('[Gallery-DELETE] filter excluded zombie:', item.url);
+                    return false;
+                }
+                return true;
+            });
 
         let list = allItems;
 

@@ -551,7 +551,10 @@ export function MetadataPanel({ image }: { image: FileDetails }) {
                         )}
 
                         {!parsedParams && !parsedLoading && (
-                            <p className="text-sm text-muted-foreground">No metadata available.</p>
+                            <>
+                                {console.warn('[Gallery-NMA] No metadata available for', { url: image.url, relPath, type: image.type })}
+                                <p className="text-sm text-muted-foreground">No metadata available.</p>
+                            </>
                         )}
                     </div>
                 )}
