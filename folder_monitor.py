@@ -33,6 +33,7 @@ class GalleryEventHandler(PatternMatchingEventHandler):
         self.processed_events = {}
         self.result_queue = queue.Queue()  # Queue for results.
         self.running_scan = False # Flag to avoid multiple scans at the same time
+        self.pending_rescan = False  # A scan was requested while running_scan was True
         self.extensions = extensions
         self.last_known_folders = {} # Ensure last_known_folders is initialized empty
 
@@ -76,7 +77,8 @@ class GalleryEventHandler(PatternMatchingEventHandler):
     def rescan_and_send_changes(self):
         """Rescans, detects changes, sends updates, now thread-safe."""
         if self.running_scan:
-            gallery_log("Another scan is running, skipping")
+            self.pending_rescan = True  # guarantee a retry after current scan completes
+            gallery_log("Another scan is running, scheduling retry")
             return
 
         self.running_scan = True  # Set the flag.
@@ -136,6 +138,10 @@ class GalleryEventHandler(PatternMatchingEventHandler):
 
             finally:
                 self.running_scan = False #Clear flag in all cases
+                if self.pending_rescan:
+                    self.pending_rescan = False
+                    gallery_log("FileSystemMonitor: Retrying scan for events missed during last scan")
+                    self.rescan_and_send_changes()
 
         # Start the scan in a separate thread.
         scan_thread = threading.Thread(target=thread_target)
