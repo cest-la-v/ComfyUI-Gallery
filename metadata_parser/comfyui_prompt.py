@@ -221,11 +221,6 @@ def _resolve_text_link(
         for key in ("populated_text", "wildcard_text"):
             if _is_plain_prompt(inp.get(key)):
                 return str(inp[key])
-    # ShowText|pysssss (and variants): `text_0` holds the last evaluated/stored text.
-    # Following `text` (the input link) leads to upstream nodes (e.g. GalleryMetadataExtractor)
-    # that have no text inputs — always a dead end. Read the stored value directly.
-    if ct in ("ShowText|pysssss", "ShowText") and _is_plain_prompt(inp.get("text_0")):
-        return str(inp["text_0"])
     # StringConcatenate: must reconstruct the full concatenated string — following only one
     # branch returns just the prefix (string_a) and loses the user's actual prompt (string_b).
     if ct == "StringConcatenate":
@@ -266,6 +261,13 @@ def _resolve_text_link(
             result = _resolve_text_link(nodes, val, visited, polarity)
             if result:
                 return result
+    # Generic fallback for display nodes that cache their last output as `{key}_0`
+    # (pysssss convention: ShowText|pysssss stores evaluated text in text_0, etc.).
+    # Reached only when all relay_key links were dead ends.
+    for key in relay_keys:
+        val = inp.get(f"{key}_0")
+        if _is_plain_prompt(val):
+            return str(val)
     return None
 
 
