@@ -33,7 +33,6 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
         setImageInfoName,
         setLightboxIndex,
         mutate,
-        runAsync,
     } = useGalleryContext();
 
     const { currentIndex } = useLightboxState();
@@ -73,9 +72,14 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                 // Non-last image: keep the same index
                 setImageInfoName(previewableImages[currentIndex + 1].name);
             }
-            // Optimistically remove the deleted file from the local data so the
-            // frontend doesn't depend on a watchdog event to update — which can
-            // be delayed or skipped on Windows. Follow with a background resync.
+            // Optimistically remove the deleted file from local data so the
+            // frontend doesn't depend on a watchdog event to update (which can
+            // be delayed or skipped on Windows). Do NOT call runAsync() — it
+            // would re-fetch server state which still includes the deleted file
+            // (DB GC runs asynchronously via watchdog), overwriting this removal
+            // and bringing the deleted image back into the list.
+            // The watchdog will resync naturally; updateImages() handles the
+            // file_change event, but the file is already absent so it's a no-op.
             const deletedName = currentImage.name;
             mutate((oldData) => {
                 if (!oldData?.folders) return oldData;
@@ -89,12 +93,11 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                 }
                 return { ...oldData, folders };
             });
-            runAsync();
         } else {
             toast.error('Failed to delete image');
         }
         setConfirmingDelete(false);
-    }, [currentImage, currentIndex, previewableImages, closeLightbox, setImageInfoName, setLightboxIndex, mutate, runAsync]);
+    }, [currentImage, currentIndex, previewableImages, closeLightbox, setImageInfoName, setLightboxIndex, mutate]);
 
     const showToolbar = !!currentImage && currentImage.type !== 'media' && currentImage.type !== 'audio';
     const btnCls = 'lb-btn';
