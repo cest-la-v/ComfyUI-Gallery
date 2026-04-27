@@ -262,12 +262,12 @@ def _resolve_text_link(
     # conditioning/cond* keys let the resolver traverse ControlNetApply, ConditioningAverage,
     # and BasicGuider chains where the link is typed CONDITIONING rather than STRING.
     if polarity == "positive":
-        relay_keys = ("text", "prompt", "value", "positive", "pos",
+        relay_keys = ("text", "text_g", "text_l", "prompt", "value", "positive", "pos",
                       "conditioning", "cond", "conditioning_to", "conditioning_from",
                       "conditioning_1", "conditioning_2",
                       "ctx_02", "ctx_01", "string_b", "string_a", "string")
     else:
-        relay_keys = ("text", "prompt", "value", "negative", "neg",
+        relay_keys = ("text", "text_g", "text_l", "prompt", "value", "negative", "neg",
                       "conditioning", "cond", "conditioning_to", "conditioning_from",
                       "conditioning_1", "conditioning_2",
                       "ctx_02", "ctx_01", "string_b", "string_a", "string")
@@ -403,7 +403,7 @@ def _extract_prompts_heuristic(nodes: dict) -> tuple[Optional[str], Optional[str
         title = (node.get("_meta") or {}).get("title", "")
         inp = node.get("inputs", {})
 
-        for key in ("prompt", "text", "value"):
+        for key in ("prompt", "text", "text_g", "text_l", "value"):
             val = inp.get(key)
             text: Optional[str] = None
             if _is_plain_prompt(val):
