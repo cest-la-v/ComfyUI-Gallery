@@ -159,6 +159,30 @@ ComfyAppApi.registerExtension({
                         }
                     });
                 });
+
+                // Display widgets — updated after each execution via the "executed" event.
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const posWidget = node.addWidget("text", "✅ Positive", "", undefined as any, { multiline: true });
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const negWidget = node.addWidget("text", "❌ Negative", "", undefined as any, { multiline: true });
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const onExecuted = (e: any) => {
+                    try {
+                        const { node: nodeId, output } = e.detail ?? {};
+                        if (String(nodeId) !== String(node.id)) return;
+                        posWidget.value = output?.positive?.[0] ?? "";
+                        negWidget.value = output?.negative?.[0] ?? "";
+                        node.setDirtyCanvas?.(true, true);
+                    } catch { }
+                };
+                ComfyAppApi.addEventListener("executed", onExecuted);
+
+                const origOnRemoved = node.onRemoved?.bind(node);
+                node.onRemoved = () => {
+                    ComfyAppApi.removeEventListener("executed", onExecuted);
+                    origOnRemoved?.();
+                };
             }
         } catch (error) {
 

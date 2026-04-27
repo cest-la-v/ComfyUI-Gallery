@@ -72,6 +72,10 @@ export const ComfyAppApi = {
         app.api.addEventListener("Gallery.update", cb),
     onClear: (cb: GalleryEventCallback) =>
         app.api.addEventListener("Gallery.clear", cb),
+    addEventListener: (event: string, cb: GalleryEventCallback) =>
+        app.api.addEventListener(event, cb),
+    removeEventListener: (event: string, cb: GalleryEventCallback) =>
+        app.api.removeEventListener?.(event, cb),
     registerExtension: (ext: any) =>
         app.registerExtension(ext),
     moveImage: async (sourcePath: string, targetPath: string) => {

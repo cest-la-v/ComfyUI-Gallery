@@ -33,8 +33,9 @@ from .metadata_parser._writer import params_to_a1111_string
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tiff", ".tif"}
 
 
-def _empty_outputs() -> tuple:
-    return ("", "", 0, 0, 0.0, "", "", "", "", 0, 0, 0.0, 0, "[]")
+def _empty_outputs() -> dict:
+    empty_tuple = ("", "", 0, 0, 0.0, "", "", "", "", 0, 0, 0.0, 0, "[]")
+    return {"ui": {"positive": [""], "negative": [""]}, "result": empty_tuple}
 
 
 def _image_combo_input() -> dict:
@@ -107,11 +108,15 @@ class GalleryPromptReader:
 
     @classmethod
     def INPUT_TYPES(cls):
-        return {"required": _image_combo_input()}
+        return {
+            "required": _image_combo_input(),
+            "hidden": {"unique_id": "UNIQUE_ID"},
+        }
 
     RETURN_TYPES = ("STRING", "STRING")
     RETURN_NAMES = ("positive_prompt", "negative_prompt")
     FUNCTION = "execute"
+    OUTPUT_NODE = True
     CATEGORY = "ComfyUI Gallery"
     DESCRIPTION = (
         "Read positive and negative prompts from a gallery or local image. "
@@ -119,21 +124,26 @@ class GalleryPromptReader:
         "ComfyUI's input directory and select it, or upload a local file directly."
     )
 
-    def execute(self, image: str = ""):
+    def execute(self, image: str = "", unique_id=None):
         full_path = _resolve_image(image)
         if not full_path:
-            return ("", "")
+            return {"ui": {"positive": [""], "negative": [""]}, "result": ("", "")}
         try:
             _, _, metadata = buildMetadata(full_path)
         except Exception:
-            return ("", "")
+            return {"ui": {"positive": [""], "negative": [""]}, "result": ("", "")}
         params = extract_params(metadata)
         if not params:
-            return ("", "")
-        return (params.get("positive_prompt") or "", params.get("negative_prompt") or "")
+            return {"ui": {"positive": [""], "negative": [""]}, "result": ("", "")}
+        positive = params.get("positive_prompt") or ""
+        negative = params.get("negative_prompt") or ""
+        return {
+            "ui": {"positive": [positive], "negative": [negative]},
+            "result": (positive, negative),
+        }
 
     @classmethod
-    def IS_CHANGED(cls, image: str = ""):
+    def IS_CHANGED(cls, image: str = "", unique_id=None):
         path = _resolve_image(image)
         if not path:
             return ""
@@ -143,7 +153,7 @@ class GalleryPromptReader:
         return m.digest().hex()
 
     @classmethod
-    def VALIDATE_INPUTS(cls, image: str = ""):
+    def VALIDATE_INPUTS(cls, image: str = "", unique_id=None):
         if not image or image in ("", "none"):
             return True
         if folder_paths and not folder_paths.exists_annotated_filepath(image):
@@ -161,7 +171,10 @@ class GalleryMetadataExtractor:
 
     @classmethod
     def INPUT_TYPES(cls):
-        return {"required": _image_combo_input()}
+        return {
+            "required": _image_combo_input(),
+            "hidden": {"unique_id": "UNIQUE_ID"},
+        }
 
     RETURN_TYPES = (
         "STRING", "STRING",
@@ -180,6 +193,7 @@ class GalleryMetadataExtractor:
         "loras",
     )
     FUNCTION = "execute"
+    OUTPUT_NODE = True
     CATEGORY = "ComfyUI Gallery"
     DESCRIPTION = (
         "Extract generation metadata (prompts, sampler, seed, model, …) from a gallery "
@@ -187,7 +201,7 @@ class GalleryMetadataExtractor:
         "ComfyUI's input directory and select it, or upload a local file directly."
     )
 
-    def execute(self, image: str = ""):
+    def execute(self, image: str = "", unique_id=None):
         full_path = _resolve_image(image)
         if not full_path:
             return _empty_outputs()
@@ -203,14 +217,18 @@ class GalleryMetadataExtractor:
 
         params = extract_params(metadata)
         if not params:
-            return ("", "", 0, 0, 0.0, "", "", "", "", width, height, 0.0, 0, "[]")
+            empty_tuple = ("", "", 0, 0, 0.0, "", "", "", "", width, height, 0.0, 0, "[]")
+            return {"ui": {"positive": [""], "negative": [""]}, "result": empty_tuple}
 
         loras = params.get("loras") or []
         loras_json = json.dumps(loras, ensure_ascii=False) if isinstance(loras, list) else "[]"
 
-        return (
-            params.get("positive_prompt") or "",
-            params.get("negative_prompt") or "",
+        positive = params.get("positive_prompt") or ""
+        negative = params.get("negative_prompt") or ""
+
+        result_tuple = (
+            positive,
+            negative,
             int(params.get("seed") or 0),
             int(params.get("steps") or 0),
             float(params.get("cfg_scale") or 0.0),
@@ -224,9 +242,13 @@ class GalleryMetadataExtractor:
             -int(params.get("clip_skip") or 0),
             loras_json,
         )
+        return {
+            "ui": {"positive": [positive], "negative": [negative]},
+            "result": result_tuple,
+        }
 
     @classmethod
-    def IS_CHANGED(cls, image: str = ""):
+    def IS_CHANGED(cls, image: str = "", unique_id=None):
         path = _resolve_image(image)
         if not path:
             return ""
@@ -236,7 +258,7 @@ class GalleryMetadataExtractor:
         return m.digest().hex()
 
     @classmethod
-    def VALIDATE_INPUTS(cls, image: str = ""):
+    def VALIDATE_INPUTS(cls, image: str = "", unique_id=None):
         if not image or image in ("", "none"):
             return True
         if folder_paths and not folder_paths.exists_annotated_filepath(image):
