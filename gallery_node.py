@@ -32,6 +32,12 @@ from .metadata_parser._writer import params_to_a1111_string
 
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tiff", ".tif"}
 
+# Runtime cache written by GalleryMetadataExtractor.execute() and read by
+# GallerySaveImage._build_merged_params().  Keyed by the node's unique_id
+# (== the node_id string in the prompt graph).  Lets GallerySaveImage pick up
+# the extracted seed (and prompts as fallback) with zero explicit wiring.
+_extractor_runtime_cache: dict[str, dict] = {}
+
 
 def _empty_outputs() -> dict:
     empty_tuple = ("", "", 0, 0, 0.0, "", "", "", "", 0, 0, 0.0, 0, "[]")
@@ -226,6 +232,20 @@ class GalleryMetadataExtractor:
         positive = params.get("positive_prompt") or ""
         negative = params.get("negative_prompt") or ""
 
+        # Cache all extracted values so GallerySaveImage can use them with zero wiring.
+        if unique_id is not None:
+            _extractor_runtime_cache[str(unique_id)] = {
+                "positive_prompt": positive,
+                "negative_prompt": negative,
+                "seed":            int(params.get("seed") or 0),
+                "steps":           int(params.get("steps") or 0),
+                "cfg_scale":       float(params.get("cfg_scale") or 0.0),
+                "sampler":         params.get("sampler") or "",
+                "scheduler":       params.get("scheduler") or "",
+                "model":           params.get("model") or "",
+                "vae":             params.get("vae") or "",
+            }
+
         result_tuple = (
             positive,
             negative,
@@ -405,8 +425,10 @@ class GallerySaveImage:
         """Merge BFS-extracted params with GENERATION_METADATA and explicit inputs.
 
         Priority (highest wins):
-          3. Explicit optional inputs — runtime-accurate, user-controlled, work on vanilla ComfyUI
-          2. GM overlay — runtime-derived (fork only); accurate sampling params
+          4. Explicit optional inputs — runtime-accurate, user-controlled
+          3. GM overlay — runtime-derived (fork only); accurate sampling params
+          2. Extractor cache — values written by GalleryMetadataExtractor.execute()
+             at runtime; fills seed and any prompts BFS couldn't reach statically
           1. BFS — graph structure; richer for LoRAs, prompts, static literals
         """
         # BFS enrichment from original prompt graph
@@ -418,7 +440,25 @@ class GallerySaveImage:
 
         merged = dict(bfs_params)
 
-        # GM overlay: runtime-derived fields win over BFS
+        # Extractor cache overlay: fill fields that BFS couldn't get from the static graph.
+        # Seed is the main case — it's a runtime output of GalleryMetadataExtractor and
+        # cannot be recovered from the prompt JSON without explicit wiring.
+        if prompt:
+            for node_id, node in prompt.items():
+                if not isinstance(node, dict):
+                    continue
+                if node.get("class_type") != "GalleryMetadataExtractor":
+                    continue
+                cached = _extractor_runtime_cache.get(str(node_id))
+                if not cached:
+                    continue
+                for field in ("positive_prompt", "negative_prompt",
+                              "seed", "steps", "cfg_scale",
+                              "sampler", "scheduler", "model", "vae"):
+                    if not merged.get(field) and cached.get(field):
+                        merged[field] = cached[field]
+
+        # GM overlay: runtime-derived fields win over BFS + cache
         if gm is not None:
             try:
                 is_empty = gm.is_empty()
@@ -431,7 +471,7 @@ class GallerySaveImage:
                     if val is not None:
                         merged[field] = val
 
-                # Prompts: BFS first; fall back to GM if BFS found nothing
+                # Prompts: BFS/cache first; fall back to GM if still missing
                 if not merged.get("positive_prompt") and getattr(gm, "positive_prompt", None):
                     merged["positive_prompt"] = gm.positive_prompt
                 if not merged.get("negative_prompt") and getattr(gm, "negative_prompt", None):
