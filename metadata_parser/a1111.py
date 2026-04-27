@@ -112,6 +112,8 @@ def parse(parameters_text: str) -> Optional[dict]:
             result["scheduler"] = val
         elif mapped == "vae":
             result["vae"] = val
+        elif mapped == "vae_hash":
+            result["vae_hash"] = val
         elif mapped == "clip_skip":
             result["clip_skip"] = _to_int(val)
         elif mapped == "denoise_strength":

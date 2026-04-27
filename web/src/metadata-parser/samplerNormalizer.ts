@@ -1,61 +1,18 @@
 /**
  * Canonical display-name normalizers for sampler, scheduler, and model fields.
  *
- * ComfyUI uses Python-side snake_case identifiers; A1111/Civitai uses human
- * display names. This module bridges the two so that group-by operations on
- * Model, Sampler, and Scheduler work consistently across both metadata sources.
+ * Tables are loaded from metadata_parser/normalizer_tables.json — the single
+ * source of truth shared with Python's normalizer.py. Both sides read the
+ * same file so the tables cannot drift from each other.
  */
 
+import _tables from '../../../metadata_parser/normalizer_tables.json';
+
 /** Maps ComfyUI internal sampler_name → canonical A1111-style display name */
-export const COMFYUI_SAMPLER_DISPLAY: Record<string, string> = {
-    euler:                 'Euler',
-    euler_ancestral:       'Euler a',
-    heun:                  'Heun',
-    heunpp2:               'Heun++2',
-    dpm_2:                 'DPM2',
-    dpm_2_ancestral:       'DPM2 a',
-    lms:                   'LMS',
-    dpm_fast:              'DPM fast',
-    dpm_adaptive:          'DPM adaptive',
-    dpmpp_2s_ancestral:    'DPM++ 2S a',
-    dpmpp_sde:             'DPM++ SDE',
-    dpmpp_sde_gpu:         'DPM++ SDE',
-    dpmpp_2m:              'DPM++ 2M',
-    dpmpp_2m_sde:          'DPM++ 2M SDE',
-    dpmpp_2m_sde_gpu:      'DPM++ 2M SDE',
-    dpmpp_3m_sde:          'DPM++ 3M SDE',
-    dpmpp_3m_sde_gpu:      'DPM++ 3M SDE',
-    ddpm:                  'DDPM',
-    lcm:                   'LCM',
-    ddim:                  'DDIM',
-    uni_pc:                'UniPC',
-    uni_pc_bh2:            'UniPC BH2',
-    ipndm:                 'IPNDM',
-    ipndm_v:               'IPNDM V',
-    deis:                  'DEIS',
-    res_multistep:         'ReS Multistep',
-    res_multistep_ancestral: 'ReS Multistep a',
-};
+export const COMFYUI_SAMPLER_DISPLAY: Record<string, string> = _tables.sampler_display;
 
 /** Maps ComfyUI internal scheduler → canonical A1111-style display name */
-export const COMFYUI_SCHEDULER_DISPLAY: Record<string, string> = {
-    normal:           'Normal',
-    karras:           'Karras',
-    exponential:      'Exponential',
-    sgm_uniform:      'SGM Uniform',
-    simple:           'Simple',
-    ddim_uniform:     'DDIM Uniform',
-    beta:             'Beta',
-    linear_quadratic: 'Linear Quadratic',
-    kl_optimal:       'KL Optimal',
-    laplace:          'Laplace',
-    ays:              'Align Your Steps',
-    gits:             'GITS',
-    polyexponential:  'Polyexponential',
-    vp:               'VP',
-    turbo:            'Turbo',
-    automatic:        'Automatic',
-};
+export const COMFYUI_SCHEDULER_DISPLAY: Record<string, string> = _tables.scheduler_display;
 
 /**
  * Normalize a sampler identifier to its canonical display name.

@@ -381,5 +381,31 @@ class TestConditioningCombinePrompt(unittest.TestCase):
         self.assertIn("subject_tags", positive)
 
 
+# ---------------------------------------------------------------------------
+# Heuristic: positive === negative → clear negative
+# ---------------------------------------------------------------------------
+
+class TestPositiveEqualsNegativeHeuristic(unittest.TestCase):
+    """When the heuristic BFS resolves positive and negative to the same text,
+    the negative should be cleared rather than duplicating the positive."""
+
+    def test_single_text_node_clears_duplicate_negative(self):
+        # "photorealistic portrait, artifact" scores as BOTH positive
+        # (_STRONG_POSITIVE match on "photorealistic") and negative
+        # ("artifact" in _NEG_KEYWORDS, len < 100).  With only one text node,
+        # pos_candidates[0] == neg_candidates[0] → heuristic clears negative.
+        prompt = {
+            "1": {
+                "class_type": "CLIPTextEncode",
+                "inputs": {"text": "photorealistic portrait, artifact"},
+            },
+        }
+        params = extract_params({"prompt": prompt})
+        self.assertIsNotNone(params)
+        self.assertEqual(params["positive_prompt"], "photorealistic portrait, artifact")
+        self.assertIsNone(params.get("negative_prompt"),
+                          "negative_prompt should be absent when it equals positive_prompt")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
