@@ -364,12 +364,26 @@ def _score_node_params(inp: dict) -> tuple[int, dict]:
             continue
         if field_key in fields:
             continue
-        if field_type == "int" and isinstance(val, (int, float)) and not isinstance(val, bool):
-            fields[field_key] = int(val)
-            score += 1
-        elif field_type == "float" and isinstance(val, (int, float)) and not isinstance(val, bool):
-            fields[field_key] = float(val)
-            score += 1
+        if field_type == "int" and not isinstance(val, bool):
+            if isinstance(val, (int, float)):
+                fields[field_key] = int(val)
+                score += 1
+            elif isinstance(val, str):
+                try:
+                    fields[field_key] = int(val)
+                    score += 1
+                except (ValueError, TypeError):
+                    pass
+        elif field_type == "float" and not isinstance(val, bool):
+            if isinstance(val, (int, float)):
+                fields[field_key] = float(val)
+                score += 1
+            elif isinstance(val, str):
+                try:
+                    fields[field_key] = float(val)
+                    score += 1
+                except (ValueError, TypeError):
+                    pass
         elif field_type == "str" and isinstance(val, str) and val:
             fields[field_key] = val
             score += 1

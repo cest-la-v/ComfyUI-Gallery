@@ -457,11 +457,11 @@ class GallerySaveImage:
             if cached.get("negative_prompt"):
                 new_inputs["\u274c Negative"] = cached["negative_prompt"]
             if cached.get("seed"):
-                new_inputs["seed"] = str(cached["seed"])
+                new_inputs["seed"] = cached["seed"]          # int
             if cached.get("steps"):
-                new_inputs["steps"] = str(cached["steps"])
+                new_inputs["steps"] = cached["steps"]        # int
             if cached.get("cfg_scale"):
-                new_inputs["cfg"] = str(cached["cfg_scale"])
+                new_inputs["cfg"] = cached["cfg_scale"]      # float
             if cached.get("sampler"):
                 new_inputs["sampler_name"] = cached["sampler"]
             if cached.get("scheduler"):
