@@ -402,6 +402,18 @@ A1111 writes one combined field: `Sampler: DPM++ 3M SDE Karras`.
 - **`_metadata` table is outside the schema wipe block.** It stores KV pairs (settings hash,
   schema version markers) that must survive DB resets. Do not add it inside the schema wipe
   `CREATE TABLE` block — it is created unconditionally at import time alongside `schema_version`.
+- **ComfyUI freezes the `prompt` dict at queue-submit time.** `onExecuted` fires asynchronously
+  *after* execution, so widget values in the embedded `prompt` JSON are always **one run behind**.
+  Any node that needs its own current-execution values in the saved file must use the
+  `_extractor_runtime_cache` + `_patch_prompt()` pattern — never assume the embedded `prompt` dict
+  reflects the current run. Without this, `comfyui` and `both` metadata_format modes will embed
+  stale (e.g. seed=0) values.
+- **`_score_node_params` silently skips type mismatches.** It uses `isinstance(val, (int, float))`
+  to gate int/float fields — a `str`-encoded number like `"1568179555"` passes no exception but is
+  quietly dropped. Any code that writes into the prompt dict for BFS consumption (e.g.
+  `_patch_prompt`) must store native Python `int`/`float`, not `str(val)`. If you add a new field
+  type to `_SAMPLER_FIELD_SPECS`, verify the corresponding value type is native before BFS can
+  read it.
 
 ### Cross-platform (macOS / Linux / Windows)
 
