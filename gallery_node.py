@@ -396,8 +396,9 @@ class GallerySaveImage:
             pnginfo = None
             if not disable_meta and metadata_format != "none":
                 pnginfo = PngInfo()
+                patched_prompt = self._patch_prompt(prompt) if prompt is not None else None
                 merged = self._build_merged_params(
-                    prompt, generation_metadata,
+                    patched_prompt, generation_metadata,
                     positive_prompt=positive_prompt,
                     negative_prompt=negative_prompt,
                     seed=seed, steps=steps, cfg=cfg,
@@ -411,8 +412,8 @@ class GallerySaveImage:
                         pnginfo.add_text("parameters", a1111_str)
 
                 if metadata_format in ("comfyui", "both"):
-                    if prompt is not None:
-                        pnginfo.add_text("prompt", json.dumps(self._patch_prompt(prompt)))
+                    if patched_prompt is not None:
+                        pnginfo.add_text("prompt", json.dumps(patched_prompt))
                     if extra_pnginfo is not None:
                         for k, v in extra_pnginfo.items():
                             pnginfo.add_text(k, json.dumps(v))
@@ -477,13 +478,13 @@ class GallerySaveImage:
         """Merge BFS-extracted params with GENERATION_METADATA and explicit inputs.
 
         Priority (highest wins):
-          4. Explicit optional inputs — runtime-accurate, user-controlled
-          3. GM overlay — runtime-derived (fork only); accurate sampling params
-          2. Extractor cache — values written by GalleryMetadataExtractor.execute()
-             at runtime; fills seed and any prompts BFS couldn't reach statically
+          3. Explicit optional inputs — runtime-accurate, user-controlled
+          2. GM overlay — runtime-derived (fork only); accurate sampling params
           1. BFS — graph structure; richer for LoRAs, prompts, static literals
+             (prompt should be pre-patched by _patch_prompt so first-run widget
+             values are correct)
         """
-        # BFS enrichment from original prompt graph
+        # BFS enrichment from the prompt graph (pre-patched by _patch_prompt)
         bfs_params: dict = {}
         if prompt:
             parsed = _prompt.parse(prompt)
@@ -492,25 +493,7 @@ class GallerySaveImage:
 
         merged = dict(bfs_params)
 
-        # Extractor cache overlay: fill fields that BFS couldn't get from the static graph.
-        # Seed is the main case — it's a runtime output of GalleryMetadataExtractor and
-        # cannot be recovered from the prompt JSON without explicit wiring.
-        if prompt:
-            for node_id, node in prompt.items():
-                if not isinstance(node, dict):
-                    continue
-                if node.get("class_type") != "GalleryMetadataExtractor":
-                    continue
-                cached = _extractor_runtime_cache.get(str(node_id))
-                if not cached:
-                    continue
-                for field in ("positive_prompt", "negative_prompt",
-                              "seed", "steps", "cfg_scale",
-                              "sampler", "scheduler", "model", "vae"):
-                    if not merged.get(field) and cached.get(field):
-                        merged[field] = cached[field]
-
-        # GM overlay: runtime-derived fields win over BFS + cache
+        # GM overlay: runtime-derived fields win over BFS
         if gm is not None:
             try:
                 is_empty = gm.is_empty()
