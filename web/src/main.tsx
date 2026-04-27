@@ -161,18 +161,36 @@ ComfyAppApi.registerExtension({
                 });
 
                 // Display widgets — updated after each execution via the "executed" event.
+                // Widget names match _SAMPLER_FIELD_SPECS exactly so ComfyUI serialises
+                // them into the prompt JSON and the BFS parser reads them back without
+                // any explicit wiring between GalleryMetadataExtractor and GallerySaveImage.
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const posWidget = node.addWidget("text", "✅ Positive", "", undefined as any, { multiline: true });
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const negWidget = node.addWidget("text", "❌ Negative", "", undefined as any, { multiline: true });
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const seedWidget     = node.addWidget("text", "seed",         "0",  undefined as any);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const stepsWidget    = node.addWidget("text", "steps",        "0",  undefined as any);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const cfgWidget      = node.addWidget("text", "cfg",          "0",  undefined as any);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const samplerWidget  = node.addWidget("text", "sampler_name", "",   undefined as any);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const schedulerWidget = node.addWidget("text", "scheduler",   "",   undefined as any);
 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const onExecuted = (e: any) => {
                     try {
                         const { node: nodeId, output } = e.detail ?? {};
                         if (String(nodeId) !== String(node.id)) return;
-                        posWidget.value = output?.positive?.[0] ?? "";
-                        negWidget.value = output?.negative?.[0] ?? "";
+                        posWidget.value      = output?.positive?.[0]    ?? "";
+                        negWidget.value      = output?.negative?.[0]    ?? "";
+                        seedWidget.value     = output?.seed?.[0]        ?? "0";
+                        stepsWidget.value    = output?.steps?.[0]       ?? "0";
+                        cfgWidget.value      = output?.cfg?.[0]         ?? "0";
+                        samplerWidget.value  = output?.sampler_name?.[0] ?? "";
+                        schedulerWidget.value = output?.scheduler?.[0]  ?? "";
                         node.setDirtyCanvas?.(true, true);
                     } catch { }
                 };

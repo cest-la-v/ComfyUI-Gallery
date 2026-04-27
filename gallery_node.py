@@ -263,7 +263,19 @@ class GalleryMetadataExtractor:
             loras_json,
         )
         return {
-            "ui": {"positive": [positive], "negative": [negative]},
+            "ui": {
+                "positive":    [positive],
+                "negative":    [negative],
+                # These values are picked up by the frontend onExecuted handler and
+                # stored back as widget values on the node.  ComfyUI then serialises
+                # them into the prompt JSON so the BFS parser can read seed/steps/etc.
+                # directly from the static workflow — no explicit wiring required.
+                "seed":        [str(int(params.get("seed") or 0))],
+                "steps":       [str(int(params.get("steps") or 0))],
+                "cfg":         [str(float(params.get("cfg_scale") or 0.0))],
+                "sampler_name": [params.get("sampler") or ""],
+                "scheduler":   [params.get("scheduler") or ""],
+            },
             "result": result_tuple,
         }
 
