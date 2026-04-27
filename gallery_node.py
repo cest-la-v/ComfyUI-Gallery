@@ -412,7 +412,7 @@ class GallerySaveImage:
 
                 if metadata_format in ("comfyui", "both"):
                     if prompt is not None:
-                        pnginfo.add_text("prompt", json.dumps(prompt))
+                        pnginfo.add_text("prompt", json.dumps(self._patch_prompt(prompt)))
                     if extra_pnginfo is not None:
                         for k, v in extra_pnginfo.items():
                             pnginfo.add_text(k, json.dumps(v))
@@ -428,6 +428,46 @@ class GallerySaveImage:
             counter += 1
 
         return {"ui": {"images": results}}
+
+    def _patch_prompt(self, prompt: dict) -> dict:
+        """Return a copy of the prompt dict with GalleryMetadataExtractor widget values
+        updated from the runtime cache.
+
+        The `prompt` hidden input is captured at queue-submission time, so widget values
+        (seed, steps, etc.) reflect the PREVIOUS execution — they are 0/empty on the
+        first run.  This patches them with the values GalleryMetadataExtractor.execute()
+        just computed, so the embedded ComfyUI JSON is always accurate.
+        """
+        if not _extractor_runtime_cache:
+            return prompt
+        patched: dict | None = None  # copy lazily only if we find something to patch
+        for node_id, node in prompt.items():
+            if not isinstance(node, dict):
+                continue
+            if node.get("class_type") != "GalleryMetadataExtractor":
+                continue
+            cached = _extractor_runtime_cache.get(str(node_id))
+            if not cached:
+                continue
+            if patched is None:
+                patched = dict(prompt)
+            new_inputs = dict(node.get("inputs", {}))
+            if cached.get("positive_prompt"):
+                new_inputs["\u2705 Positive"] = cached["positive_prompt"]
+            if cached.get("negative_prompt"):
+                new_inputs["\u274c Negative"] = cached["negative_prompt"]
+            if cached.get("seed"):
+                new_inputs["seed"] = str(cached["seed"])
+            if cached.get("steps"):
+                new_inputs["steps"] = str(cached["steps"])
+            if cached.get("cfg_scale"):
+                new_inputs["cfg"] = str(cached["cfg_scale"])
+            if cached.get("sampler"):
+                new_inputs["sampler_name"] = cached["sampler"]
+            if cached.get("scheduler"):
+                new_inputs["scheduler"] = cached["scheduler"]
+            patched[node_id] = {**node, "inputs": new_inputs}
+        return patched if patched is not None else prompt
 
     def _build_merged_params(self, prompt, gm, *,
                              positive_prompt=None, negative_prompt=None,
