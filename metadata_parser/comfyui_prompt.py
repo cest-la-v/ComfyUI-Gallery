@@ -221,6 +221,19 @@ def _resolve_text_link(
         for key in ("populated_text", "wildcard_text"):
             if _is_plain_prompt(inp.get(key)):
                 return str(inp[key])
+    # GalleryMetadataExtractor caches its extracted values in emoji-named inputs
+    # (✅ Positive = slot 0, ❌ Negative = slot 1).  Use the output index from
+    # the incoming link to pick the right slot, with polarity as fallback.
+    if ct == "GalleryMetadataExtractor":
+        output_idx = ref[1] if isinstance(ref, (list, tuple)) and len(ref) > 1 else None  # type: ignore[index]
+        if output_idx == 0 or (output_idx is None and polarity == "positive"):
+            val = inp.get("\u2705 Positive")
+            if _is_plain_prompt(val):
+                return str(val)
+        elif output_idx == 1 or (output_idx is None and polarity == "negative"):
+            val = inp.get("\u274c Negative")
+            if _is_plain_prompt(val):
+                return str(val)
     # StringConcatenate: must reconstruct the full concatenated string — following only one
     # branch returns just the prefix (string_a) and loses the user's actual prompt (string_b).
     if ct == "StringConcatenate":
