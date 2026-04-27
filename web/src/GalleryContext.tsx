@@ -66,6 +66,8 @@ export type GallerySection = 'assets' | 'models' | 'prompts';
 export interface GalleryContextType {
     gallerySection: GallerySection;
     setGallerySection: Dispatch<SetStateAction<GallerySection>>;
+    assetSourceFilter: string;
+    setAssetSourceFilter: Dispatch<SetStateAction<string>>;
     groupFilter: string;
     setGroupFilter: Dispatch<SetStateAction<string>>;
     gridView: 'detail' | 'overview';
@@ -254,6 +256,7 @@ function injectDividers(
 
 export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const [gallerySection, setGallerySection] = useState<GallerySection>('assets');
+    const [assetSourceFilter, setAssetSourceFilter] = useState('');
     const [groupFilter, setGroupFilter] = useState("");
     const [gridView, setGridView] = useState<'detail' | 'overview'>('detail');
     const [searchFileName, setSearchFileName] = useState("");
@@ -420,6 +423,11 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
             list = list.filter(imageInfo => imageInfo.name.toLowerCase().includes(searchTerm));
         }
 
+        // Source chip filter — only items whose rel_path starts with the selected source_id
+        if (assetSourceFilter) {
+            list = list.filter(item => item.rel_path?.startsWith(assetSourceFilter + '/') ?? false);
+        }
+
         // Sort items
         switch (sortMethod) {
             case 'Newest':
@@ -442,7 +450,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         }
 
         return injectDividers(list, viewMode, Math.max(1, gridSize.columnCount || 1), sortMethod);
-    }, [data, sortMethod, searchFileName, gridSize.columnCount, viewMode, groupFilter]);
+    }, [data, sortMethod, searchFileName, assetSourceFilter, gridSize.columnCount, viewMode, groupFilter]);
 
     const groupValues = useMemo<{ key: string; label: string }[]>(() => {
         const allItems: FileDetails[] = Object.values(data?.folders ?? {})
@@ -599,6 +607,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
 
     const value = useMemo(() => ({
         gallerySection, setGallerySection,
+        assetSourceFilter, setAssetSourceFilter,
         groupFilter, setGroupFilter,
         gridView, setGridView,
         groupValues,
@@ -638,6 +647,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         closePickMode,
     }), [
         gallerySection,
+        assetSourceFilter,
         groupFilter,
         gridView,
         groupValues,

@@ -278,6 +278,17 @@ class GallerySaveImage:
                     },
                 ),
             },
+            "optional": {
+                "positive_prompt": ("STRING", {"forceInput": True, "tooltip": "Override positive prompt in saved metadata. Connect extractor or StringConcatenate output here."}),
+                "negative_prompt":  ("STRING", {"forceInput": True, "tooltip": "Override negative prompt in saved metadata."}),
+                "seed":         ("INT",    {"forceInput": True, "tooltip": "Override seed in saved metadata."}),
+                "steps":        ("INT",    {"forceInput": True, "tooltip": "Override steps in saved metadata."}),
+                "cfg":          ("FLOAT",  {"forceInput": True, "tooltip": "Override CFG scale in saved metadata."}),
+                "sampler_name": (_SAMPLER_TYPE,   {"forceInput": True, "tooltip": "Override sampler in saved metadata."}),
+                "scheduler":    (_SCHEDULER_TYPE, {"forceInput": True, "tooltip": "Override scheduler in saved metadata."}),
+                "model_name":   ("STRING", {"forceInput": True, "tooltip": "Override model name in saved metadata."}),
+                "vae_name":     ("STRING", {"forceInput": True, "tooltip": "Override VAE name in saved metadata."}),
+            },
             "hidden": {
                 "prompt": "PROMPT",
                 "extra_pnginfo": "EXTRA_PNGINFO",
@@ -304,6 +315,15 @@ class GallerySaveImage:
         prompt=None,
         extra_pnginfo=None,
         generation_metadata=None,
+        positive_prompt=None,
+        negative_prompt=None,
+        seed=None,
+        steps=None,
+        cfg=None,
+        sampler_name=None,
+        scheduler=None,
+        model_name=None,
+        vae_name=None,
     ):
         disable_meta = _comfy_args is not None and getattr(_comfy_args, "disable_metadata", False)
 
@@ -322,7 +342,14 @@ class GallerySaveImage:
             pnginfo = None
             if not disable_meta and metadata_format != "none":
                 pnginfo = PngInfo()
-                merged = self._build_merged_params(prompt, generation_metadata)
+                merged = self._build_merged_params(
+                    prompt, generation_metadata,
+                    positive_prompt=positive_prompt,
+                    negative_prompt=negative_prompt,
+                    seed=seed, steps=steps, cfg=cfg,
+                    sampler_name=sampler_name, scheduler=scheduler,
+                    model_name=model_name, vae_name=vae_name,
+                )
 
                 if metadata_format in ("a1111", "both") and merged:
                     a1111_str = params_to_a1111_string(merged)
@@ -348,12 +375,17 @@ class GallerySaveImage:
 
         return {"ui": {"images": results}}
 
-    def _build_merged_params(self, prompt, gm) -> dict:
-        """Merge BFS-extracted params with GENERATION_METADATA.
+    def _build_merged_params(self, prompt, gm, *,
+                             positive_prompt=None, negative_prompt=None,
+                             seed=None, steps=None, cfg=None,
+                             sampler_name=None, scheduler=None,
+                             model_name=None, vae_name=None) -> dict:
+        """Merge BFS-extracted params with GENERATION_METADATA and explicit inputs.
 
-        GM wins for execution-derived fields (steps, cfg, sampler, scheduler,
-        seed, model). BFS provides richer prompts and LoRA detail, and fills
-        any fields GM left None.
+        Priority (highest wins):
+          3. Explicit optional inputs — runtime-accurate, user-controlled, work on vanilla ComfyUI
+          2. GM overlay — runtime-derived (fork only); accurate sampling params
+          1. BFS — graph structure; richer for LoRAs, prompts, static literals
         """
         # BFS enrichment from original prompt graph
         bfs_params: dict = {}
@@ -364,7 +396,7 @@ class GallerySaveImage:
 
         merged = dict(bfs_params)
 
-        # GM overlay: runtime-derived fields win
+        # GM overlay: runtime-derived fields win over BFS
         if gm is not None:
             try:
                 is_empty = gm.is_empty()
@@ -388,6 +420,17 @@ class GallerySaveImage:
                     gm_loras = getattr(gm, "loras", None)
                     if gm_loras:
                         merged["loras"] = gm_loras
+
+        # Explicit optional inputs win over everything — user-controlled, runtime-accurate
+        if positive_prompt: merged["positive_prompt"] = positive_prompt
+        if negative_prompt: merged["negative_prompt"] = negative_prompt
+        if seed is not None: merged["seed"] = seed
+        if steps is not None: merged["steps"] = steps
+        if cfg is not None: merged["cfg_scale"] = cfg
+        if sampler_name: merged["sampler"] = sampler_name
+        if scheduler: merged["scheduler"] = scheduler
+        if model_name: merged["model"] = model_name
+        if vae_name: merged["vae"] = vae_name
 
         return merged
 

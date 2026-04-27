@@ -529,10 +529,17 @@ def parse(prompt_json: object) -> Optional[dict]:
     nodes = prompt_json
     result: dict = {"formats": ["comfyui"]}
 
+    # Establish execution scope once — only nodes reachable from the sampler hub.
+    # All three passes and extraction helpers use scoped_nodes to avoid false-positive
+    # results from disconnected / orphaned nodes in the workflow JSON.
+    hub_id = _find_sampler_hub(nodes)
+    upstream_ids: set[str] | None = set(_bfs_upstream(nodes, hub_id)) if hub_id else None
+    scoped_nodes = {k: v for k, v in nodes.items() if upstream_ids is None or k in upstream_ids}
+
     # -----------------------------------------------------------------------
     # Pass 1 — known class-type fast path
     # -----------------------------------------------------------------------
-    for node in nodes.values():
+    for node in scoped_nodes.values():
         if not isinstance(node, dict):
             continue
         ct = node.get("class_type", "")
@@ -559,11 +566,11 @@ def parse(prompt_json: object) -> Optional[dict]:
                         break
             # Resolve pos/neg from sampler hub
             if "positive_prompt" not in result and _is_link(inp.get("positive")):
-                text = _resolve_text_link(nodes, inp["positive"], polarity="positive")
+                text = _resolve_text_link(scoped_nodes, inp["positive"], polarity="positive")
                 if text:
                     result["positive_prompt"] = text
             if "negative_prompt" not in result and _is_link(inp.get("negative")):
-                text = _resolve_text_link(nodes, inp["negative"], polarity="negative")
+                text = _resolve_text_link(scoped_nodes, inp["negative"], polarity="negative")
                 if text:
                     result["negative_prompt"] = text
 
@@ -595,10 +602,8 @@ def parse(prompt_json: object) -> Optional[dict]:
     # Pass 2 — hub-first BFS (generic, no class-type knowledge)
     # -----------------------------------------------------------------------
     if _missing_any():
-        hub_id = _find_sampler_hub(nodes)
         if hub_id:
-            upstream_ids = _bfs_upstream(nodes, hub_id)
-            hub_params = _extract_params_from_nodes(nodes, upstream_ids)
+            hub_params = _extract_params_from_nodes(scoped_nodes, list(scoped_nodes.keys()))
             for key in ("steps", "cfg_scale", "sampler", "scheduler", "seed"):
                 if key not in result and key in hub_params:
                     result[key] = hub_params[key]
@@ -610,43 +615,43 @@ def parse(prompt_json: object) -> Optional[dict]:
             # Model via generic link traversal from hub's model input.
             # For Flux: hub is SamplerCustomAdvanced — follow guider → model.
             if "model" not in result:
-                hub_node = nodes.get(hub_id, {})
+                hub_node = scoped_nodes.get(hub_id, {})
                 hub_inp = hub_node.get("inputs", {})
                 model_input = hub_inp.get("model")
                 if not model_input and _is_link(hub_inp.get("guider")):
-                    guider_node = nodes.get(str(hub_inp["guider"][0]), {})
+                    guider_node = scoped_nodes.get(str(hub_inp["guider"][0]), {})
                     model_input = guider_node.get("inputs", {}).get("model")
                 if model_input:
-                    resolved = _resolve_model_link(nodes, model_input)
+                    resolved = _resolve_model_link(scoped_nodes, model_input)
                     if resolved:
                         result["model"] = resolved
 
             # Prompts from hub: standard positive/negative, or Flux guider conditioning.
             if "positive_prompt" not in result or "negative_prompt" not in result:
-                hub_node = nodes.get(hub_id, {})
+                hub_node = scoped_nodes.get(hub_id, {})
                 hub_inp = hub_node.get("inputs", {})
                 # Standard
                 if _is_link(hub_inp.get("positive")) and "positive_prompt" not in result:
-                    text = _resolve_text_link(nodes, hub_inp["positive"], polarity="positive")
+                    text = _resolve_text_link(scoped_nodes, hub_inp["positive"], polarity="positive")
                     if text:
                         result["positive_prompt"] = text
                 if _is_link(hub_inp.get("negative")) and "negative_prompt" not in result:
-                    text = _resolve_text_link(nodes, hub_inp["negative"], polarity="negative")
+                    text = _resolve_text_link(scoped_nodes, hub_inp["negative"], polarity="negative")
                     if text:
                         result["negative_prompt"] = text
                 # Flux: resolve through guider → conditioning
                 if _is_link(hub_inp.get("guider")) and "positive_prompt" not in result:
-                    guider_node = nodes.get(str(hub_inp["guider"][0]), {})
+                    guider_node = scoped_nodes.get(str(hub_inp["guider"][0]), {})
                     g_inp = guider_node.get("inputs", {})
                     for cond_key in _CONDITIONING_INPUT_KEYS:
                         if _is_link(g_inp.get(cond_key)) and "positive_prompt" not in result:
-                            text = _resolve_text_link(nodes, g_inp[cond_key], polarity="positive")
+                            text = _resolve_text_link(scoped_nodes, g_inp[cond_key], polarity="positive")
                             if text:
                                 result["positive_prompt"] = text
                 # Flux: guider node itself is hub (Priority 3)
                 for cond_key in _CONDITIONING_INPUT_KEYS:
                     if _is_link(hub_inp.get(cond_key)) and "positive_prompt" not in result:
-                        text = _resolve_text_link(nodes, hub_inp[cond_key], polarity="positive")
+                        text = _resolve_text_link(scoped_nodes, hub_inp[cond_key], polarity="positive")
                         if text:
                             result["positive_prompt"] = text
 
@@ -654,7 +659,7 @@ def parse(prompt_json: object) -> Optional[dict]:
     # Pass 3 — global scored fallback
     # -----------------------------------------------------------------------
     if _missing_any():
-        all_params = _extract_params_from_nodes(nodes, list(nodes.keys()))
+        all_params = _extract_params_from_nodes(scoped_nodes, list(scoped_nodes.keys()))
         for key in ("steps", "cfg_scale", "sampler", "scheduler", "seed"):
             if key not in result and key in all_params:
                 result[key] = all_params[key]
@@ -666,7 +671,7 @@ def parse(prompt_json: object) -> Optional[dict]:
     # Model via generic traversal from all sampler-like nodes (vote)
     if "model" not in result:
         model_votes: dict[str, int] = {}
-        for node in nodes.values():
+        for node in scoped_nodes.values():
             if not isinstance(node, dict):
                 continue
             inp = node.get("inputs", {})
@@ -677,7 +682,7 @@ def parse(prompt_json: object) -> Optional[dict]:
             if is_hub or is_guider:
                 model_ref = inp.get("model")
                 if model_ref:
-                    resolved = _resolve_model_link(nodes, model_ref)
+                    resolved = _resolve_model_link(scoped_nodes, model_ref)
                     if resolved:
                         model_votes[resolved] = model_votes.get(resolved, 0) + 1
         if model_votes:
@@ -685,14 +690,14 @@ def parse(prompt_json: object) -> Optional[dict]:
 
     # Prompts — heuristic scan if not already found
     if "positive_prompt" not in result or "negative_prompt" not in result:
-        pos, neg = _extract_prompts_heuristic(nodes)
+        pos, neg = _extract_prompts_heuristic(scoped_nodes)
         if "positive_prompt" not in result and pos:
             result["positive_prompt"] = pos
         if "negative_prompt" not in result and neg:
             result["negative_prompt"] = neg
 
     # Upscale info (UltimateSDUpscale family)
-    upscale = _extract_upscale_info(nodes)
+    upscale = _extract_upscale_info(scoped_nodes)
     if upscale.get("hires_upscaler") and "hires_upscaler" not in result:
         result["hires_upscaler"] = upscale["hires_upscaler"]
     if upscale.get("hires_denoise") is not None and "hires_denoise" not in result:
@@ -707,7 +712,7 @@ def parse(prompt_json: object) -> Optional[dict]:
         result["extras"] = {**existing, **upscale["extras"]}
 
     # LoRAs
-    loras = _extract_loras(nodes)
+    loras = _extract_loras(scoped_nodes)
     if loras:
         result["loras"] = loras
 

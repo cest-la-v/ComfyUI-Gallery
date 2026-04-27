@@ -106,6 +106,8 @@ const GalleryAssetsSearchBar = () => {
         setSearchFileName,
         imagesAutoCompleteNames,
         autoCompleteOptions, setAutoCompleteOptions,
+        assetSourceFilter, setAssetSourceFilter,
+        settings,
     } = useGalleryContext();
 
     const [search, setSearch] = useState('');
@@ -124,6 +126,9 @@ const GalleryAssetsSearchBar = () => {
         }
     }, [debouncedSearch, imagesAutoCompleteNames, setAutoCompleteOptions, setSearchFileName]);
 
+    const enabledSources = (settings.sourcePaths ?? []).filter(s => s.enabled !== false);
+    const showSourceChips = enabledSources.length > 1;
+
     return (
         <div className="px-4 py-3 border-b shrink-0">
             <SearchAutocomplete
@@ -132,6 +137,41 @@ const GalleryAssetsSearchBar = () => {
                 options={autoCompleteOptions?.length ? autoCompleteOptions : imagesAutoCompleteNames}
                 placeholder="Search…"
             />
+            {showSourceChips && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                    <button
+                        type="button"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => setAssetSourceFilter('')}
+                        className={cn(
+                            "px-2.5 py-0.5 text-xs rounded-full border transition-colors",
+                            assetSourceFilter === ''
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-transparent text-muted-foreground border-border hover:bg-accent"
+                        )}
+                    >
+                        All
+                    </button>
+                    {enabledSources.map(src => (
+                        <button
+                            key={src.source_id}
+                            type="button"
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => setAssetSourceFilter(
+                                assetSourceFilter === src.source_id ? '' : src.source_id
+                            )}
+                            className={cn(
+                                "px-2.5 py-0.5 text-xs rounded-full border transition-colors capitalize",
+                                assetSourceFilter === src.source_id
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "bg-transparent text-muted-foreground border-border hover:bg-accent"
+                            )}
+                        >
+                            {src.label ?? src.source_id}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
