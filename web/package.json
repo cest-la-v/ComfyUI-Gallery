@@ -9,7 +9,7 @@
         "build:cli": "tsc -b && bun build src/main.tsx --outdir dist --entry-naming assets/comfy-ui-gallery.js --chunk-naming \"assets/comfy-ui-gallery-[name].js\" --asset-naming \"assets/comfy-ui-gallery.[ext]\" --target browser --minify",
         "lint": "eslint .",
         "test": "bun test",
-        "inspect": "bun web/scripts/inspect-image.ts"
+        "inspect": "python3 -m metadata_parser"
     },
     "dependencies": {
         "@emotion/react": "^11.14.0",
