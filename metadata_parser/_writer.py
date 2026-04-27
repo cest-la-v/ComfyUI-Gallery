@@ -7,14 +7,20 @@ The params dict is the merged result of:
   - _prompt.parse(prompt)  — BFS enrichment (prompts, LoRAs, gap-filling)
   - GenerationMetadata     — runtime-derived values (steps, cfg, sampler, etc.)
 
-LoRAs are written as 'Lora weights:' (we store names + strengths, not file
-hashes, so 'Lora hashes:' would be misleading to downstream tools).
+LoRAs are appended to the positive prompt as standard A1111 <lora:name:weight>
+tags. Any pre-existing <lora:...> tags in the positive_prompt (which may come
+from a reference image's metadata) are stripped first, so only the workflow's
+actual LoRA nodes appear in the saved metadata.
 """
 from __future__ import annotations
 
 import os
+import re
 
 from .normalizer import SAMPLER_DISPLAY, SCHEDULER_DISPLAY
+
+# Matches any <lora:...> tag in the positive prompt, including surrounding whitespace
+_LORA_TAG_RE = re.compile(r"\s*<lora:[^>]+>\s*", re.IGNORECASE)
 
 
 def params_to_a1111_string(params: dict) -> str:
@@ -22,14 +28,35 @@ def params_to_a1111_string(params: dict) -> str:
 
     Output format mirrors GenerationMetadata.to_a1111_string():
 
-        <positive prompt>
+        <positive prompt> <lora:name:weight> ...
         Negative prompt: <negative prompt>
         Steps: 20, Sampler: DPM++ 2M Karras, Schedule type: Karras, CFG scale: 7.0, Seed: 42, Model: v1-5
-        Lora weights: "lora_name: str=0.8 clip=0.8", ...
     """
     parts: list[str] = []
 
-    positive = (params.get("positive_prompt") or "").strip()
+    # Strip any pre-existing <lora:...> tags from positive_prompt.
+    # These come from the reference image's A1111 text and don't represent
+    # actual LoRA nodes in the current workflow.
+    positive = _LORA_TAG_RE.sub(" ", params.get("positive_prompt") or "").strip()
+
+    # Append <lora:name:model_strength> tags for actual LoRA nodes.
+    # A1111 format uses a single weight; model_strength is the primary one.
+    loras = params.get("loras")
+    if loras and isinstance(loras, list):
+        lora_tags: list[str] = []
+        for lora in loras:
+            if isinstance(lora, dict):
+                name = lora.get("name") or ""
+                if not name:
+                    continue
+                strength = lora.get("model_strength", 1.0)
+                lora_tags.append(f"<lora:{name}:{strength}>")
+            elif isinstance(lora, str) and lora:
+                lora_tags.append(f"<lora:{lora}:1.0>")
+        if lora_tags:
+            tag_str = " ".join(lora_tags)
+            positive = f"{positive} {tag_str}".strip() if positive else tag_str
+
     parts.append(positive)
 
     negative = (params.get("negative_prompt") or "").strip()
@@ -74,27 +101,6 @@ def params_to_a1111_string(params: dict) -> str:
                 model = model[: -len(ext)]
                 break
         param_parts.append(f"Model: {model}")
-
-    loras = params.get("loras")
-    if loras and isinstance(loras, list):
-        lora_parts: list[str] = []
-        for lora in loras:
-            if isinstance(lora, dict):
-                name = lora.get("name") or ""
-                if not name:
-                    continue
-                ms = lora.get("model_strength")
-                cs = lora.get("clip_strength")
-                if ms is not None and cs is not None:
-                    lora_parts.append(f'"{name}: str={ms} clip={cs}"')
-                elif ms is not None:
-                    lora_parts.append(f'"{name}: str={ms}"')
-                else:
-                    lora_parts.append(f'"{name}"')
-            elif isinstance(lora, str) and lora:
-                lora_parts.append(f'"{lora}"')
-        if lora_parts:
-            param_parts.append(f"Lora weights: {', '.join(lora_parts)}")
 
     if param_parts:
         parts.append(", ".join(param_parts))
