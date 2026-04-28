@@ -3,6 +3,7 @@ import json
 import os
 
 import numpy as np
+from aiohttp import web
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
@@ -10,6 +11,11 @@ try:
     import folder_paths
 except ImportError:
     folder_paths = None  # type: ignore[assignment]
+
+try:
+    from server import PromptServer
+except ImportError:
+    PromptServer = None  # type: ignore[assignment,misc]
 
 try:
     from comfy.cli_args import args as _comfy_args
@@ -31,12 +37,6 @@ from .metadata_parser import comfyui_prompt as _prompt
 from .metadata_parser._writer import params_to_a1111_string
 
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tiff", ".tif"}
-
-# Runtime cache written by GalleryMetadataExtractor.execute() and read by
-# GallerySaveImage._build_merged_params().  Keyed by the node's unique_id
-# (== the node_id string in the prompt graph).  Lets GallerySaveImage pick up
-# the extracted seed (and prompts as fallback) with zero explicit wiring.
-_extractor_runtime_cache: dict[str, dict] = {}
 
 
 def _empty_outputs() -> dict:
@@ -85,6 +85,43 @@ def _resolve_image(image: str) -> str | None:
         except Exception:
             pass
     return None
+
+
+def _extract_image_params(image: str) -> dict | None:
+    """Resolve image path and extract all generation params. Returns None on failure."""
+    full_path = _resolve_image(image)
+    if not full_path:
+        return None
+    try:
+        _, _, metadata = buildMetadata(full_path)
+    except Exception:
+        return None
+    params = extract_params(metadata)
+    if not params:
+        return None
+    loras = params.get("loras") or []
+    return {
+        "positive_prompt": params.get("positive_prompt") or "",
+        "negative_prompt":  params.get("negative_prompt") or "",
+        "seed":             int(params.get("seed") or 0),
+        "steps":            int(params.get("steps") or 0),
+        "cfg_scale":        float(params.get("cfg_scale") or 0.0),
+        "sampler":          params.get("sampler") or "",
+        "scheduler":        params.get("scheduler") or "",
+        "model":            params.get("model") or "",
+        "vae":              params.get("vae") or "",
+        "loras":            loras if isinstance(loras, list) else [],
+    }
+
+
+if PromptServer is not None:
+    @PromptServer.instance.routes.get("/Gallery/parse_image")
+    async def _parse_image_route(request: web.Request) -> web.Response:
+        image = request.rel_url.query.get("image", "")
+        params = _extract_image_params(image)
+        if params is None:
+            return web.Response(status=204)
+        return web.json_response(params)
 
 
 class GalleryNode:
@@ -231,20 +268,6 @@ class GalleryMetadataExtractor:
 
         positive = params.get("positive_prompt") or ""
         negative = params.get("negative_prompt") or ""
-
-        # Cache all extracted values so GallerySaveImage can use them with zero wiring.
-        if unique_id is not None:
-            _extractor_runtime_cache[str(unique_id)] = {
-                "positive_prompt": positive,
-                "negative_prompt": negative,
-                "seed":            int(params.get("seed") or 0),
-                "steps":           int(params.get("steps") or 0),
-                "cfg_scale":       float(params.get("cfg_scale") or 0.0),
-                "sampler":         params.get("sampler") or "",
-                "scheduler":       params.get("scheduler") or "",
-                "model":           params.get("model") or "",
-                "vae":             params.get("vae") or "",
-            }
 
         result_tuple = (
             positive,
@@ -396,9 +419,8 @@ class GallerySaveImage:
             pnginfo = None
             if not disable_meta and metadata_format != "none":
                 pnginfo = PngInfo()
-                patched_prompt = self._patch_prompt(prompt) if prompt is not None else None
                 merged = self._build_merged_params(
-                    patched_prompt, generation_metadata,
+                    prompt, generation_metadata,
                     positive_prompt=positive_prompt,
                     negative_prompt=negative_prompt,
                     seed=seed, steps=steps, cfg=cfg,
@@ -412,8 +434,8 @@ class GallerySaveImage:
                         pnginfo.add_text("parameters", a1111_str)
 
                 if metadata_format in ("comfyui", "both"):
-                    if patched_prompt is not None:
-                        pnginfo.add_text("prompt", json.dumps(patched_prompt))
+                    if prompt is not None:
+                        pnginfo.add_text("prompt", json.dumps(prompt))
                     if extra_pnginfo is not None:
                         for k, v in extra_pnginfo.items():
                             pnginfo.add_text(k, json.dumps(v))
@@ -430,46 +452,6 @@ class GallerySaveImage:
 
         return {"ui": {"images": results}}
 
-    def _patch_prompt(self, prompt: dict) -> dict:
-        """Return a copy of the prompt dict with GalleryMetadataExtractor widget values
-        updated from the runtime cache.
-
-        The `prompt` hidden input is captured at queue-submission time, so widget values
-        (seed, steps, etc.) reflect the PREVIOUS execution — they are 0/empty on the
-        first run.  This patches them with the values GalleryMetadataExtractor.execute()
-        just computed, so the embedded ComfyUI JSON is always accurate.
-        """
-        if not _extractor_runtime_cache:
-            return prompt
-        patched: dict | None = None  # copy lazily only if we find something to patch
-        for node_id, node in prompt.items():
-            if not isinstance(node, dict):
-                continue
-            if node.get("class_type") != "GalleryMetadataExtractor":
-                continue
-            cached = _extractor_runtime_cache.get(str(node_id))
-            if not cached:
-                continue
-            if patched is None:
-                patched = dict(prompt)
-            new_inputs = dict(node.get("inputs", {}))
-            if cached.get("positive_prompt"):
-                new_inputs["\u2705 Positive"] = cached["positive_prompt"]
-            if cached.get("negative_prompt"):
-                new_inputs["\u274c Negative"] = cached["negative_prompt"]
-            if cached.get("seed"):
-                new_inputs["seed"] = cached["seed"]          # int
-            if cached.get("steps"):
-                new_inputs["steps"] = cached["steps"]        # int
-            if cached.get("cfg_scale"):
-                new_inputs["cfg"] = cached["cfg_scale"]      # float
-            if cached.get("sampler"):
-                new_inputs["sampler_name"] = cached["sampler"]
-            if cached.get("scheduler"):
-                new_inputs["scheduler"] = cached["scheduler"]
-            patched[node_id] = {**node, "inputs": new_inputs}
-        return patched if patched is not None else prompt
-
     def _build_merged_params(self, prompt, gm, *,
                              positive_prompt=None, negative_prompt=None,
                              seed=None, steps=None, cfg=None,
@@ -481,8 +463,6 @@ class GallerySaveImage:
           3. Explicit optional inputs — runtime-accurate, user-controlled
           2. GM overlay — runtime-derived (fork only); accurate sampling params
           1. BFS — graph structure; richer for LoRAs, prompts, static literals
-             (prompt should be pre-patched by _patch_prompt so first-run widget
-             values are correct)
         """
         # BFS enrichment from the prompt graph (pre-patched by _patch_prompt)
         bfs_params: dict = {}

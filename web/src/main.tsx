@@ -160,7 +160,8 @@ ComfyAppApi.registerExtension({
                     });
                 });
 
-                // Display widgets — updated after each execution via the "executed" event.
+                // Display widgets — updated at pick time (via fetchAndSetWidgets below) and
+                // confirmed after each execution via the "executed" event.
                 // Widget names match _SAMPLER_FIELD_SPECS exactly so ComfyUI serialises
                 // them into the prompt JSON and the BFS parser reads them back without
                 // any explicit wiring between GalleryMetadataExtractor and GallerySaveImage.
@@ -178,6 +179,70 @@ ComfyAppApi.registerExtension({
                 const samplerWidget  = node.addWidget("text", "sampler_name", "",   undefined as any);
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const schedulerWidget = node.addWidget("text", "scheduler",   "",   undefined as any);
+
+                // Per-node AbortController for pick-time fetch — cancels in-flight
+                // request when the user changes the image before the response arrives.
+                let _pickAbortController: AbortController | null = null;
+
+                const resetDisplayWidgets = () => {
+                    posWidget.value       = "";
+                    negWidget.value       = "";
+                    seedWidget.value      = "0";
+                    stepsWidget.value     = "0";
+                    cfgWidget.value       = "0";
+                    samplerWidget.value   = "";
+                    schedulerWidget.value = "";
+                    node.setDirtyCanvas?.(true, true);
+                };
+
+                const fetchAndSetWidgets = async (value: string) => {
+                    if (!value || value === "none") {
+                        resetDisplayWidgets();
+                        return;
+                    }
+                    // Cancel any in-flight request for this node
+                    _pickAbortController?.abort();
+                    _pickAbortController = new AbortController();
+                    const { signal } = _pickAbortController;
+                    try {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const resp = await (window as any).comfyAPI?.app?.app?.api?.fetchApi(
+                            `/Gallery/parse_image?image=${encodeURIComponent(value)}`,
+                            { signal }
+                        ) ?? await fetch(
+                            `/Gallery/parse_image?image=${encodeURIComponent(value)}`,
+                            { signal }
+                        );
+                        if (signal.aborted) return;
+                        if (!resp.ok) { resetDisplayWidgets(); return; }
+                        const data = await resp.json();
+                        if (signal.aborted) return;
+                        posWidget.value       = String(data.positive_prompt ?? "");
+                        negWidget.value       = String(data.negative_prompt ?? "");
+                        seedWidget.value      = String(data.seed ?? "0");
+                        stepsWidget.value     = String(data.steps ?? "0");
+                        cfgWidget.value       = String(data.cfg_scale ?? "0");
+                        samplerWidget.value   = String(data.sampler ?? "");
+                        schedulerWidget.value = String(data.scheduler ?? "");
+                        node.setDirtyCanvas?.(true, true);
+                    } catch (err: unknown) {
+                        if ((err as Error)?.name === "AbortError") return;
+                        resetDisplayWidgets();
+                    }
+                };
+
+                // Wrap the image COMBO callback to trigger pick-time population.
+                // Sentinel prevents double-wrapping on HMR / re-creation.
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const imageWidget = node.widgets?.find((w: any) => w.name === 'image');
+                if (imageWidget && !imageWidget._galleryHooked) {
+                    imageWidget._galleryHooked = true;
+                    const origCallback = imageWidget.callback?.bind(imageWidget);
+                    imageWidget.callback = (value: string) => {
+                        origCallback?.(value);
+                        fetchAndSetWidgets(value);
+                    };
+                }
 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const onExecuted = (e: any) => {
@@ -198,6 +263,7 @@ ComfyAppApi.registerExtension({
 
                 const origOnRemoved = node.onRemoved?.bind(node);
                 node.onRemoved = () => {
+                    _pickAbortController?.abort();
                     ComfyAppApi.removeEventListener("executed", onExecuted);
                     origOnRemoved?.();
                 };
@@ -205,6 +271,26 @@ ComfyAppApi.registerExtension({
         } catch (error) {
 
         }
+    },
+    // After the graph is fully configured (workflow loaded), hydrate display widgets
+    // for any GalleryMetadataExtractor nodes that already have an image selected.
+    // Must run here (not nodeCreated) because configure() can overwrite widget values.
+    async afterConfigureGraph() {
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const graph = (window as any).comfyAPI?.app?.app?.graph;
+            if (!graph) return;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const nodes: any[] = graph._nodes ?? graph.nodes ?? [];
+            for (const node of nodes) {
+                if (node.comfyClass !== "GalleryMetadataExtractor") continue;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const imageWidget = node.widgets?.find((w: any) => w.name === 'image');
+                if (imageWidget?.value && imageWidget.value !== "none" && imageWidget._galleryHooked) {
+                    imageWidget.callback?.(imageWidget.value);
+                }
+            }
+        } catch { }
     },
 });
 
