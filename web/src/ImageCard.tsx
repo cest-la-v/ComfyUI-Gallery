@@ -225,6 +225,7 @@ function ImageCard({
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={e => e.stopPropagation()}>No</AlertDialogCancel>
                         <AlertDialogAction
+                            autoFocus
                             className={buttonVariants({ variant: 'destructive' })}
                             onClick={async e => {
                                 e.stopPropagation();

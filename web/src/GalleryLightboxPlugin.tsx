@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { MODULE_CONTROLLER, createModule, useLightboxState, useEvents, ACTION_PREV, ACTION_NEXT } from 'yet-another-react-lightbox';
 import type { Plugin, ComponentProps } from 'yet-another-react-lightbox';
 import { useGalleryContext } from './GalleryContext';
@@ -39,6 +39,31 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
     const { currentIndex } = useLightboxState();
     const [copySuccess, setCopySuccess] = useState(false);
     const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+    // Save focus before confirm shows so we can restore it on cancel.
+    const prevFocusRef = useRef<Element | null>(null);
+    useEffect(() => {
+        if (confirmingDelete) {
+            prevFocusRef.current = document.activeElement;
+        } else {
+            (prevFocusRef.current as HTMLElement | null)?.focus?.();
+            prevFocusRef.current = null;
+        }
+    }, [confirmingDelete]);
+
+    // Delete key: trigger confirm from anywhere inside the lightbox.
+    // Attached to #comfy-gallery-yarl-root (not document/window) per isolation rules.
+    useEffect(() => {
+        const yarlRoot = document.getElementById('comfy-gallery-yarl-root');
+        if (!yarlRoot) return;
+        const handler = (e: KeyboardEvent) => {
+            if (e.key === 'Delete' && !confirmingDelete) {
+                setConfirmingDelete(true);
+            }
+        };
+        yarlRoot.addEventListener('keydown', handler);
+        return () => yarlRoot.removeEventListener('keydown', handler);
+    }, [confirmingDelete]);
 
     // Portal override: Tooltip/Radix portals target this div (inside #comfy-gallery-yarl-root,
     // not inert), so they remain interactive while yarl's portal is open.
@@ -135,7 +160,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                         style={{ background: 'color-mix(in oklch, var(--background) 75%, transparent)', backdropFilter: 'blur(8px)' }}
                                     >
                                         <span className="text-sm text-foreground mr-1">Delete this image?</span>
-                                        <button className="lb-btn text-green-400 hover:text-green-300" onMouseDown={e => e.preventDefault()} onClick={handleDelete}>
+                                        <button className="lb-btn text-green-400 hover:text-green-300" autoFocus onMouseDown={e => e.preventDefault()} onClick={handleDelete}>
                                             <Check size={18} />
                                         </button>
                                         <button className={btnCls} onMouseDown={e => e.preventDefault()} onClick={() => setConfirmingDelete(false)}>
