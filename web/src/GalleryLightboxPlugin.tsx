@@ -40,14 +40,24 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
     const [copySuccess, setCopySuccess] = useState(false);
     const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-    // Save focus before confirm shows so we can restore it on cancel.
-    const prevFocusRef = useRef<Element | null>(null);
+    // Restore focus to yarl's keyboard-navigation element when confirm dismisses.
+    // We track the previous value to fire only on true→false transitions (not on
+    // initial render). requestAnimationFrame ensures the call runs after React and
+    // yarl have finished updating the DOM (e.g., after navigating to the next slide
+    // following a delete). prevFocusRef is intentionally avoided here: the element
+    // that had focus before the confirm often lives outside #comfy-gallery-yarl-root
+    // (e.g., document.body, or something inside the inert #comfy-gallery-root) and
+    // would not restore yarl's keyboard control.
+    const prevConfirmingRef = useRef(false);
     useEffect(() => {
-        if (confirmingDelete) {
-            prevFocusRef.current = document.activeElement;
-        } else {
-            (prevFocusRef.current as HTMLElement | null)?.focus?.();
-            prevFocusRef.current = null;
+        const wasConfirming = prevConfirmingRef.current;
+        prevConfirmingRef.current = confirmingDelete;
+        if (wasConfirming && !confirmingDelete) {
+            requestAnimationFrame(() => {
+                document.getElementById('comfy-gallery-yarl-root')
+                    ?.querySelector<HTMLElement>('[tabindex]')
+                    ?.focus();
+            });
         }
     }, [confirmingDelete]);
 
