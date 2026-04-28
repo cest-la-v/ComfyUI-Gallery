@@ -64,15 +64,20 @@ class GalleryEventHandler(PatternMatchingEventHandler):
 
         if event.event_type in ('created', 'deleted', 'modified', 'moved'):
             if event.event_type == 'modified':
-                # On Windows, NTFS fires "modified" for atime updates (file reads), not just writes.
-                # Guard against these spurious events by comparing mtime.
+                # macOS FSEvents and Windows NTFS both fire "modified" for atime/metadata
+                # updates when a file is merely read (e.g. thumbnail loading).  Guard:
+                # - First observation (path not yet in file_mtimes): store mtime and skip.
+                #   The file wasn't modified; this is just the initial tracking point.
+                # - Subsequent observations where mtime is unchanged: skip (atime only).
+                # - Subsequent observations where mtime changed: fall through and process.
                 try:
                     current_mtime = os.stat(real_path).st_mtime
                 except OSError:
                     return
-                if self.file_mtimes.get(real_path) == current_mtime:
-                    return  # Only atime changed — skip
+                known_mtime = self.file_mtimes.get(real_path)
                 self.file_mtimes[real_path] = current_mtime
+                if known_mtime is None or known_mtime == current_mtime:
+                    return  # First observation or atime-only change — skip
 
             gallery_log(f"Watchdog detected {event.event_type}: {event.src_path} (Real path: {real_path}) - debouncing")
             self.debounce_event()
