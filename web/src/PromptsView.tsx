@@ -7,7 +7,7 @@ import { BASE_PATH } from './ComfyAppApi';
 const PROMPT_PREVIEW_LEN = 100;
 
 const PromptsView = () => {
-    const { data, setGallerySection, setGroupFilter, setViewMode, setGridView, sortMethod, promptsSearch } = useGalleryContext();
+    const { data, setGallerySection, scrollToGroupKey, setViewMode, setGridView, sortMethod, promptsSearch } = useGalleryContext();
 
     const allItems = useMemo(
         () => Object.values(data?.folders ?? {}).flatMap(f => Object.values(f)),
@@ -26,10 +26,10 @@ const PromptsView = () => {
     }, [promptGroups, promptsSearch]);
 
     const handleClick = (fp: string) => {
-        setGroupFilter(fp);
         setViewMode('prompt');
         setGridView('detail');
         setGallerySection('assets');
+        scrollToGroupKey(fp);
     };
 
     return (

@@ -18,12 +18,11 @@ const SECTIONS: { id: GallerySection; label: string; icon: React.ElementType }[]
 
 /** Inner nav — rendered after SidebarProvider context is available. */
 const SidebarNav = () => {
-    const { gallerySection, setGallerySection, setGroupFilter } = useGalleryContext();
+    const { gallerySection, setGallerySection } = useGalleryContext();
     const { state } = useSidebar();
     const collapsed = state === 'collapsed';
 
     const handleClick = (id: GallerySection) => {
-        if (id === 'assets') setGroupFilter('');
         setGallerySection(id);
     };
 
@@ -75,10 +74,9 @@ const GallerySidebar = () => (
 
 /** Tab strip for bottom-sheet layout (horizontal, top-aligned). */
 export const GallerySidebarTabStrip = () => {
-    const { gallerySection, setGallerySection, setGroupFilter } = useGalleryContext();
+    const { gallerySection, setGallerySection } = useGalleryContext();
 
     const handleClick = (id: GallerySection) => {
-        if (id === 'assets') setGroupFilter('');
         setGallerySection(id);
     };
 

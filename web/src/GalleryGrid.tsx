@@ -24,6 +24,8 @@ const GalleryGrid = () => {
         loading,
         openLightbox,
         viewMode,
+        pendingScrollKey,
+        setPendingScrollKey,
     } = useGalleryContext();
 
     const gridRef = useRef<VariableSizeGrid>(null);
@@ -37,6 +39,21 @@ const GalleryGrid = () => {
     useEffect(() => {
         gridRef.current?.resetAfterRowIndex(0);
     }, [imagesDetailsList, gridSize.columnCount]);
+
+    // Scroll to a pending group key (from jumpers or drill-through navigation).
+    // Fires on mount (handles cross-section switch) and when pendingScrollKey changes.
+    useEffect(() => {
+        if (!pendingScrollKey || !gridRef.current) return;
+        const colCount = Math.max(1, gridSize.columnCount || 1);
+        for (let i = 0; i < imagesDetailsList.length; i++) {
+            const item = imagesDetailsList[i];
+            if (item.type === 'divider' && item.group_key === pendingScrollKey) {
+                gridRef.current.scrollToItem({ rowIndex: Math.floor(i / colCount), columnIndex: 0 });
+                break;
+            }
+        }
+        setPendingScrollKey(null);
+    }, [pendingScrollKey, imagesDetailsList, gridSize.columnCount, setPendingScrollKey]);
 
     const handleInfoClick = useCallback((item: typeof imagesDetailsList[number]) => {
         if (item.type === 'media' || item.type === 'audio') setPreviewingVideo(item.name);

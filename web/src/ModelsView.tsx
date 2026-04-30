@@ -6,7 +6,7 @@ import { normalizeModelName } from './metadata-parser/samplerNormalizer';
 import { BASE_PATH } from './ComfyAppApi';
 
 const ModelsView = () => {
-    const { data, setGallerySection, setGroupFilter, setViewMode, setGridView, sortMethod, modelsSearch } = useGalleryContext();
+    const { data, setGallerySection, scrollToGroupKey, setViewMode, setGridView, sortMethod, modelsSearch } = useGalleryContext();
 
     const allItems = useMemo(
         () => Object.values(data?.folders ?? {}).flatMap(f => Object.values(f)),
@@ -27,10 +27,10 @@ const ModelsView = () => {
     }, [modelGroups, modelsSearch]);
 
     const handleClick = (modelKey: string) => {
-        setGroupFilter(modelKey);
         setViewMode('model');
         setGridView('detail');
         setGallerySection('assets');
+        scrollToGroupKey(modelKey);
     };
 
     return (

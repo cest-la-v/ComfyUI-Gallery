@@ -68,11 +68,12 @@ export interface GalleryContextType {
     setGallerySection: Dispatch<SetStateAction<GallerySection>>;
     assetSourceFilter: string;
     setAssetSourceFilter: Dispatch<SetStateAction<string>>;
-    groupFilter: string;
-    setGroupFilter: Dispatch<SetStateAction<string>>;
     gridView: 'detail' | 'overview';
     setGridView: Dispatch<SetStateAction<'detail' | 'overview'>>;
-    groupValues: { key: string; label: string }[];
+    groupValues: { key: string; label: string; count: number }[];
+    pendingScrollKey: string | null;
+    setPendingScrollKey: Dispatch<SetStateAction<string | null>>;
+    scrollToGroupKey: (key: string) => void;
     searchQuery: string;
     setSearchQuery: Dispatch<SetStateAction<string>>;
     modelsSearch: string;
@@ -244,6 +245,7 @@ function injectDividers(
             type: 'divider',
             count: items.length,
             divider_mode: mode,
+            group_key: key,
             sample_paths: samplePaths,
         };
         for (let i = 0; i < colCount; i++) result.push(divider);
@@ -261,7 +263,6 @@ function injectDividers(
 export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const [gallerySection, setGallerySection] = useState<GallerySection>('assets');
     const [assetSourceFilter, setAssetSourceFilter] = useState('');
-    const [groupFilter, setGroupFilter] = useState("");
     const [gridView, setGridView] = useState<'detail' | 'overview'>('detail');
     const [searchQuery, setSearchQuery] = useState("");
     const [modelsSearch, setModelsSearch] = useState("");
@@ -281,6 +282,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const [imageFlipV, setImageFlipV] = useState(false);
     const [selectedImages, setSelectedImages] = useState<string[]>([]);
     const [showMetadataPanel, setShowMetadataPanel] = useState(false);
+    const [pendingScrollKey, setPendingScrollKey] = useState<string | null>(null);
     const [pickMode, setPickMode] = useState(false);
     const [onPickImage, setOnPickImage] = useState<((absPath: string) => void) | null>(null);
     const size= useSize(document.querySelector('body'));
@@ -454,19 +456,14 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
                 break;
         }
 
-        // Filter by group
-        if (groupFilter !== '') {
-            list = list.filter(item => getGroupKey(item, viewMode) === groupFilter);
-        }
-
         return injectDividers(list, viewMode, Math.max(1, gridSize.columnCount || 1), sortMethod);
-    }, [data, sortMethod, searchQuery, assetSourceFilter, gridSize.columnCount, viewMode, groupFilter]);
+    }, [data, sortMethod, searchQuery, assetSourceFilter, gridSize.columnCount, viewMode]);
 
-    const groupValues = useMemo<{ key: string; label: string }[]>(() => {
+    const groupValues = useMemo<{ key: string; label: string; count: number }[]>(() => {
         const allItems: FileDetails[] = Object.values(data?.folders ?? {})
             .flatMap(folder => Object.values(folder as Record<string, FileDetails>));
         return computeGroups(allItems, viewMode, sortMethod)
-            .map(({ key, label }) => ({ key, label }));
+            .map(({ key, label, items }) => ({ key, label, count: items.length }));
     }, [data, viewMode, sortMethod]);
 
     // Memoized autocomplete options for image names
@@ -602,6 +599,10 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         setOpen(false);
     }, []);
 
+    const scrollToGroupKey = useCallback((key: string) => {
+        setPendingScrollKey(key);
+    }, []);
+
     // Keep bridge in sync with the latest openPickMode reference.
     useEffect(() => {
         galleryBridge.openPickMode = openPickMode;
@@ -618,9 +619,9 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const value = useMemo(() => ({
         gallerySection, setGallerySection,
         assetSourceFilter, setAssetSourceFilter,
-        groupFilter, setGroupFilter,
         gridView, setGridView,
         groupValues,
+        pendingScrollKey, setPendingScrollKey, scrollToGroupKey,
         searchQuery, setSearchQuery,
         modelsSearch, setModelsSearch,
         promptsSearch, setPromptsSearch,
@@ -660,9 +661,10 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     }), [
         gallerySection,
         assetSourceFilter,
-        groupFilter,
         gridView,
         groupValues,
+        pendingScrollKey,
+        scrollToGroupKey,
         searchQuery,
         modelsSearch,
         promptsSearch,

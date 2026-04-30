@@ -18,7 +18,7 @@ function formatGroupLabel(key: string, mode: string, label: string): string {
 }
 
 export default function GalleryOverview() {
-    const { imagesDetailsList, viewMode, sortMethod, setGroupFilter, setGridView, openLightbox, loading } = useGalleryContext();
+    const { imagesDetailsList, viewMode, sortMethod, scrollToGroupKey, setGridView, openLightbox, loading } = useGalleryContext();
 
     const groups = useMemo(() => {
         return computeGroups(imagesDetailsList.filter(i => i.type !== 'divider' && i.type !== 'empty-space'), viewMode, sortMethod);
@@ -87,8 +87,8 @@ export default function GalleryOverview() {
                                     className="h-7 px-2 text-xs self-end gap-1 text-muted-foreground hover:text-foreground"
                                     onMouseDown={e => e.preventDefault()}
                                     onClick={() => {
-                                        setGroupFilter(key);
                                         setGridView('detail');
+                                        scrollToGroupKey(key);
                                     }}
                                 >
                                     View all {totalCount} <ArrowRight className="h-3 w-3" />

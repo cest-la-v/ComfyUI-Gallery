@@ -95,15 +95,13 @@ function SearchAutocomplete({
     );
 }
 
-const GallerySearchBar = () => {
+const GallerySearchBar = ({ compact = false, className }: { compact?: boolean; className?: string }) => {
     const {
         gallerySection,
         setSearchQuery,
         imagesDetailsList,
         modelsSearch, setModelsSearch,
         promptsSearch, setPromptsSearch,
-        assetSourceFilter, setAssetSourceFilter,
-        settings,
     } = useGalleryContext();
 
     const isAssets = gallerySection === 'assets';
@@ -170,52 +168,14 @@ const GallerySearchBar = () => {
         return [...fileOpts, ...modelOpts, ...promptOpts].slice(0, 20);
     }, [isAssets, assetsInput, imagesDetailsList]);
 
-    const enabledSources = (settings.sourcePaths ?? []).filter(s => s.enabled !== false);
-    const showSourceChips = isAssets && enabledSources.length > 1;
-
     return (
-        <div className="px-4 py-3 border-b shrink-0">
+        <div className={compact ? cn("flex items-center w-full", className) : "px-4 py-3 border-b shrink-0"}>
             <SearchAutocomplete
                 value={currentValue}
                 onChange={handleChange}
                 options={autocompleteOptions}
                 placeholder={placeholder}
             />
-            {showSourceChips && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                    <button
-                        type="button"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => setAssetSourceFilter('')}
-                        className={cn(
-                            "px-2.5 py-0.5 text-xs rounded-full border transition-colors",
-                            assetSourceFilter === ''
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "bg-transparent text-muted-foreground border-border hover:bg-accent"
-                        )}
-                    >
-                        All
-                    </button>
-                    {enabledSources.map(src => (
-                        <button
-                            key={src.source_id}
-                            type="button"
-                            onMouseDown={e => e.preventDefault()}
-                            onClick={() => setAssetSourceFilter(
-                                assetSourceFilter === src.source_id ? '' : src.source_id
-                            )}
-                            className={cn(
-                                "px-2.5 py-0.5 text-xs rounded-full border transition-colors capitalize",
-                                assetSourceFilter === src.source_id
-                                    ? "bg-primary text-primary-foreground border-primary"
-                                    : "bg-transparent text-muted-foreground border-border hover:bg-accent"
-                            )}
-                        >
-                            {src.label ?? src.source_id}
-                        </button>
-                    ))}
-                </div>
-            )}
         </div>
     );
 };

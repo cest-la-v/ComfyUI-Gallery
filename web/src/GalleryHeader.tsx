@@ -1,19 +1,11 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { toast } from 'sonner';
+import { useEffect, useRef, useState } from 'react';
 import {
-    X, Settings, Sun, Moon, Loader2, Palette, LayoutGrid, AlignJustify, ArrowUpDown,
-    CalendarDays, Box, MessageSquare, FolderOpen,
+    X, Settings, Sun, Moon, Palette, LayoutGrid, AlignJustify, ArrowUpDown,
+    CalendarDays, Box, MessageSquare, FolderOpen, Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button, buttonVariants } from '@/components/ui/button';
-import {
-    AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
-    AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
-} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import {
     DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
     DropdownMenuLabel, DropdownMenuSeparator,
@@ -23,23 +15,8 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { useGalleryContext } from './GalleryContext';
 import type { ViewMode } from './GalleryContext';
 import { useCountDown } from 'ahooks';
-import JSZip from 'jszip';
-import FileSaver from 'file-saver';
-import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
 import { BASE_THEMES, ACCENT_THEMES } from './themes';
-
-function useHoverOpen() {
-    const [open, setOpen] = useState(false);
-    const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const enter = useCallback(() => {
-        if (timer.current) clearTimeout(timer.current);
-        setOpen(true);
-    }, []);
-    const leave = useCallback(() => {
-        timer.current = setTimeout(() => setOpen(false), 120);
-    }, []);
-    return { open, setOpen, enter, leave };
-}
+import GallerySearchBar from './GallerySearchBar';
 
 export const GROUP_MODE_ICONS: Record<ViewMode, React.ElementType> = {
     date: CalendarDays,
@@ -55,17 +32,13 @@ const GROUP_MODE_OPTIONS: { label: string; value: ViewMode }[] = [
     { label: 'Folder', value: 'folder' },
 ];
 
-const GalleryHeader = () => {
+const GalleryHeader = ({ showSearch = false }: { showSearch?: boolean }) => {
     const {
         setShowSettings,
         sortMethod, setSortMethod,
         viewMode, setViewMode,
-        groupFilter, setGroupFilter,
-        groupValues,
         gridView, setGridView,
         setOpen,
-        selectedImages, setSelectedImages,
-        mutate, markDeleted,
         settings, setSettings,
         gallerySection,
     } = useGalleryContext();
@@ -77,13 +50,8 @@ const GalleryHeader = () => {
         onEnd: () => { setOpen(false); setShowClose(false); setTargetDate(undefined); },
     });
     const dragCounter = useRef(0);
-
-    const [downloading, setDownloading] = useState(false);
-    const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [themePickerOpen, setThemePickerOpen] = useState(false);
-    const modeSelect = useHoverOpen();
-    const filterSelect = useHoverOpen();
+    const [groupModeOpen, setGroupModeOpen] = useState(false);
 
     useEffect(() => {
         const onDragStart = () => setShowClose(true);
@@ -96,184 +64,12 @@ const GalleryHeader = () => {
         };
     }, []);
 
-    const handleBulkDownload = useCallback(async () => {
-        setDownloading(true);
-        try {
-            const zip = new JSZip();
-            await Promise.all(selectedImages.map(async (url) => {
-                try {
-                    const fetchUrl = url.startsWith('http') ? url : `${BASE_PATH}${url}`;
-                    const blob = await (await fetch(fetchUrl)).blob();
-                    zip.file(url.split('/').pop() || 'image', blob);
-                } catch (e) { console.error('Failed to fetch image:', url, e); }
-            }));
-            FileSaver.saveAs(await zip.generateAsync({ type: 'blob' }), 'comfy-ui-gallery-images.zip');
-        } catch { toast.error('Failed to download images.'); }
-        finally { setDownloading(false); }
-    }, [selectedImages]);
-
-    const handleBulkDelete = useCallback(async () => {
-        let deleted = 0;
-        const failed: string[] = [];
-        for (const url of selectedImages) {
-            try {
-                if (await ComfyAppApi.deleteImage(url)) {
-                    deleted++;
-                    markDeleted(url);
-                    mutate((oldData) => {
-                        if (!oldData?.folders) return oldData;
-                        const folders = { ...oldData.folders };
-                        for (const folder of Object.keys(folders)) {
-                            const files = { ...folders[folder] };
-                            for (const filename of Object.keys(files)) {
-                                if (files[filename].url === url) delete files[filename];
-                            }
-                            if (Object.keys(files).length === 0) delete folders[folder];
-                            else folders[folder] = files;
-                        }
-                        return { ...oldData, folders };
-                    });
-                } else { failed.push(url); }
-                await new Promise(res => setTimeout(res, 50));
-            } catch (e) { console.error('Failed to delete image:', url, e); failed.push(url); }
-        }
-        setSelectedImages([]);
-        if (failed.length > 0) toast.warning(`Deleted ${deleted} image(s), ${failed.length} failed.`);
-        else toast.success(`Deleted ${deleted} image(s).`);
-    }, [selectedImages, mutate, markDeleted, setSelectedImages]);
-
-    // Sentinel for "show all groups" — Radix Select disallows empty string values
-    const ALL_GROUPS = '__all__';
-
     return (
-        <div className="flex items-center justify-between w-full gap-2">
+        <div className="flex items-center gap-2 w-full">
 
-            {/* Left zone: group mode + group filter + bulk actions — assets only */}
-            {gallerySection === 'assets' && (
-            <div className="flex items-center gap-2 shrink-0">
-                {/* Group mode selector */}
-                <Select
-                    open={modeSelect.open}
-                    onOpenChange={modeSelect.setOpen}
-                    value={viewMode}
-                    onValueChange={v => {
-                        setViewMode(v as ViewMode);
-                        setGroupFilter('');
-                    }}
-                >
-                    <SelectTrigger
-                        className="h-9 w-[130px] shrink-0"
-                        onMouseEnter={modeSelect.enter}
-                        onMouseLeave={modeSelect.leave}
-                    >
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent
-                        className="z-[var(--cg-z-popup)]"
-                        onMouseEnter={modeSelect.enter}
-                        onMouseLeave={modeSelect.leave}
-                    >
-                        {GROUP_MODE_OPTIONS.map(opt => {
-                            const Icon = GROUP_MODE_ICONS[opt.value];
-                            return (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                    <span className="flex items-center gap-1.5">
-                                        <Icon className="h-3.5 w-3.5 shrink-0" />
-                                        {opt.label}
-                                    </span>
-                                </SelectItem>
-                            );
-                        })}
-                    </SelectContent>
-                </Select>
+            {showSearch && <GallerySearchBar compact className="flex-1 min-w-0" />}
 
-                {/* Group filter */}
-                <Select
-                    open={filterSelect.open}
-                    onOpenChange={filterSelect.setOpen}
-                    value={groupFilter === '' ? ALL_GROUPS : groupFilter}
-                    onValueChange={v => setGroupFilter(v === ALL_GROUPS ? '' : v)}
-                    disabled={gridView === 'overview'}
-                >
-                    <SelectTrigger
-                        className="h-9 min-w-[140px] max-w-[200px] shrink-0"
-                        onMouseEnter={filterSelect.enter}
-                        onMouseLeave={filterSelect.leave}
-                    >
-                        <SelectValue placeholder="All" />
-                    </SelectTrigger>
-                    <SelectContent
-                        className="z-[var(--cg-z-popup)]"
-                        onMouseEnter={filterSelect.enter}
-                        onMouseLeave={filterSelect.leave}
-                    >
-                        <SelectItem value={ALL_GROUPS}>All</SelectItem>
-                        {groupValues.map(({ key, label }) => (
-                            <SelectItem key={key} value={key}>
-                                <span className="truncate max-w-[180px] block">{label}</span>
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-
-                {selectedImages && selectedImages.length > 0 && (
-                    <>
-                        <Button
-                            disabled={downloading}
-                            onClick={() => !downloading && setShowDownloadConfirm(true)}
-                            className="selectedImagesActionButton"
-                        >
-                            {downloading && <Loader2 className="h-4 w-4 animate-spin" />}
-                            Download Selected
-                        </Button>
-                        <AlertDialog open={showDownloadConfirm} onOpenChange={setShowDownloadConfirm}>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Download Selected Images</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Are you sure you want to download {selectedImages.length} selected image(s)?
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel onClick={() => toast.info('Download cancelled')}>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={async () => { setShowDownloadConfirm(false); await handleBulkDownload(); }}>
-                                        Download ({selectedImages.length})
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-
-                        <Button
-                            variant="destructive"
-                            onClick={() => setShowDeleteConfirm(true)}
-                            className="selectedImagesActionButton"
-                        >
-                            Delete Selected
-                        </Button>
-                        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Selected Images</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Are you sure you want to delete {selectedImages.length} selected image(s)? This cannot be undone.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel onClick={() => toast.info('Delete cancelled')}>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                        className={buttonVariants({ variant: 'destructive' })}
-                                        onClick={async () => { setShowDeleteConfirm(false); await handleBulkDelete(); }}
-                                    >
-                                        Delete ({selectedImages.length})
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </>
-                )}
-            </div>
-            )}
-            <div className="flex items-center gap-1 flex-1 justify-end min-w-0">
+            <div className={cn("flex items-center gap-1 shrink-0", !showSearch && "ml-auto")}>
                 {gallerySection === 'assets' && (
                     <>
                         {/* View toggle: Overview / Detail */}
@@ -324,6 +120,45 @@ const GalleryHeader = () => {
                                 </DropdownMenuRadioGroup>
                             </DropdownMenuContent>
                         </DropdownMenu>
+
+                        {/* Group mode icon button */}
+                        {gridView !== 'overview' && (
+                            <Popover open={groupModeOpen} onOpenChange={setGroupModeOpen}>
+                                <Tooltip open={groupModeOpen ? false : undefined}>
+                                    <TooltipTrigger asChild>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                size="icon"
+                                                variant="ghost"
+                                                className="comfy-gallery-icon-btn shrink-0"
+                                                onMouseDown={e => e.preventDefault()}
+                                            >
+                                                {(() => { const Icon = GROUP_MODE_ICONS[viewMode]; return <Icon className="h-4 w-4" />; })()}
+                                            </Button>
+                                        </PopoverTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Group by</TooltipContent>
+                                </Tooltip>
+                                <PopoverContent align="end" className="w-40 p-1" onOpenAutoFocus={e => e.preventDefault()}>
+                                    {GROUP_MODE_OPTIONS.map(opt => {
+                                        const Icon = GROUP_MODE_ICONS[opt.value];
+                                        return (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                                                onMouseDown={e => e.preventDefault()}
+                                                onClick={() => { setViewMode(opt.value); setGroupModeOpen(false); }}
+                                            >
+                                                <Icon className="h-3.5 w-3.5 shrink-0" />
+                                                <span className="flex-1 text-left">{opt.label}</span>
+                                                {viewMode === opt.value && <Check className="h-3.5 w-3.5 shrink-0" />}
+                                            </button>
+                                        );
+                                    })}
+                                </PopoverContent>
+                            </Popover>
+                        )}
                     </>
                 )}
 
@@ -332,7 +167,7 @@ const GalleryHeader = () => {
                         <Button
                             size="icon"
                             variant="ghost"
-                            className="comfy-gallery-icon-btn" // hover bg still applied here
+                            className="comfy-gallery-icon-btn"
                             onClick={() => setSettings({ ...settings, darkMode: !settings.darkMode })}
                         >
                             {settings.darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

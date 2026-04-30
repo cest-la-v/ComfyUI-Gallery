@@ -39,6 +39,7 @@ export interface FileDetails {
     prompt_only_fp?: string | null;
     /** Divider-only fields */
     divider_mode?: 'date' | 'model' | 'prompt' | 'folder';
+    group_key?: string;
     sample_paths?: string[];
 }
 
