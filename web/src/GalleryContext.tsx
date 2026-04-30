@@ -73,8 +73,12 @@ export interface GalleryContextType {
     gridView: 'detail' | 'overview';
     setGridView: Dispatch<SetStateAction<'detail' | 'overview'>>;
     groupValues: { key: string; label: string }[];
-    searchFileName: string;
-    setSearchFileName: Dispatch<SetStateAction<string>>;
+    searchQuery: string;
+    setSearchQuery: Dispatch<SetStateAction<string>>;
+    modelsSearch: string;
+    setModelsSearch: Dispatch<SetStateAction<string>>;
+    promptsSearch: string;
+    setPromptsSearch: Dispatch<SetStateAction<string>>;
     viewMode: ViewMode;
     setViewMode: Dispatch<SetStateAction<ViewMode>>;
     showSettings: boolean;
@@ -259,7 +263,9 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     const [assetSourceFilter, setAssetSourceFilter] = useState('');
     const [groupFilter, setGroupFilter] = useState("");
     const [gridView, setGridView] = useState<'detail' | 'overview'>('detail');
-    const [searchFileName, setSearchFileName] = useState("");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [modelsSearch, setModelsSearch] = useState("");
+    const [promptsSearch, setPromptsSearch] = useState("");
     const [viewMode, setViewMode] = useState<ViewMode>('date');
     const [showSettings, setShowSettings] = useState(false);
     const [showRawMetadata, setShowRawMetadata] = useState(false);
@@ -418,9 +424,13 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
 
         let list = allItems;
 
-        if (searchFileName && searchFileName.trim() !== "") {
-            const searchTerm = searchFileName.toLowerCase();
-            list = list.filter(imageInfo => imageInfo.name.toLowerCase().includes(searchTerm));
+        if (searchQuery && searchQuery.trim() !== "") {
+            const searchTerm = searchQuery.toLowerCase();
+            list = list.filter(imageInfo =>
+                imageInfo.name.toLowerCase().includes(searchTerm) ||
+                (imageInfo.positive_prompt?.toLowerCase().includes(searchTerm) ?? false) ||
+                (imageInfo.model?.toLowerCase().includes(searchTerm) ?? false)
+            );
         }
 
         // Source chip filter — only items whose rel_path starts with the selected source_id
@@ -450,7 +460,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         }
 
         return injectDividers(list, viewMode, Math.max(1, gridSize.columnCount || 1), sortMethod);
-    }, [data, sortMethod, searchFileName, assetSourceFilter, gridSize.columnCount, viewMode, groupFilter]);
+    }, [data, sortMethod, searchQuery, assetSourceFilter, gridSize.columnCount, viewMode, groupFilter]);
 
     const groupValues = useMemo<{ key: string; label: string }[]>(() => {
         const allItems: FileDetails[] = Object.values(data?.folders ?? {})
@@ -611,7 +621,9 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         groupFilter, setGroupFilter,
         gridView, setGridView,
         groupValues,
-        searchFileName, setSearchFileName,
+        searchQuery, setSearchQuery,
+        modelsSearch, setModelsSearch,
+        promptsSearch, setPromptsSearch,
         viewMode, setViewMode,
         showSettings, setShowSettings,
         showRawMetadata, setShowRawMetadata,
@@ -651,7 +663,9 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         groupFilter,
         gridView,
         groupValues,
-        searchFileName, 
+        searchQuery,
+        modelsSearch,
+        promptsSearch,
         viewMode,
         showSettings, 
         showRawMetadata, 

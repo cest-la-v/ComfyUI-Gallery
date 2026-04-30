@@ -1,5 +1,4 @@
-import { useState, useMemo } from 'react';
-import { Input } from '@/components/ui/input';
+import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useGalleryContext, computeGroups } from './GalleryContext';
@@ -8,8 +7,7 @@ import { BASE_PATH } from './ComfyAppApi';
 const PROMPT_PREVIEW_LEN = 100;
 
 const PromptsView = () => {
-    const { data, setGallerySection, setGroupFilter, setViewMode, setGridView, sortMethod } = useGalleryContext();
-    const [search, setSearch] = useState('');
+    const { data, setGallerySection, setGroupFilter, setViewMode, setGridView, sortMethod, promptsSearch } = useGalleryContext();
 
     const allItems = useMemo(
         () => Object.values(data?.folders ?? {}).flatMap(f => Object.values(f)),
@@ -22,10 +20,10 @@ const PromptsView = () => {
     }, [allItems, sortMethod]);
 
     const filtered = useMemo(() => {
-        if (!search.trim()) return promptGroups;
-        const q = search.toLowerCase();
+        if (!promptsSearch.trim()) return promptGroups;
+        const q = promptsSearch.toLowerCase();
         return promptGroups.filter(g => g.label.toLowerCase().includes(q));
-    }, [promptGroups, search]);
+    }, [promptGroups, promptsSearch]);
 
     const handleClick = (fp: string) => {
         setGroupFilter(fp);
@@ -36,18 +34,10 @@ const PromptsView = () => {
 
     return (
         <div className="flex flex-col h-full min-h-0">
-            <div className="px-4 py-3 border-b shrink-0">
-                <Input
-                    placeholder="Search prompts…"
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="h-8"
-                />
-            </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4">
                 {filtered.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-8">
-                        {search ? 'No prompts match your search.' : 'No prompt data found.'}
+                        {promptsSearch ? 'No prompts match your search.' : 'No prompt data found.'}
                     </p>
                 ) : (
                     <div className="flex flex-col gap-2">

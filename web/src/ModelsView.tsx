@@ -1,5 +1,4 @@
-import { useState, useMemo } from 'react';
-import { Input } from '@/components/ui/input';
+import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useGalleryContext, computeGroups } from './GalleryContext';
@@ -7,8 +6,7 @@ import { normalizeModelName } from './metadata-parser/samplerNormalizer';
 import { BASE_PATH } from './ComfyAppApi';
 
 const ModelsView = () => {
-    const { data, setGallerySection, setGroupFilter, setViewMode, setGridView, sortMethod } = useGalleryContext();
-    const [search, setSearch] = useState('');
+    const { data, setGallerySection, setGroupFilter, setViewMode, setGridView, sortMethod, modelsSearch } = useGalleryContext();
 
     const allItems = useMemo(
         () => Object.values(data?.folders ?? {}).flatMap(f => Object.values(f)),
@@ -21,12 +19,12 @@ const ModelsView = () => {
     }, [allItems, sortMethod]);
 
     const filtered = useMemo(() => {
-        if (!search.trim()) return modelGroups;
-        const q = search.toLowerCase();
+        if (!modelsSearch.trim()) return modelGroups;
+        const q = modelsSearch.toLowerCase();
         return modelGroups.filter(g =>
             (normalizeModelName(g.key) ?? g.key).toLowerCase().includes(q)
         );
-    }, [modelGroups, search]);
+    }, [modelGroups, modelsSearch]);
 
     const handleClick = (modelKey: string) => {
         setGroupFilter(modelKey);
@@ -37,18 +35,10 @@ const ModelsView = () => {
 
     return (
         <div className="flex flex-col h-full min-h-0">
-            <div className="px-4 py-3 border-b shrink-0">
-                <Input
-                    placeholder="Search models…"
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="h-8"
-                />
-            </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-4">
                 {filtered.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-8">
-                        {search ? 'No models match your search.' : 'No model data found.'}
+                        {modelsSearch ? 'No models match your search.' : 'No model data found.'}
                     </p>
                 ) : (
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">

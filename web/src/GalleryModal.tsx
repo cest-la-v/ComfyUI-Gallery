@@ -11,7 +11,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import GallerySidebar, { GallerySidebarTabStrip } from './GallerySidebar';
 import ModelsView from './ModelsView';
 import PromptsView from './PromptsView';
-import GalleryAssetsSearchBar from './GalleryAssetsSearchBar';
+import GallerySearchBar from './GallerySearchBar';
 
 const GalleryModal = () => {
     const { open, setOpen, showSettings, lightboxOpen, settings, gridView, gallerySection } = useGalleryContext();
@@ -22,14 +22,12 @@ const GalleryModal = () => {
     /** Renders the active section content (Assets grid/overview or Models/Prompts). */
     const sectionContent = (
         <main className="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden">
+            <GallerySearchBar />
             {gallerySection === 'assets' ? (
-                <>
-                    <GalleryAssetsSearchBar />
-                    <div className="relative flex-1 min-h-0 overflow-hidden">
-                        {gridView === 'overview' ? <GalleryOverview /> : <GalleryGrid />}
-                        <GalleryLightbox />
-                    </div>
-                </>
+                <div className="relative flex-1 min-h-0 overflow-hidden">
+                    {gridView === 'overview' ? <GalleryOverview /> : <GalleryGrid />}
+                    <GalleryLightbox />
+                </div>
             ) : gallerySection === 'models' ? (
                 <ModelsView />
             ) : (

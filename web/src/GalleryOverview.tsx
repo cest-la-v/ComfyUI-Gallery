@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { BASE_PATH } from './ComfyAppApi';
 import { useGalleryContext, computeGroups } from './GalleryContext';
-import type { ViewMode } from './GalleryContext';
 import { GROUP_MODE_ICONS } from './GalleryHeader';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,14 +18,11 @@ function formatGroupLabel(key: string, mode: string, label: string): string {
 }
 
 export default function GalleryOverview() {
-    const { data, viewMode, sortMethod, setGroupFilter, setGridView, openLightbox, loading } = useGalleryContext();
+    const { imagesDetailsList, viewMode, sortMethod, setGroupFilter, setGridView, openLightbox, loading } = useGalleryContext();
 
     const groups = useMemo(() => {
-        if (!data?.folders) return [];
-        const allItems = Object.values(data.folders)
-            .flatMap(folder => Object.values(folder as Record<string, import('./types').FileDetails>));
-        return computeGroups(allItems, viewMode, sortMethod);
-    }, [data, viewMode, sortMethod]);
+        return computeGroups(imagesDetailsList.filter(i => i.type !== 'divider' && i.type !== 'empty-space'), viewMode, sortMethod);
+    }, [imagesDetailsList, viewMode, sortMethod]);
 
     if (loading) {
         return (
