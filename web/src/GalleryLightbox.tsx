@@ -72,7 +72,7 @@ const GalleryLightbox = () => {
 
     const slides = useMemo(() =>
         previewableImages.map(img => ({
-            src: `${BASE_PATH}${img.url}`,
+            src: `${BASE_PATH}${img.url}${img.timestamp ? `?t=${img.timestamp}` : ''}`,
             fileDetails: img,
             // Mark non-image slides so yarl's isImageSlide() returns false,
             // preventing the Zoom plugin from wrapping video/audio slides.
@@ -133,9 +133,9 @@ const GalleryLightbox = () => {
         if (img.type === 'media') {
             return (
                 <video
-                    key={img.name}
+                    key={img.url}
                     style={{ maxWidth: '80%', maxHeight: '85vh' }}
-                    src={`${BASE_PATH}${img.url}`}
+                    src={`${BASE_PATH}${img.url}${img.timestamp ? `?t=${img.timestamp}` : ''}`}
                     autoPlay
                     controls
                     preload="none"
@@ -144,10 +144,10 @@ const GalleryLightbox = () => {
         }
         if (img.type === 'audio') {
             return (
-                <div key={img.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80vh', gap: 24 }}>
+                <div key={img.url} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80vh', gap: 24 }}>
                     <Music style={{ color: 'var(--primary)' }} className="h-20 w-20" />
                     <span style={{ color: 'var(--foreground)', fontSize: 16, maxWidth: 400, textAlign: 'center' }}>{img.name}</span>
-                    <audio src={`${BASE_PATH}${img.url}`} autoPlay controls style={{ width: 360 }} />
+                    <audio src={`${BASE_PATH}${img.url}${img.timestamp ? `?t=${img.timestamp}` : ''}`} autoPlay controls style={{ width: 360 }} />
                 </div>
             );
         }
