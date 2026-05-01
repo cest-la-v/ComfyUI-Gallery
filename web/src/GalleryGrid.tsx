@@ -26,6 +26,7 @@ const GalleryGrid = () => {
         viewMode,
         pendingScrollKey,
         setPendingScrollKey,
+        gridScrollBus,
     } = useGalleryContext();
 
     const gridRef = useRef<VariableSizeGrid>(null);
@@ -149,7 +150,8 @@ const GalleryGrid = () => {
                                 estimatedRowHeight={ImageCardHeight + 16}
                                 width={width}
                                 height={height}
-                                className="grid-element"
+                                className="grid-element [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/50"
+                                onScroll={({ scrollTop }) => gridScrollBus.emit(scrollTop)}
                             >
                                 {Cell}
                             </VariableSizeGrid>

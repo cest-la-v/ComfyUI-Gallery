@@ -118,6 +118,7 @@ export interface GalleryContextType {
     gridSize: { width: number; height: number; columnCount: number; rowCount: number };
     setGridSize: Dispatch<SetStateAction<{ width: number; height: number; columnCount: number; rowCount: number }>>;
     autoSizer: { width: number; height: number };
+    gridScrollBus: { emit: (scrollTop: number) => void; subscribe: (fn: (scrollTop: number) => void) => () => void };
     setAutoSizer: Dispatch<SetStateAction<{ width: number; height: number }>>;
     imagesDetailsList: FileDetails[];
     imagesAutoCompleteNames: AutoCompleteOption[];
@@ -300,6 +301,19 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
     }, []);
     const [gridSize, setGridSize] = useState({ width: 1000, height: 600, columnCount: 1, rowCount: 1 });
     const [autoSizer, setAutoSizer] = useState({ width: 1000, height: 600 });
+    const gridScrollBusRef = useRef({
+        _listeners: new Set<(t: number) => void>(),
+        _raf: false,
+        emit(t: number) {
+            if (this._raf) return;
+            this._raf = true;
+            requestAnimationFrame(() => { this._listeners.forEach(fn => fn(t)); this._raf = false; });
+        },
+        subscribe(fn: (t: number) => void) {
+            this._listeners.add(fn);
+            return () => { this._listeners.delete(fn); };
+        },
+    });
     const [autoCompleteOptions, setAutoCompleteOptions] = useState<AutoCompleteOption[]>([]);
     const [settingsState, setSettings] = useLocalStorageState<SettingsState>(STORAGE_KEY, {
         defaultValue: DEFAULT_SETTINGS,
@@ -643,6 +657,7 @@ export function GalleryProvider({ children }: { children: React.ReactNode }) {
         data, error, loading, runAsync, mutate,
         markDeleted,
         gridSize, setGridSize,
+        gridScrollBus: gridScrollBusRef.current,
         autoSizer, setAutoSizer,
         imagesDetailsList,
         imagesAutoCompleteNames,
