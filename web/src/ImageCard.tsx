@@ -75,16 +75,7 @@ function ImageCard({
     };
 
     const handleNativeDragStart = (event: React.DragEvent<HTMLImageElement | HTMLVideoElement | HTMLAudioElement>) => {
-        const ext = (image.name || image.url).split('.').pop()?.toLowerCase() || '';
-        const mimeMap: Record<string, string> = {
-            jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
-            webp: 'image/webp', bmp: 'image/bmp', tif: 'image/tiff', tiff: 'image/tiff',
-            mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
-            mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', flac: 'audio/flac', ogg: 'audio/ogg',
-        };
-        const mime = mimeMap[ext] || (image.type === 'image' ? 'image/png' : image.type === 'audio' ? 'audio/wav' : 'video/mp4');
         event.dataTransfer.setData('text/uri-list', `${BASE_PATH}${image.url}`);
-        event.dataTransfer.setData('DownloadURL', `${mime}:${image.name}:${window.location.origin + BASE_PATH + image.url}`);
     };
 
     const openLightbox = () => {

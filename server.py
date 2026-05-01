@@ -412,7 +412,7 @@ async def serve_gallery_file(request):
         return web.Response(status=403, text="Access denied")
     if not os.path.isfile(full_path):
         return web.Response(status=404, text="File not found")
-    return web.FileResponse(full_path)
+    return web.FileResponse(full_path, headers={'Content-Disposition': 'inline'})
 
 @PromptServer.instance.routes.post("/Gallery/copy_to_input")
 async def copy_to_input(request):
