@@ -97,10 +97,12 @@ const GalleryGrid = () => {
         }
 
         return (
-            <div style={{ ...style, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            // key on the wrapper (not on ImageCard) ensures React remounts the card
+            // when a different image lands at this grid position.
+            // image.url is globally unique across all sources and folders.
+            <div key={image.url} style={{ ...style, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 <ImageCard
                     image={{ ...image, dragFolder: image.rel_path?.includes('/') ? image.rel_path.slice(0, image.rel_path.lastIndexOf('/')) : '' }}
-                    key={image.name}
                     showModelBadge={viewMode === 'prompt' && !!image.model}
                     onInfoClick={() => handleInfoClick(image)}
                     onOpenLightbox={() => openLightbox(image.url)}

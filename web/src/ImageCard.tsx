@@ -152,8 +152,7 @@ function ImageCard({
                 {image.type === 'image' ? (
                     <img
                         style={{ objectFit: 'cover', maxWidth: ImageCardWidth, width: '100%', height: 'auto', userSelect: 'none', cursor: 'pointer' }}
-                        src={`${BASE_PATH}${image.url}`}
-                        loading="lazy"
+                        src={`${BASE_PATH}${image.url}${image.timestamp ? `?t=${image.timestamp}` : ''}`}
                         onClick={openLightbox}
                         alt={image.name}
                         draggable
