@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -7,12 +7,20 @@ import {
     AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { useGalleryContext } from './GalleryContext';
-import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
+import { ComfyAppApi, fileUrl } from './ComfyAppApi';
 import JSZip from 'jszip';
 import FileSaver from 'file-saver';
 
 const GallerySelectionBar = () => {
-    const { selectedImages, setSelectedImages, mutate, markDeleted } = useGalleryContext();
+    const { selectedImages, setSelectedImages, mutate, markDeleted, imagesDetailsList } = useGalleryContext();
+
+    const urlTimestamps = useMemo(() => {
+        const m = new Map<string, number | undefined>();
+        for (const img of imagesDetailsList) {
+            if (img.type !== 'divider' && img.type !== 'empty-space') m.set(img.url, img.timestamp);
+        }
+        return m;
+    }, [imagesDetailsList]);
 
     const [downloading, setDownloading] = useState(false);
     const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
@@ -24,15 +32,14 @@ const GallerySelectionBar = () => {
             const zip = new JSZip();
             await Promise.all(selectedImages.map(async (url) => {
                 try {
-                    const fetchUrl = url.startsWith('http') ? url : `${BASE_PATH}${url}`;
-                    const blob = await (await fetch(fetchUrl)).blob();
+                    const blob = await (await fetch(fileUrl(url, urlTimestamps.get(url)))).blob();
                     zip.file(url.split('/').pop() || 'image', blob);
                 } catch (e) { console.error('Failed to fetch image:', url, e); }
             }));
             FileSaver.saveAs(await zip.generateAsync({ type: 'blob' }), 'comfy-ui-gallery-images.zip');
         } catch { toast.error('Failed to download images.'); }
         finally { setDownloading(false); }
-    }, [selectedImages]);
+    }, [selectedImages, urlTimestamps]);
 
     const handleBulkDelete = useCallback(async () => {
         let deleted = 0;

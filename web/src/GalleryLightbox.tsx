@@ -6,7 +6,7 @@ import Fullscreen from 'yet-another-react-lightbox/plugins/fullscreen';
 import Counter from 'yet-another-react-lightbox/plugins/counter';
 import { useGalleryContext } from './GalleryContext';
 import type { FileDetails } from './types';
-import { BASE_PATH } from './ComfyAppApi';
+import { fileUrl } from './ComfyAppApi';
 import { Music, ZoomIn, ZoomOut } from 'lucide-react';
 import { GalleryOverlayPlugin } from './GalleryLightboxPlugin';
 
@@ -72,7 +72,7 @@ const GalleryLightbox = () => {
 
     const slides = useMemo(() =>
         previewableImages.map(img => ({
-            src: `${BASE_PATH}${img.url}${img.timestamp ? `?t=${img.timestamp}` : ''}`,
+            src: fileUrl(img.url, img.timestamp),
             fileDetails: img,
             // Mark non-image slides so yarl's isImageSlide() returns false,
             // preventing the Zoom plugin from wrapping video/audio slides.
@@ -135,7 +135,7 @@ const GalleryLightbox = () => {
                 <video
                     key={img.url}
                     style={{ maxWidth: '80%', maxHeight: '85vh' }}
-                    src={`${BASE_PATH}${img.url}${img.timestamp ? `?t=${img.timestamp}` : ''}`}
+                    src={fileUrl(img.url, img.timestamp)}
                     autoPlay
                     controls
                     preload="none"
@@ -147,7 +147,7 @@ const GalleryLightbox = () => {
                 <div key={img.url} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80vh', gap: 24 }}>
                     <Music style={{ color: 'var(--primary)' }} className="h-20 w-20" />
                     <span style={{ color: 'var(--foreground)', fontSize: 16, maxWidth: 400, textAlign: 'center' }}>{img.name}</span>
-                    <audio src={`${BASE_PATH}${img.url}${img.timestamp ? `?t=${img.timestamp}` : ''}`} autoPlay controls style={{ width: 360 }} />
+                    <audio src={fileUrl(img.url, img.timestamp)} autoPlay controls style={{ width: 360 }} />
                 </div>
             );
         }

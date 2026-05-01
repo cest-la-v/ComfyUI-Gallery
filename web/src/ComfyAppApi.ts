@@ -8,6 +8,11 @@ type GalleryEventCallback = (event: any) => void;
 import type { SourcePath } from './types';
 
 export const BASE_PATH = getComfyApp() ? window.location.origin : "http://localhost:8188";
+
+/** Build a gallery file URL with timestamp-based cache busting. */
+export function fileUrl(imageUrl: string, timestamp?: number | null): string {
+    return `${BASE_PATH}${imageUrl}${timestamp ? `?t=${timestamp}` : ''}`;
+}
 export const OPEN_BUTTON_ID = "comfy-ui-gallery-open-button";
 export const BASE_Z_INDEX = 3000;
 export const isComfyMode = !!getComfyApp();

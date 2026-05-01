@@ -3,7 +3,7 @@ import { MODULE_CONTROLLER, createModule, useLightboxState, useEvents, ACTION_PR
 import type { Plugin, ComponentProps } from 'yet-another-react-lightbox';
 import { useGalleryContext } from './GalleryContext';
 import { MetadataPanel } from './MetadataPanel';
-import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
+import { ComfyAppApi, fileUrl } from './ComfyAppApi';
 import { saveAs } from 'file-saver';
 import { toast } from 'sonner';
 import {
@@ -251,7 +251,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                                         if (!currentImage) return;
                                                         const img = new window.Image();
                                                         img.crossOrigin = 'anonymous';
-                                                        img.src = `${BASE_PATH}${currentImage.url}${currentImage.timestamp ? `?t=${currentImage.timestamp}` : ''}`;
+                                                        img.src = fileUrl(currentImage.url, currentImage.timestamp);
                                                         img.onload = () => {
                                                             const canvas = document.createElement('canvas');
                                                             canvas.width = img.width; canvas.height = img.height;
@@ -280,7 +280,7 @@ function GalleryOverlayWrapper({ children }: ComponentProps) {
                                                 <button className={btnCls} onMouseDown={e => e.preventDefault()} onClick={async () => {
                                                     if (!currentImage) return;
                                                     try {
-                                                        const r = await fetch(`${BASE_PATH}${currentImage.url}${currentImage.timestamp ? `?t=${currentImage.timestamp}` : ''}`, { mode: 'cors' });
+                                                        const r = await fetch(fileUrl(currentImage.url, currentImage.timestamp), { mode: 'cors' });
                                                         if (!r.ok) throw new Error('Failed');
                                                         saveAs(await r.blob(), currentImage.name);
                                                     } catch { toast.error('Failed to download file'); }

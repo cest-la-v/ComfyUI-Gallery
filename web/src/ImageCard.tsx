@@ -4,7 +4,7 @@ import { Trash2, Music } from 'lucide-react';
 import React, { useRef, useState, useCallback } from 'react';
 import { useDrag } from 'ahooks';
 import { useGalleryContext } from './GalleryContext';
-import { BASE_PATH, ComfyAppApi } from './ComfyAppApi';
+import { BASE_PATH, ComfyAppApi, fileUrl } from './ComfyAppApi';
 import { Button } from '@/components/ui/button';
 import {
     AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
@@ -143,7 +143,7 @@ function ImageCard({
                 {image.type === 'image' ? (
                     <img
                         style={{ objectFit: 'cover', maxWidth: ImageCardWidth, width: '100%', height: 'auto', userSelect: 'none', cursor: 'pointer' }}
-                        src={`${BASE_PATH}${image.url}${image.timestamp ? `?t=${image.timestamp}` : ''}`}
+                        src={fileUrl(image.url, image.timestamp)}
                         onClick={openLightbox}
                         alt={image.name}
                         draggable
@@ -155,7 +155,7 @@ function ImageCard({
                         <span className="mb-4 px-4 text-center max-w-full text-muted-foreground truncate text-sm">
                             {image.name}
                         </span>
-                        <audio controls style={{ width: '90%', height: 40 }} src={`${BASE_PATH}${image.url}`} onClick={e => e.stopPropagation()} />
+                        <audio controls style={{ width: '90%', height: 40 }} src={fileUrl(image.url, image.timestamp)} onClick={e => e.stopPropagation()} />
                         <button
                             className="mt-2 text-xs text-primary hover:underline"
                             onClick={openLightbox}
@@ -164,7 +164,7 @@ function ImageCard({
                 ) : (
                     <video
                         style={{ maxHeight: ImageCardHeight, cursor: 'pointer' }}
-                        src={`${BASE_PATH}${image.url}`}
+                        src={fileUrl(image.url, image.timestamp)}
                         autoPlay={settings.autoPlayVideos}
                         loop={settings.autoPlayVideos}
                         muted

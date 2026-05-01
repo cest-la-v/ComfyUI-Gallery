@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { ArrowRight } from 'lucide-react';
-import { BASE_PATH } from './ComfyAppApi';
+import { fileUrl } from './ComfyAppApi';
 import { useGalleryContext, computeGroups } from './GalleryContext';
 import { GROUP_MODE_ICONS } from './GalleryHeader';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -37,7 +37,7 @@ export default function GalleryOverview() {
     return (
         <ScrollArea className="h-full w-full">
             <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4 p-4">
-                {groups.map(({ key, label, items, samplePaths }) => {
+                {groups.map(({ key, label, items }) => {
                     const displayLabel = formatGroupLabel(key, viewMode, label);
                     const previewable = items.filter(i => i.type === 'image' || i.type === 'media');
                     const thumbs = previewable.slice(0, 4);
@@ -68,10 +68,9 @@ export default function GalleryOverview() {
                                             onMouseDown={e => e.preventDefault()}
                                         >
                                             <img
-                                                src={`${BASE_PATH}${samplePaths[idx] ? `/gallery/thumbnail?rel_path=${encodeURIComponent(samplePaths[idx])}` : item.url}`}
+                                                src={fileUrl(item.url, item.timestamp)}
                                                 alt={item.name}
                                                 className="w-full h-full object-cover"
-                                                onError={e => { (e.target as HTMLImageElement).src = `${BASE_PATH}${item.url}`; }}
                                             />
                                         </button>
                                     )) : (
