@@ -91,6 +91,7 @@ const GalleryModal = () => {
                             : "w-[95vw] h-[92vh] rounded-lg"
                     )}
                     style={{ zIndex: 'var(--cg-z-content)' }}
+                    onOpenAutoFocus={e => e.preventDefault()}
                     onInteractOutside={dismiss.onInteractOutside}
                     onEscapeKeyDown={dismiss.onEscapeKeyDown}
                     onOverlayClick={dismiss.onOverlayClick}

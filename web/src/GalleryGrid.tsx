@@ -48,7 +48,7 @@ const GalleryGrid = () => {
         for (let i = 0; i < imagesDetailsList.length; i++) {
             const item = imagesDetailsList[i];
             if (item.type === 'divider' && item.group_key === pendingScrollKey) {
-                gridRef.current.scrollToItem({ rowIndex: Math.floor(i / colCount), columnIndex: 0 });
+                gridRef.current.scrollToItem({ rowIndex: Math.floor(i / colCount), columnIndex: 0, align: 'start' });
                 break;
             }
         }
@@ -146,6 +146,7 @@ const GalleryGrid = () => {
                                 rowCount={gridSize.rowCount}
                                 columnWidth={() => ImageCardWidth + 16}
                                 rowHeight={getRowHeight}
+                                estimatedRowHeight={ImageCardHeight + 16}
                                 width={width}
                                 height={height}
                                 className="grid-element"
