@@ -155,7 +155,7 @@ function ImageCard({
                         <span className="mb-4 px-4 text-center max-w-full text-muted-foreground truncate text-sm">
                             {image.name}
                         </span>
-                        <audio controls style={{ width: '90%', height: 40 }} src={fileUrl(image.url, image.timestamp)} onClick={e => e.stopPropagation()} />
+                        <audio controls preload="none" style={{ width: '90%', height: 40 }} src={fileUrl(image.url, image.timestamp)} onClick={e => e.stopPropagation()} />
                         <button
                             className="mt-2 text-xs text-primary hover:underline"
                             onClick={openLightbox}
@@ -168,7 +168,7 @@ function ImageCard({
                         autoPlay={settings.autoPlayVideos}
                         loop={settings.autoPlayVideos}
                         muted
-                        preload={!settings.autoPlayVideos ? undefined : 'none'}
+                        preload={settings.autoPlayVideos ? undefined : 'none'}
                         onClick={openLightbox}
                         draggable
                         onDragStart={handleNativeDragStart}
