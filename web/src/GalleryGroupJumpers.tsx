@@ -2,38 +2,34 @@ import { useMemo } from 'react';
 import { useGalleryContext } from './GalleryContext';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
-/** Abbreviated label for compact display — at most 4 chars. */
-function abbrevLabel(label: string): string {
-    if (label.length <= 4) return label;
-    // Date like "2025-01-30" → "01-30"
-    const dateParts = label.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (dateParts) return `${dateParts[2]}/${dateParts[3]}`;
-    // "Jan 2025" → "Jan"
-    const monthYear = label.match(/^(\w{3})\s+\d{4}$/);
-    if (monthYear) return monthYear[1];
-    // Default: first 4 chars
-    return label.slice(0, 4);
-}
-
 const GalleryGroupJumpers = () => {
-    const { groupValues, imagesDetailsList, gridSize, scrollToGroupKey } = useGalleryContext();
-
-    const totalRows = Math.max(1, Math.ceil(imagesDetailsList.length / Math.max(1, gridSize.columnCount)));
+    const { imagesDetailsList, gridSize, scrollToGroupKey } = useGalleryContext();
 
     const markers = useMemo(() => {
-        if (groupValues.length <= 1) return [];
         const colCount = Math.max(1, gridSize.columnCount);
-        return groupValues.map(({ key, label }) => {
-            const dividerIdx = imagesDetailsList.findIndex(
-                item => item.type === 'divider' && item.group_key === key
-            );
-            const rowIdx = dividerIdx >= 0 ? Math.floor(dividerIdx / colCount) : 0;
-            const pct = totalRows > 1 ? (rowIdx / (totalRows - 1)) * 100 : 0;
-            return { key, label, pct };
-        });
-    }, [groupValues, imagesDetailsList, gridSize.columnCount, totalRows]);
+        const seen = new Set<string>();
+        const found: { key: string; label: string; rowIdx: number }[] = [];
 
-    if (markers.length <= 1) return null;
+        for (let i = 0; i < imagesDetailsList.length; i++) {
+            const item = imagesDetailsList[i];
+            if (item.type === 'divider' && item.group_key && !seen.has(item.group_key)) {
+                seen.add(item.group_key);
+                found.push({ key: item.group_key, label: item.name, rowIdx: Math.floor(i / colCount) });
+            }
+        }
+
+        if (found.length <= 1) return [];
+
+        const totalRows = Math.ceil(imagesDetailsList.length / colCount);
+        return found.map(({ key, label, rowIdx }) => ({
+            key,
+            label,
+            // Clamp away from 0/100 so -translate-y-1/2 doesn't clip at container edges.
+            pct: totalRows > 1 ? Math.min(97, Math.max(3, (rowIdx / (totalRows - 1)) * 100)) : 50,
+        }));
+    }, [imagesDetailsList, gridSize.columnCount]);
+
+    if (markers.length === 0) return null;
 
     return (
         <div className="absolute right-0 top-0 h-full w-4 pointer-events-none z-[var(--cg-z-popup)]">
@@ -48,8 +44,8 @@ const GalleryGroupJumpers = () => {
                             onClick={() => scrollToGroupKey(key)}
                         />
                     </TooltipTrigger>
-                    <TooltipContent side="left" className="text-xs font-mono">
-                        {abbrevLabel(label)}
+                    <TooltipContent side="left" className="text-xs max-w-48 truncate">
+                        {label}
                     </TooltipContent>
                 </Tooltip>
             ))}
